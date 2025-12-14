@@ -1,0 +1,591 @@
+/* 非遗详情页面样式 */
+.heritage-detail-container {
+    max-width: 1200px;
+    margin: 30px auto;
+    padding: 30px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(193, 48, 48, 0.2);
+    transition: all 0.3s ease;
+}
+
+/* 添加装饰元素 */
+.heritage-detail-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: linear-gradient(to right, var(--shaanxi-red), var(--gold), var(--shaanxi-red));
+}
+
+/* 标题样式优化 */
+.heritage-title {
+    font-size: 38px;
+    color: var(--shaanxi-red);
+    text-align: center;
+    margin-bottom: 35px;
+    padding-bottom: 18px;
+    position: relative;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    letter-spacing: 1px;
+}
+
+.heritage-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 3px;
+    background: linear-gradient(to right, transparent, var(--dark-gold), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+}
+
+/* 基本信息区域 */
+.heritage-info-section {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 40px;
+    background-color: rgba(249, 245, 234, 0.7);
+    padding: 30px;
+    border-radius: 12px;
+    border: 1px solid rgba(212, 185, 106, 0.4);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+.heritage-main-image {
+    width: 48%;
+    height: 400px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    margin-right: 4%;
+    position: relative;
+}
+
+.heritage-main-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s;
+}
+
+.heritage-main-image:hover img {
+    transform: scale(1.05);
+}
+
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.heritage-main-image:hover .image-overlay {
+    opacity: 1;
+}
+
+.heritage-basic-info {
+    width: 48%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 15px;
+}
+
+.heritage-meta {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.heritage-meta-item {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px 15px;
+    margin: 0 10px 10px 0;
+    border-radius: 6px;
+    font-size: 16px;
+    color: var(--dark-text);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(212, 185, 106, 0.2);
+}
+
+.heritage-meta-item strong {
+    color: var(--shaanxi-red);
+    margin-right: 5px;
+}
+
+/* 描述部分 */
+.heritage-description {
+    margin-bottom: 40px;
+    line-height: 1.8;
+    font-size: 18px;
+    color: var(--dark-text);
+    text-align: justify;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* 图集部分 */
+.heritage-gallery-section {
+    margin-bottom: 40px;
+}
+
+.gallery-title {
+    font-size: 24px;
+    color: var(--shaanxi-red);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--gold);
+}
+
+.heritage-gallery-section .gallery-container {
+    display: grid; /* 使用网格布局 */
+    grid-template-columns: repeat(2, 1fr); /* 两列布局 */
+    gap: 20px; /* 网格间距 */
+    width: 100%;
+    max-width: 1000px;
+    margin: 20px auto;
+}
+
+.gallery-item {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background-color: rgba(249, 245, 234, 0.5);
+    height: 100%;
+    padding: 15px;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s, background-color 0.3s;
+}
+
+.zoom-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 8px 12px;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.zoom-icon {
+    font-style: normal;
+    font-size: 14px;
+}
+
+.gallery-item:hover .zoom-hint {
+    opacity: 1;
+}
+
+.gallery-item:hover {
+    transform: scale(1.03);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.gallery-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.gallery-item:hover::before {
+    opacity: 1;
+}
+
+.gallery-item img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    transition: transform 0.5s ease;
+}
+
+.gallery-item:hover img {
+    transform: scale(1.05);
+}
+
+.gallery-item:hover .zoom-hint {
+    opacity: 1;
+    z-index: 2;
+}
+
+/* 历史背景部分 */
+.heritage-history-section {
+    background-color: rgba(249, 245, 234, 0.7);
+    padding: 30px;
+    border-radius: 12px;
+    margin: 50px 0;
+    border: 1px solid rgba(212, 185, 106, 0.4);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    position: relative;
+}
+
+.history-title {
+    font-size: 24px;
+    color: var(--shaanxi-red);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--gold);
+}
+
+.history-content {
+    line-height: 1.8;
+    font-size: 17px;
+    color: var(--dark-text);
+    text-align: justify;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* 返回按钮 */
+.back-button {
+    display: inline-block;
+    padding: 12px 25px;
+    background-color: var(--shaanxi-red);
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: bold;
+    transition: background-color 0.3s, transform 0.2s;
+    margin-top: 20px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 3px 8px rgba(193, 48, 48, 0.3);
+}
+
+.back-button:hover {
+    background-color: #a52a2a;
+    transform: translateY(-3px);
+}
+
+/* 加载指示器 */
+.loading-indicator {
+    text-align: center;
+    padding: 50px;
+    font-size: 18px;
+    color: var(--shaanxi-red);
+}
+
+/* 错误消息样式 */
+.error-message {
+    text-align: center;
+    padding: 40px 20px;
+    background-color: #fff8f8;
+    border-radius: 8px;
+    border: 1px solid #ffdddd;
+    margin: 30px auto;
+    max-width: 600px;
+}
+
+.error-message h2 {
+    color: var(--shaanxi-red);
+    margin-bottom: 15px;
+}
+
+.error-message p {
+    margin-bottom: 20px;
+    color: #555;
+    font-size: 16px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .heritage-detail-container {
+        margin: 15px;
+        padding: 20px;
+    }
+    
+    .heritage-main-image,
+    .heritage-basic-info {
+        width: 100%;
+        margin-right: 0;
+    }
+    
+    .heritage-main-image {
+        height: 300px;
+        margin-bottom: 25px;
+    }
+    
+    .heritage-title {
+        font-size: 28px;
+    }
+    
+    .heritage-gallery-section .gallery-container {
+        grid-template-columns: 1fr; /* 移动端改为单列 */
+        max-width: 100%;
+        padding: 0 20px;
+    }
+    
+    .gallery-item {
+        max-height: 60vh;
+        margin-bottom: 20px;
+    }
+    
+    .lightbox-nav {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .lightbox-prev {
+        left: 10px;
+    }
+    
+    .lightbox-next {
+        right: 10px;
+    }
+}
+
+/* 图片放大查看样式 */
+.lightbox-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.3s ease-out;
+    overflow: hidden;
+}
+
+/* 图片容器样式 */
+.lightbox-image-container {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+    overflow: visible;
+    animation: scaleIn 0.4s ease-out;
+}
+
+/* 图片样式 */
+.lightbox-image {
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    transition: transform 0.2s ease;
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: brightness(1.1);
+}
+
+/* 添加左右导航按钮 */
+.lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 1001;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    opacity: 0.8;
+}
+
+.lightbox-nav:hover {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.15));
+    transform: translateY(-50%) scale(1.15);
+    opacity: 1;
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-nav:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+.lightbox-prev {
+    left: 20px;
+    padding-right: 5px;
+}
+
+.lightbox-next {
+    right: 20px;
+    padding-left: 5px;
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 30px;
+    cursor: pointer;
+    z-index: 1001;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    opacity: 0.7;
+    line-height: 1;
+}
+
+.lightbox-close:hover {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.15));
+    transform: scale(1.15);
+    opacity: 1;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-close:active {
+    transform: scale(0.95);
+}
+
+/* 图片信息显示 */
+.lightbox-info {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-size: 14px;
+    z-index: 1001;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.lightbox-overlay:hover .lightbox-info {
+    opacity: 1;
+}
+
+/* 图片数量显示 */
+.lightbox-counter {
+    position: absolute;
+    bottom: 30px;
+    left: 30px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    z-index: 1001;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+
+.lightbox-overlay:hover .lightbox-counter {
+    opacity: 1;
+}
+
+/* 图片网格布局增强样式 */
+.gallery-img-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.gallery-img-container:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.gallery-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0.9); }
+    to { transform: scale(1); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.no-images-message {
+    text-align: center;
+    padding: 30px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    color: #666;
+}

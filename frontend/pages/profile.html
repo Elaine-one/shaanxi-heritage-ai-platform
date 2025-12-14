@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人中心 - 陕西非物质文化遗产展示平台</title>
+    <link rel="shortcut icon" href="../static/common/favicon.ico">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/pages/profile.css">
+    <link rel="stylesheet" href="../css/agent/travel-planning.css">
+    <!-- 先加载API相关脚本 -->
+    <script src="../js/common/api.js" defer></script>
+<script src="../js/common/heritage-api.js" defer></script>
+<script src="../js/api/forum-api.js" defer></script>
+<!-- 用户认证脚本 -->
+<script src="../js/common/auth.js" defer></script>
+<!-- 用户资料API -->
+<script src="../js/api/user-profile-api.js" defer></script>
+<!-- Markdown处理库 -->
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js" defer></script>
+<!-- 备用Markdown处理库 -->
+<script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js" defer></script>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <h1>陕西非物质文化遗产 · 民间文化展示平台</h1>
+        </div>
+        <div class="header-right">
+            <div class="search-icon">🔍</div>
+            <div class="message-icon">💬</div>
+            <div class="refresh-icon">🔄</div>
+            <div class="date" id="current-date">加载中...</div>
+            <div class="user-icon">👤</div>
+        </div>
+    </header>
+    
+    <nav>
+        <ul class="main-nav">
+            <li><a href="../index.html">首页</a></li>
+            <li><a href="/pages/policy.html">相关政策</a></li>
+            <li><a href="/pages/news.html">非遗资讯</a></li>
+            <li><a href="/pages/non-heritage-list.html">非遗名录</a></li>
+            <li><a href="forum.html">非遗论坛</a></li>
+            <li><a href="heritage-map.html">非遗地图</a></li>
+            <li><a href="user-creation.html">用户创作</a></li>
+            <li><a href="#">传承人风采</a></li>
+        </ul>
+    </nav>
+    
+    <main class="profile-container">
+        <div class="profile-sidebar">
+            <div class="user-info">
+                <div class="user-avatar" id="user-avatar">U</div>
+                <h2 id="username">用户名</h2>
+                <p id="user-email">邮箱地址</p>
+                <div class="user-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="favorites-count">0</span>
+                        <span class="stat-label">收藏</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="visits-count">0</span>
+                        <span class="stat-label">访问</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="comments-count">0</span>
+                        <span class="stat-label">评论</span>
+                    </div>
+                </div>
+            </div>
+            
+            <ul class="profile-menu">
+                <li class="active" data-section="favorites"><a href="#favorites">我的收藏</a></li>
+                <li data-section="following"><a href="#following">我的关注</a></li>
+                <li data-section="followers"><a href="#followers">我的粉丝</a></li>
+                <li data-section="history"><a href="#history">浏览历史</a></li>
+                <li data-section="settings"><a href="#settings">账号设置</a></li>
+                <li id="logout-btn">退出登录</li>
+            </ul>
+        </div>
+        
+        <div class="profile-content">
+            <!-- 收藏区域 -->
+            <div class="content-section active" id="favorites-section">
+                <div class="section-title">
+                    <h3>我的收藏</h3>
+                    <div class="section-actions">
+                        <select id="favorites-sort" class="sort-select">
+                            <option value="date-desc">最新收藏</option>
+                            <option value="date-asc">最早收藏</option>
+                            <option value="name-asc">名称升序</option>
+                            <option value="name-desc">名称降序</option>
+                        </select>
+                        <button id="multi-select-btn" class="btn">多选</button>
+                    </div>
+                </div>
+                
+                <div id="multi-select-actions" class="multi-select-actions">
+                    <button id="planTravelBtn" class="btn primary-btn">进行旅游规划</button>
+                    <button id="cancelPlanBtn" class="btn cancel-btn-hidden">取消规划</button>
+                    <button id="cancel-multi-select-btn" class="btn">取消</button>
+                    <span id="selected-count" class="selected-count">已选择 0 项</span>
+                </div>
+                
+                <!-- 旅游规划进度显示区域 -->
+                <div class="planning-progress" id="planning-progress">
+                    <div class="progress-container">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar progress-bar-initial">0%</div>
+                        </div>
+                        <div class="current-step">准备开始规划...</div>
+                    </div>
+                    <div class="planning-steps"></div>
+                </div>
+                
+                <div class="favorites-container" id="favorites-container">
+                    <!-- 收藏的非遗项目将通过JavaScript动态加载 -->
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+            
+            <!-- 关注列表区域 -->
+            <div class="content-section" id="following-section">
+                <div class="section-title">
+                    <h3>我的关注</h3>
+                    <div class="section-actions">
+                        <span class="following-count">关注了 <span id="following-total">0</span> 人</span>
+                    </div>
+                </div>
+                
+                <div class="following-container" id="following-container">
+                    <!-- 关注列表将通过JavaScript动态加载 -->
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+            
+            <!-- 粉丝列表区域 -->
+            <div class="content-section" id="followers-section">
+                <div class="section-title">
+                    <h3>我的粉丝</h3>
+                    <div class="section-actions">
+                        <span class="followers-count">粉丝 <span id="followers-total">0</span> 人</span>
+                    </div>
+                </div>
+                
+                <div class="followers-container" id="followers-container">
+                    <!-- 粉丝列表将通过JavaScript动态加载 -->
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+            
+            <!-- 浏览历史区域 -->
+            <div class="content-section" id="history-section">
+                <div class="section-title">
+                    <h3>浏览历史</h3>
+                </div>
+                
+                <div class="history-scroll-wrapper">
+                    <div class="history-container" id="history-container">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 账号设置区域 -->
+            <div class="content-section" id="settings-section">
+                <div class="section-title">
+                    <h3>账号设置</h3>
+                </div>
+                
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="display-name">显示名称</label>
+                        <input type="text" id="display-name" class="form-control" placeholder="您的显示名称">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="user-bio">个人简介</label>
+                        <textarea id="user-bio" class="form-control" rows="3" placeholder="介绍一下您自己..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>头像设置</label>
+                        <div class="avatar-settings">
+                            <div class="current-avatar" id="settings-avatar">U</div>
+                            <div class="avatar-options">
+                                <button class="btn" id="upload-avatar-btn">上传头像</button>
+                                <button class="btn" id="default-avatar-btn">使用默认头像</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn primary-btn" id="save-settings-btn">保存设置</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 消息提示容器 -->
+    <div class="messages-container"></div>
+    
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>关于我们</h3>
+                <p>陕西非物质文化遗产展示平台致力于展示、保护和传承陕西丰富的非物质文化遗产。</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>联系方式</h3>
+                <p>地址：陕西省西安市</p>
+                <p>电话：029-12345678</p>
+                <p>邮箱：contact@shaanxi-heritage.com</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>友情链接</h3>
+                <ul>
+                    <li><a href="https://whhlyt.shaanxi.gov.cn/" target="_blank">陕西省文化旅游厅</a></li>
+                    <li><a href="https://www.ihchina.cn/" target="_blank">中国非物质文化遗产网</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>&copy; 2025 陕西非物质文化遗产展示平台 版权所有</p>
+            <p>技术支持：elaine</p>
+        </div>
+    </footer>
+    <!-- 农历日期转换库 -->
+    <script src="../js/lib/LunarSolarConverter.js" defer></script>
+<!-- 日期时间工具模块 -->
+<script src="../js/common/date-utils.js" defer></script>
+<!-- 工具函数模块 -->
+<script src="../js/common/utils.js" defer></script>
+<!-- 背景图片处理工具 -->
+<script src="../js/common/bg-image-handler.js" defer></script>
+<!-- API工具模块 -->
+<script src="../js/common/api-utils.js" defer></script>
+<script src="../js/pages/profile.js" defer></script>
+<!-- 旅游规划Agent模块 -->
+<script src="../js/agent/dialog-manager.js" defer></script>
+<script src="../js/agent/agent-core.js" defer></script>
+<script src="../js/agent/progress-manager.js" defer></script>
+<script src="../js/agent/result-renderer.js" defer></script>
+<script src="../js/agent/plan-editor.js" defer></script>
+<script src="../js/agent/travel-planning.js" defer></script>
+<!-- 第三方聊天机器人工具模块 -->
+<script src="../lib/maxkb_embed.js" defer></script>
+</body>
+</html>

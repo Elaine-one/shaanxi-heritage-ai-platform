@@ -1,0 +1,658 @@
+:root {
+    --shaanxi-red: #c13030;
+    --gold: #f8e3a3;
+    --dark-gold: #d4b96a;
+    --light-bg: #f9f5ea;
+    --dark-text: #333;
+    --accent-color: #8c2e2e;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 头部样式 */
+header {
+    background-color: var(--shaanxi-red);
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo-container h1 {
+    font-size: 18px;
+    font-weight: normal;
+    margin: 0;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.search-icon, .message-icon, .refresh-icon, .user-icon {
+    cursor: pointer;
+}
+
+.date {
+    font-size: 14px;
+}
+
+/* 导航栏样式 */
+nav {
+    background-color: var(--dark-gold);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 0; /* 移除内边距 */
+    margin-bottom: 0; /* 移除底部边距 */
+}
+
+.main-nav {
+    display: flex;
+    list-style: none;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.main-nav li {
+    position: relative;
+}
+
+.main-nav li a {
+    color: var(--dark-text);
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 15px 15px; /* 调整内边距 */
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    display: block;
+    text-align: center;
+}
+
+.main-nav li a:hover {
+    color: var(--shaanxi-red);
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.main-nav li a::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--shaanxi-red);
+    transition: width 0.3s;
+}
+
+.main-nav li a:hover::after {
+    width: 70%;
+}
+
+/* 导航栏当前页面高亮优化 */
+.main-nav li a.active {
+    background-color: rgba(193, 44, 31, 0.08);
+    color: var(--shaanxi-red);
+    position: relative;
+    font-weight: bold;
+}
+
+.main-nav li a.active::after {
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70%;
+    height: 3px;
+    background-color: var(--shaanxi-red);
+    border-radius: 2px;
+}
+
+/* 修改普通导航项的悬停效果，与active状态区分 */
+.main-nav li a:hover:not(.active) {
+    color: var(--shaanxi-red);
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.main-nav li a:hover:not(.active)::after {
+    width: 50%; /* 比active状态的宽度小，以示区分 */
+}
+
+/* 主体内容样式 */
+main {
+    position: relative;
+    min-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px 60px;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)), url('/static/common/shaanxi-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+.main-title {
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.main-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 3px;
+    background: linear-gradient(to right, transparent, var(--shaanxi-red), transparent);
+}
+
+.main-title h2 {
+    font-size: 52px;
+    line-height: 1.3;
+    color: var(--shaanxi-red);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.15);
+    letter-spacing: 3px;
+    font-weight: bold;
+}
+
+/* 特色项目展示 */
+.featured-items {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    margin: 30px 0 60px;
+    flex-wrap: wrap;
+    max-width: 1200px;
+    width: 100%;
+}
+
+.featured-item {
+    width: 320px;
+    text-align: center;
+    transition: all 0.4s ease;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(212, 185, 106, 0.3);
+}
+
+.featured-item:hover {
+    transform: translateY(-15px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+    border-color: var(--dark-gold);
+}
+
+.item-image {
+    height: 250px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    transition: transform 0.5s, filter 0.3s;
+    position: relative;
+}
+
+.featured-item:hover .item-image {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+}
+
+.featured-item h3 {
+    font-size: 24px;
+    color: var(--shaanxi-red);
+    margin-bottom: 12px;
+    position: relative;
+    display: inline-block;
+}
+
+.featured-item h3::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background-color: var(--shaanxi-red);
+    transition: width 0.3s;
+}
+
+.featured-item:hover h3::after {
+    width: 80%;
+}
+
+.featured-item p {
+    color: #555;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+/* 添加装饰元素到特色项目 */
+.featured-item::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 30px;
+    height: 30px;
+    
+    background-size: contain;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.featured-item:hover::before {
+    opacity: 0.8;
+}
+
+.item-image.item1 {
+    background-image: url('/media/heritage_images/ansaiyaogu/1.jpg');
+}
+
+.item-image.item2 {
+    background-image: url('/media/heritage_images/huayinlaoqiang/1.jpg');
+}
+
+.item-image.item3 {
+    background-image: url('/media/heritage_images/shaanxipiyingxi/1.jpg');
+}
+
+/* 装饰元素 */
+.lantern {
+    position: absolute;
+    width: 80px;
+    height: 120px;
+    background-image: url('/static/common/lantern.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    animation: swing 3s infinite alternate ease-in-out;
+}
+
+@keyframes swing {
+    0% { transform: rotate(-5deg); }
+    100% { transform: rotate(5deg); }
+}
+
+.left-lantern {
+    top: 50px;
+    left: 50px;
+}
+
+.right-lantern {
+    top: 50px;
+    right: 50px;
+}
+
+
+@keyframes pulse {
+    0% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+    100% { opacity: 0.5; transform: scale(1); }
+}
+
+.firework1 {
+    top: 100px;
+    left: 150px;
+    animation-delay: 0.3s;
+}
+
+.firework2 {
+    bottom: 150px;
+    right: 100px;
+    animation-delay: 0.7s;
+}
+
+.firework3 {
+    top: 200px;
+    right: 200px;
+    animation-delay: 0.1s;
+}
+
+.shaanxi-decoration {
+    position: absolute;
+    bottom: 50px;
+    right: 50px;
+    width: 150px;
+    height: 150px;
+    background-image: url('/static/common/terracotta-warrior.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0.8;
+    transition: transform 0.5s;
+}
+
+.shaanxi-decoration:hover {
+    transform: scale(1.1);
+}
+
+.decorative-elements {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.decorative-item {
+    font-size: 24px;
+    color: var(--dark-gold);
+    animation: glow 2s infinite alternate;
+}
+
+@keyframes glow {
+    0% { text-shadow: 0 0 5px rgba(212, 185, 106, 0.5); }
+    100% { text-shadow: 0 0 15px rgba(212, 185, 106, 0.8); }
+}
+
+/* 页脚样式 */
+footer {
+    background: linear-gradient(135deg, var(--shaanxi-red) 0%, #a52a2a 100%);/* 渐变背景增加层次感 */
+    color: var(--gold);/* 设置文字颜色为金色 */
+    padding: 30px 20px 25px;/* 减少内边距，上30px，左右20px，下25px */
+    margin-top: 40px;/* 增加顶部边距，与主内容区域分离 */
+    position: relative;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);/* 添加向上的阴影效果 */
+}
+
+/* 页脚前的过渡区域 */
+footer::before {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: linear-gradient(to bottom, transparent 0%, rgba(193, 48, 48, 0.1) 100%);
+    pointer-events: none;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;/* 改为space-between，更均匀分布 */
+    flex-wrap: wrap;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 30px;/* 添加间距 */
+}
+
+.footer-section {
+    margin-bottom: 15px;/* 减少底部边距 */
+    min-width: 200px;/* 减少最小宽度，让布局更灵活 */
+    flex: 1;/* 让各部分平均分配空间 */
+}
+
+.footer-section h4 {
+    margin-bottom: 15px;
+    font-size: 20px;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+.footer-section h4::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 40px;
+    height: 2px;
+    background-color: var(--gold);
+}
+
+.footer-section a {
+    color: var(--gold);
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.footer-section a:hover {
+    color: white;
+    text-decoration: underline;
+}
+
+.social-icons {
+    display: flex;
+    gap: 15px;
+}
+
+.social-icons span {
+    cursor: pointer;
+    transition: transform 0.3s;
+}
+
+.social-icons span:hover {
+    transform: translateY(-3px);
+}
+
+.copyright {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 14px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1100px) {
+    .featured-items {
+        gap: 40px;
+    }
+    
+    .featured-item {
+        width: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .featured-items {
+        gap: 30px;
+    }
+    
+    .featured-item {
+        width: 280px;
+    }
+    
+    .item-image {
+        height: 200px;
+    }
+}
+
+@media (max-width: 576px) {
+    .featured-item {
+        width: 100%;
+        max-width: 340px;
+    }
+}
+
+/* 添加内容区域样式 */
+.additional-content {
+    width: 100%;
+    max-width: 1200px;
+    margin: 20px auto 20px;/* 减少底部边距，让页面更紧凑 */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    padding: 0 20px;
+}
+
+/* 主内容区域通用样式 */
+main {
+    min-height: calc(100vh - 200px);/* 确保主内容区域有足够高度 */
+    padding-bottom: 20px;/* 添加底部内边距 */
+    position: relative;
+}
+
+/* 介绍部分 */
+.intro-section {
+    grid-column: 1 / -1;
+    text-align: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(212, 185, 106, 0.3);
+    margin-bottom: 20px;
+}
+
+.intro-section h3 {
+    color: var(--shaanxi-red);
+    font-size: 28px;
+    margin-bottom: 15px;
+}
+
+.intro-section p {
+    color: #555;
+    font-size: 16px;
+    line-height: 1.8;
+    max-width: 800px;
+    margin: 0 auto 20px;
+}
+
+.explore-btn {
+    display: inline-block;
+    background-color: var(--shaanxi-red);
+    color: white;
+    padding: 12px 25px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: all 0.3s;
+    box-shadow: 0 4px 10px rgba(193, 48, 48, 0.3);
+    margin-top: 10px;
+}
+
+.explore-btn:hover {
+    background-color: #a01c1c;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(193, 48, 48, 0.4);
+}
+
+/* 统计数据部分 */
+.stats-section {
+    display: flex;
+    justify-content: space-between;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(212, 185, 106, 0.3);
+}
+
+.stat-item {
+    text-align: center;
+    padding: 0 15px;
+}
+
+.stat-number {
+    display: block;
+    font-size: 36px;
+    font-weight: bold;
+    color: var(--shaanxi-red);
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #666;
+}
+
+/* 最新资讯部分 */
+.news-preview {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(212, 185, 106, 0.3);
+}
+
+.news-preview h3 {
+    color: var(--shaanxi-red);
+    font-size: 22px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.news-items {
+    margin-bottom: 15px;
+}
+
+.news-item {
+    display: flex;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed #eee;
+}
+
+.news-date {
+    min-width: 100px;
+    color: #888;
+    font-size: 14px;
+}
+
+.news-title {
+    flex: 1;
+    font-size: 15px;
+    color: #444;
+}
+
+.news-item:hover .news-title {
+    color: var(--shaanxi-red);
+}
+
+.more-link {
+    display: block;
+    text-align: right;
+    color: var(--shaanxi-red);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.more-link:hover {
+    text-decoration: underline;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .additional-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-section {
+        flex-wrap: wrap;
+    }
+    
+    .stat-item {
+        width: 50%;
+        margin-bottom: 15px;
+    }
+}
+/* 添加错误提示样式 */
+.error-message {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 4px;
+    text-align: center;
+}

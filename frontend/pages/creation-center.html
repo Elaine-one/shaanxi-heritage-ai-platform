@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创作者中心 - 陕西非物质文化遗产展示平台</title>
+    <link rel="shortcut icon" href="../static/common/favicon.ico">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/pages/creation-center.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- API相关脚本 -->
+    <script src="../js/common/utils.js" defer></script>
+    <script src="../js/common/api.js" defer></script>
+    <script src="../js/common/auth.js" defer></script>
+</head>
+<body>
+    <main class="creation-center-main">
+        <!-- 页面头部 -->
+        <section class="center-header">
+            <div class="container">
+                <div class="user-profile">
+                    <button class="back-btn" onclick="window.history.back()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <img id="userAvatar" src="../static/common/default-avatar.png" alt="用户头像" class="avatar">
+                    <div class="user-info">
+                        <h1 id="userDisplayName">我的创作中心</h1>
+                        <p id="userBio">管理您的创作内容和数据</p>
+                    </div>
+                </div>
+                <div class="creation-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalCreations">0</span>
+                        <span class="stat-label">总创作数</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalViews">0</span>
+                        <span class="stat-label">总浏览数</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalLikes">0</span>
+                        <span class="stat-label">总点赞数</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalFans">0</span>
+                        <span class="stat-label">粉丝数</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 主内容区包含左侧导航和右侧内容 -->
+        <div class="main-content-wrapper">
+            <!-- 左侧导航标签 -->
+            <div class="center-tabs">
+                    <div class="container">
+                        <button class="tab-btn active" data-tab="my-creations">我的创作</button>
+                        <button class="tab-btn" data-tab="view-history">浏览历史</button>
+                        <button class="tab-btn" data-tab="favorites">我的收藏</button>
+                        <button class="tab-btn" data-tab="liked">我的点赞</button>
+                        <button class="tab-btn" data-tab="analytics">数据统计</button>
+                        <button class="tab-btn" data-tab="settings">创作设置</button>
+                    </div>
+                </div>
+
+            <!-- 右侧内容区域 -->
+            <div class="center-content">
+                <div class="container">
+                    <!-- 我的创作标签页 -->
+                    <div id="my-creations" class="tab-content active">
+                        <div class="content-header">
+                            <h2><i class="fas fa-video"></i> 我的创作</h2>
+                            <button class="create-new-btn" onclick="window.location.href='user-creation.html'">
+                                <i class="fas fa-plus"></i> 发布新创作
+                            </button>
+                        </div>
+                        
+                        <!-- 创作状态筛选 -->
+                        <div class="status-filter">
+                            <button class="filter-btn active" data-status="all">全部</button>
+                            <button class="filter-btn" data-status="published">已发布</button>
+                            <button class="filter-btn" data-status="draft">草稿</button>
+                            <button class="filter-btn" data-status="reviewing">审核中</button>
+                            <button class="filter-btn" data-status="rejected">已拒绝</button>
+                        </div>
+                        
+                        <!-- 创作列表 -->
+                        <div class="my-creations-list" id="myCreationsList">
+                            <!-- 动态加载 -->
+                        </div>
+                    </div>
+
+                    <!-- 浏览历史标签页 -->
+                    <div id="view-history" class="tab-content">
+                        <div class="content-header">
+                            <h2><i class="fas fa-history"></i> 浏览历史</h2>
+                            <button class="clear-history-btn" id="clearHistoryBtn">
+                                <i class="fas fa-trash"></i> 清空历史
+                            </button>
+                        </div>
+                        
+                        <div class="history-list" id="historyList">
+                            <!-- 动态加载 -->
+                        </div>
+                    </div>
+
+                    <!-- 我的收藏标签页 -->
+                    <div id="favorites" class="tab-content">
+                        <div class="content-header">
+                            <h2><i class="fas fa-heart"></i> 我的收藏</h2>
+                        </div>
+                        
+                        <div class="favorites-list" id="favoritesList">
+                            <!-- 动态加载 -->
+                        </div>
+                    </div>
+
+                    <!-- 我的点赞标签页 -->
+                    <div id="liked" class="tab-content">
+                        <div class="content-header">
+                            <h2><i class="fas fa-heart"></i> 我的点赞</h2>
+                        </div>
+                        
+                        <div class="liked-list" id="likedList">
+                            <!-- 动态加载 -->
+                        </div>
+                    </div>
+
+                    <!-- 数据统计标签页 -->
+                    <div id="analytics" class="tab-content">
+                        <div class="content-header">
+                            <h2><i class="fas fa-chart-bar"></i> 数据统计</h2>
+                            <div class="date-range">
+                                <select id="analyticsRange">
+                                    <option value="7">最近7天</option>
+                                    <option value="30" selected>最近30天</option>
+                                    <option value="90">最近90天</option>
+                                    <option value="365">最近1年</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="analytics-content">
+                            <div class="analytics-charts">
+                                <div class="chart-container">
+                                    <h3>创作浏览趋势</h3>
+                                    <canvas id="viewsChart"></canvas>
+                                </div>
+                                <div class="chart-container">
+                                    <h3>创作类型分布</h3>
+                                    <canvas id="typeChart"></canvas>
+                                </div>
+                            </div>
+                            
+                            <div class="analytics-stats">
+                                <div class="stat-card">
+                                    <h4>热门创作</h4>
+                                    <div id="topCreations">
+                                        <!-- 动态加载 -->
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <h4>互动统计</h4>
+                                    <div class="interaction-stats" id="interactionStats">
+                                        <!-- 动态加载 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 创作设置标签页 -->
+                    <div id="settings" class="tab-content">
+                        <div class="content-header">
+                            <h2><i class="fas fa-cog"></i> 创作设置</h2>
+                        </div>
+                        
+                        <div class="settings-content">
+                            <div class="setting-section">
+                                <h3>创作偏好</h3>
+                                <div class="setting-item">
+                                    <label>
+                                        <input type="checkbox" id="autoSaveDraft"> 自动保存草稿
+                                    </label>
+                                    <span class="setting-desc">编辑创作时自动保存为草稿</span>
+                                </div>
+                                <div class="setting-item">
+                                    <label>
+                                        <input type="checkbox" id="emailNotifications"> 邮件通知
+                                    </label>
+                                    <span class="setting-desc">接收创作相关的邮件通知</span>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-section">
+                                <h3>隐私设置</h3>
+                                <div class="setting-item">
+                                    <label>默认创作可见性：</label>
+                                    <select id="defaultVisibility">
+                                        <option value="public">公开</option>
+                                        <option value="private">仅自己可见</option>
+                                        <option value="followers">仅粉丝可见</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="setting-section">
+                                <h3>数据管理</h3>
+                                <div class="setting-item">
+                                    <button class="export-btn" id="exportDataBtn">
+                                        <i class="fas fa-download"></i> 导出创作数据
+                                    </button>
+                                    <span class="setting-desc">导出您的所有创作数据</span>
+                                </div>
+                                <div class="setting-item">
+                                    <button class="delete-btn" id="deleteAccountBtn">
+                                        <i class="fas fa-trash"></i> 删除创作账户
+                                    </button>
+                                    <span class="setting-desc">永久删除您的创作账户和数据</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>联系我们</h4>
+                <p>地址：陕西省西安市</p>
+                <p>电话：onee20589@gmail.com</p>
+                <p>邮箱：onee20589@gmail.com</p>
+            </div>
+            <div class="footer-section">
+                <h4>关注我们</h4>
+                <div class="social-icons">
+                    <span>微信</span>
+                    <span>微博</span>
+                    <span>抖音</span>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h4>友情链接</h4>
+                <p><a href="https://whhlyt.shaanxi.gov.cn/" target="_blank">陕西省文化旅游厅</a></p>
+                <p><a href="https://www.ihchina.cn/" target="_blank">中国非物质文化遗产网</a></p>
+                <p><a href="#">陕西文化展示平台</a></p>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>© 2025 陕西非物质文化遗产展示平台 版权所有</p>
+            <p>本网站仅用于学习和非商业用途</p>
+            <p>技术支持：elaine</p>
+        </div>
+    </footer>
+
+    <!-- 脚本引入 -->
+    <script src="../js/api/user-profile-api.js" defer></script>
+    
+    <!-- 图表库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="../js/pages/creation-center.js" defer></script>
+</body>
+</html>

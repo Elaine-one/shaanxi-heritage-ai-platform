@@ -1,0 +1,30 @@
+/* 首页特定样式 - 仅保留与common.css不同的样式 */
+
+/* 烟花效果基础样式 - 添加缺少的基础类 */
+.fireworks {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    background-image: url('/static/common/firework.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    animation: pulse 2s infinite alternate;
+}
+
+/* 装饰元素 - 仅保留使用的样式 */
+.shaanxi-decoration {
+    position: absolute;
+    bottom: 50px;
+    right: 50px;
+    width: 150px;
+    height: 150px;
+    background-image: url('/static/common/terracotta-warrior.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0.8;
+    transition: transform 0.5s;
+}
+
+.shaanxi-decoration:hover {
+    transform: scale(1.1);
+} 

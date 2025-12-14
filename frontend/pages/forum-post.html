@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帖子详情 - 非遗传承网</title>
+    <meta name="description" content="非遗传承网论坛帖子详情页">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/forum.css">
+    <link rel="stylesheet" href="../css/forum-post.css">
+    <link rel="stylesheet" href="../css/forum-post-header.css">
+    <!-- Quill富文本编辑器样式 -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <!-- Font Awesome图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- 引入帖子详情页样式以复用导航栏和header设计 -->
+    <link rel="stylesheet" href="../css/post-detail.css">
+    
+    <style>
+        /* 增强动画效果 */
+        .fade-in {
+            animation: fadeIn 0.6s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 头部导航增强动画 - 重新设计 */
+        .header {
+            background: linear-gradient(135deg, #c93838 0%, #a62c2c 100%);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            height: auto;
+            min-height: 70px;
+            overflow: visible;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .header:hover {
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .header-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            height: 70px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* 确保header在不同屏幕尺寸下正常显示 */
+        @media (max-width: 1200px) {
+            .header-container {
+                max-width: 100%;
+                padding: 0 1.5rem;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 0 1rem;
+                height: 60px;
+            }
+            
+            .header {
+                min-height: 60px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header-container {
+                padding: 0 0.5rem;
+                height: 55px;
+            }
+            
+            .header {
+                min-height: 55px;
+            }
+        }
+        
+        /* 修复顶部内容遮挡问题 */
+        main.main-content {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 确保帖子内容不会被header遮挡 */
+        .post-detail-page {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 优化帖子详情页容器宽度，充分利用屏幕宽度 */
+        main.main-content .container {
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 1rem;
+        }
+        
+        /* Logo区域 */
+        .logo {
+            flex-shrink: 0;
+        }
+        
+        .logo a {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+        
+        .logo a:hover {
+            transform: scale(1.05);
+        }
+        
+        .logo img {
+            height: 40px;
+            width: auto;
+            margin-right: 0.5rem;
+        }
+        
+        .logo span {
+            font-size: 1.4rem;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* 导航菜单 */
+        .nav {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            flex: 1;
+            justify-content: center;
+        }
+        
+        .nav a {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            white-space: nowrap;
+        }
+        
+        .nav a:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .nav a.active {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.2);
+            font-weight: 600;
+        }
+        
+        .nav a.active::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 2px;
+            background-color: #ffd700;
+            border-radius: 1px;
+        }
+        
+        /* 用户操作区 */
+        .user-actions {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-icon {
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .user-icon:hover {
+            transform: scale(1.1);
+        }
+        
+        /* 面包屑导航重新设计 */
+        .breadcrumb {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 249, 250, 0.9));
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            margin: 1rem 0 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            font-size: 0.9rem;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .breadcrumb::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent, rgba(201, 56, 56, 0.05), transparent);
+            pointer-events: none;
+        }
+        
+        .breadcrumb a {
+            color: #c93838;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-weight: 500;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .breadcrumb a:hover {
+            color: #a62c2c;
+            background-color: rgba(201, 56, 56, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .breadcrumb .separator {
+            color: #999;
+            font-size: 0.8rem;
+            margin: 0 0.25rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .breadcrumb .current {
+            color: #333;
+            font-weight: 600;
+            background-color: rgba(201, 56, 56, 0.05);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 返回按钮重新设计 */
+        .back-to-forum-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #fff, #f8f9fa);
+            border: 2px solid #c93838;
+            border-radius: 25px;
+            color: #c93838;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .back-to-forum-btn:hover {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            color: #a62c2c;
+            border-color: #a62c2c;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+        }
+        
+        .back-to-forum-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .header-container {
+                padding: 0 1rem;
+                height: 60px;
+            }
+            
+            .logo span {
+                font-size: 1.2rem;
+            }
+            
+            .nav {
+                display: none; /* 移动端使用汉堡菜单 */
+            }
+            
+            .user-actions {
+                gap: 0.5rem;
+            }
+            
+            .breadcrumb {
+                padding: 0.8rem 1.5rem;
+                margin: 0.5rem 0 1.5rem;
+                font-size: 0.85rem;
+            }
+            
+            .back-to-forum-btn {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.9rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header-container {
+                padding: 0 0.5rem;
+                height: 55px;
+            }
+            
+            .logo span {
+                font-size: 1.1rem;
+            }
+            
+            .breadcrumb {
+                padding: 0.6rem 1rem;
+                font-size: 0.8rem;
+            }
+            
+            .back-to-forum-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+        }
+        
+        /* 增强悬停动画 */
+        .nav a {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .nav a:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo a {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .logo a:hover {
+            transform: scale(1.05) rotate(-1deg);
+        }
+        
+        .user-icon {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .user-icon:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部导航 -->
+    <header>
+        <div class="logo-container">
+            <h1>陕西非物质文化遗产 · 民间文化展示平台</h1>
+        </div>
+        <div class="header-right">
+            <div class="search-icon" aria-label="搜索" role="button" tabindex="0">🔍</div>
+            <div class="message-icon" aria-label="消息" role="button" tabindex="0">💬</div>
+            <div class="refresh-icon" aria-label="刷新" role="button" tabindex="0">🔄</div>
+            <div class="date" id="current-date">加载中...</div>
+            <div class="user-icon">👤</div>
+        </div>
+    </header>
+    
+    <nav>
+        <ul class="main-nav">
+            <li><a href="../index.html">首页</a></li>
+            <li><a href="policy.html">相关政策</a></li>
+            <li><a href="news.html">非遗资讯</a></li>
+            <li><a href="non-heritage-list.html">非遗名录</a></li>
+            <li><a href="forum.html" class="active">非遗论坛</a></li>
+            <li><a href="heritage-map.html">非遗地图</a></li>
+            <li><a href="user-creation.html">用户创作</a></li>
+            <li><a href="#">传承人风采</a></li>
+        </ul>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="main-content">
+        <div class="container">
+            <!-- 面包屑导航和返回按钮 -->
+            <div class="post-navigation" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding: 1.5rem 2rem; background: #fff3cd; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); color: #343a40;">
+                <nav class="breadcrumb" style="font-size: 0.95rem; display: flex; align-items: center;">
+                    <a href="../index.html" style="color: #c93838; text-decoration: none; transition: all 0.3s ease; padding: 0.3rem 0.6rem; border-radius: 6px;">首页</a>
+                    <span class="separator" style="margin: 0 0.5rem; color: #6c757d; font-weight: 500;">/</span>
+                    <a href="forum.html" style="color: #c93838; text-decoration: none; transition: all 0.3s ease; padding: 0.3rem 0.6rem; border-radius: 6px;">非遗论坛</a>
+                    <span class="separator" style="margin: 0 0.5rem; color: #6c757d; font-weight: 500;">/</span>
+                    <span class="current" style="color: #343a40; font-weight: 600; padding: 0.3rem 0.6rem; background: rgba(201, 56, 56, 0.1); border-radius: 6px;">帖子详情</span>
+                </nav>
+                <button class="back-to-forum-btn" onclick="window.location.href='forum.html'" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.5rem; background: #c93838; color: white; border: 2px solid #c93838; border-radius: 25px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(201, 56, 56, 0.3);">
+                    <i class="fas fa-arrow-left"></i>
+                    返回论坛
+                </button>
+            </div>
+
+            <!-- 帖子详情页面 -->
+            <div class="post-detail-page">
+                <!-- 左右布局容器 -->
+                <div class="post-layout">
+                    <!-- 左侧内容区 (70%) -->
+                    <div class="post-left">
+                        <!-- 帖子主体内容区 -->
+                        <article class="post-main" id="postMain">
+                            <!-- 加载骨架屏 -->
+                            <div class="loading-skeleton" id="postSkeleton">
+                                <div class="skeleton-header">
+                                    <div class="skeleton-avatar"></div>
+                                    <div class="skeleton-info">
+                                        <div class="skeleton-line skeleton-title"></div>
+                                        <div class="skeleton-line skeleton-meta"></div>
+                                    </div>
+                                </div>
+                                <div class="skeleton-content">
+                                    <div class="skeleton-line"></div>
+                                    <div class="skeleton-line"></div>
+                                    <div class="skeleton-line skeleton-short"></div>
+                                </div>
+                            </div>
+
+                            <!-- 帖子内容（动态加载） -->
+                            <div class="post-content-wrapper" id="postContentWrapper" style="display: none;">
+                                <!-- 帖子头部 -->
+                                <header class="post-header">
+                                    <div class="header-decoration"></div>
+                                    <div class="author-info">
+                                        <div class="author-avatar" id="authorAvatar">
+                                            <!-- 头像将通过JS动态加载 -->
+                                        </div>
+                                        <div class="author-details">
+                                            <h2 class="author-name" id="authorName">用户名</h2>
+                                            <div class="author-meta">
+                                                <span class="author-level" id="authorLevel">Lv.1</span>
+                                                <span class="post-time" id="postTime">2024-01-01 12:00</span>
+                                            </div>
+                                        </div>
+                                        <button class="follow-btn" id="followBtn">
+                                            <i class="fas fa-plus"></i>
+                                            关注ta
+                                        </button>
+                                    </div>
+                                </header>
+
+                                <!-- 帖子标题和内容 -->
+                                <div class="post-body">
+                                    <h1 class="post-title" id="postTitle">帖子标题</h1>
+                                    <div class="post-tags" id="postTags">
+                                        <!-- 标签将通过JS动态加载 -->
+                                    </div>
+                                    <div class="post-content" id="postContent">
+                                        <!-- 帖子内容将通过JS动态加载 -->
+                                    </div>
+                                </div>
+
+                                <!-- 帖子操作栏 -->
+                                <div class="post-actions">
+                                    <div class="action-buttons">
+                                        <button class="action-btn like-btn" id="likeBtn">
+                                            <i class="fas fa-heart"></i>
+                                            <span class="action-text">点赞</span>
+                                            <span class="action-count" id="likeCount">0</span>
+                                        </button>
+                                        <button class="action-btn favorite-btn" id="favoriteBtn">
+                                            <i class="fas fa-bookmark"></i>
+                                            <span class="action-text">收藏</span>
+                                            <span class="action-count" id="favoriteCount">0</span>
+                                        </button>
+                                        <button class="action-btn comment-btn" id="commentBtn">
+                                            <i class="fas fa-comment"></i>
+                                            <span class="action-text">评论</span>
+                                            <span class="action-count" id="commentActionCount">0</span>
+                                        </button>
+                                        <button class="action-btn share-btn" id="shareBtn">
+                                            <i class="fas fa-share"></i>
+                                            <span class="action-text">分享</span>
+                                        </button>
+                                        <button class="action-btn report-btn" id="reportBtn">
+                                            <i class="fas fa-flag"></i>
+                                            <span class="action-text">举报</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- 管理员/楼主专属操作 -->
+                                    <div class="admin-actions" id="adminActions" style="display: none;">
+                                        <button class="admin-btn edit-btn" id="editPostBtn">
+                                            <i class="fas fa-edit"></i>
+                                            编辑帖子
+                                        </button>
+                                        <button class="admin-btn delete-btn" id="deletePostBtn">
+                                            <i class="fas fa-trash"></i>
+                                            删除帖子
+                                        </button>
+                                        <button class="admin-btn pin-btn" id="pinPostBtn">
+                                            <i class="fas fa-thumbtack"></i>
+                                            置顶
+                                        </button>
+                                        <button class="admin-btn feature-btn" id="featurePostBtn">
+                                            <i class="fas fa-star"></i>
+                                            设为精华
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <!-- 评论区 -->
+                        <section class="comments-section">
+                            <!-- 评论排序控制 -->
+                            <div class="comments-header">
+                                <h3 class="comments-title">
+                                    评论 <span class="comment-count" id="commentCount">0</span>
+                                </h3>
+                                <div class="comment-sort">
+                                    <button class="sort-btn active" data-sort="time_asc">时间正序</button>
+                                    <button class="sort-btn" data-sort="time_desc">时间倒序</button>
+                                    <button class="sort-btn" data-sort="hot">按热度</button>
+                                </div>
+                            </div>
+
+                            <!-- 评论列表 -->
+                            <div class="comments-list" id="commentsList">
+                                <!-- 评论加载骨架屏 -->
+                                <div class="loading-skeleton" id="commentsSkeleton">
+                                    <div class="skeleton-comment">
+                                        <div class="skeleton-avatar"></div>
+                                        <div class="skeleton-comment-content">
+                                            <div class="skeleton-line skeleton-short"></div>
+                                            <div class="skeleton-line"></div>
+                                        </div>
+                                    </div>
+                                    <div class="skeleton-comment">
+                                        <div class="skeleton-avatar"></div>
+                                        <div class="skeleton-comment-content">
+                                            <div class="skeleton-line skeleton-short"></div>
+                                            <div class="skeleton-line"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 评论内容将通过JS动态加载 -->
+                            </div>
+
+                            <!-- 加载更多评论 -->
+                            <div class="load-more-comments" id="loadMoreComments" style="display: none;">
+                                <button class="load-more-btn" id="loadMoreCommentsBtn">
+                                    <i class="fas fa-chevron-down"></i>
+                                    加载更多评论
+                                </button>
+                            </div>
+                        </section>
+
+                        <!-- 发表评论框 -->
+                        <div class="comment-form-container" id="commentFormContainer">
+                            <div class="comment-form">
+                                <div class="comment-user">
+                                    <div class="comment-avatar" id="commentUserAvatar">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <span class="comment-username" id="commentUsername">请登录后发表评论</span>
+                                </div>
+                                
+                                <div class="comment-editor-wrapper">
+                                    <!-- 富文本编辑器 -->
+                                    <div id="commentEditor" class="comment-editor">
+                                        <!-- Quill编辑器将在这里初始化 -->
+                                    </div>
+                                    
+                                    <!-- 评论工具栏 -->
+                                    <div class="comment-toolbar">
+                                        <div class="toolbar-left">
+                                            <button class="toolbar-btn emoji-btn" id="emojiBtn">
+                                                <i class="fas fa-smile"></i>
+                                                表情
+                                            </button>
+                                            <button class="toolbar-btn image-btn" id="imageBtn">
+                                                <i class="fas fa-image"></i>
+                                                图片
+                                            </button>
+                                            <button class="toolbar-btn mention-btn" id="mentionBtn">
+                                                <i class="fas fa-at"></i>
+                                                @用户
+                                            </button>
+                                        </div>
+                                        <div class="toolbar-right">
+                                            <span class="char-count">
+                                                <span id="commentCharCount">0</span>/1000
+                                            </span>
+                                            <button class="submit-btn" id="submitCommentBtn" disabled>
+                                                发表评论
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧边栏 (30%) -->
+                    <div class="post-right">
+                        <!-- 作者信息卡片 -->
+                        <aside class="author-card">
+                            <div class="card-header">
+                                <h3>作者信息</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="author-profile">
+                                    <div class="author-profile-avatar" id="authorProfileAvatar">
+                                        <!-- 头像将通过JS动态加载 -->
+                                    </div>
+                                    <h4 class="author-profile-name" id="authorProfileName">用户名</h4>
+                                    <div class="author-profile-level" id="authorProfileLevel">Lv.1</div>
+                                    <p class="author-profile-bio" id="authorProfileBio">暂无简介</p>
+                                </div>
+                                
+                                <!-- 作者统计信息 -->
+                                <div class="author-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-label">帖子数</span>
+                                        <span class="stat-value" id="authorPostCount">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">粉丝数</span>
+                                        <span class="stat-value" id="authorFollowerCount">0</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">关注数</span>
+                                        <span class="stat-value" id="authorFollowingCount">0</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- 关注按钮 -->
+                                <button class="profile-follow-btn" id="profileFollowBtn">
+                                    <i class="fas fa-plus"></i>
+                                    关注ta
+                                </button>
+                                
+                                <!-- 作者更多帖子 -->
+                                <div class="author-more-posts">
+                                    <h5>作者更多帖子</h5>
+                                    <div class="more-posts-list" id="morePostsList">
+                                        <!-- 更多帖子将通过JS动态加载 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 返回顶部按钮 -->
+    <button class="back-to-top" id="backToTop">
+        <i class="fas fa-chevron-up"></i>
+    </button>
+
+    <!-- 分享模态框 -->
+    <div class="modal" id="shareModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>分享帖子</h3>
+                <button class="close-btn" id="closeShareModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="share-options">
+                    <button class="share-option" id="copyLinkBtn">
+                        <i class="fas fa-link"></i>
+                        复制链接
+                    </button>
+                    <button class="share-option" id="generateQRBtn">
+                        <i class="fas fa-qrcode"></i>
+                        生成二维码
+                    </button>
+                </div>
+                <div class="share-link">
+                    <input type="text" id="shareLink" readonly>
+                    <button class="copy-btn" id="copyBtn">复制</button>
+                </div>
+                <div class="qr-code" id="qrCode" style="display: none;">
+                    <!-- 二维码将在这里生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 举报模态框 -->
+    <div class="modal" id="reportModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>举报帖子</h3>
+                <button class="close-btn" id="closeReportModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="reportForm">
+                    <div class="form-group">
+                        <label>举报原因：</label>
+                        <div class="report-reasons">
+                            <label class="reason-option">
+                                <input type="radio" name="reason" value="spam">
+                                <span>垃圾信息</span>
+                            </label>
+                            <label class="reason-option">
+                                <input type="radio" name="reason" value="inappropriate">
+                                <span>不当内容</span>
+                            </label>
+                            <label class="reason-option">
+                                <input type="radio" name="reason" value="harassment">
+                                <span>骚扰他人</span>
+                            </label>
+                            <label class="reason-option">
+                                <input type="radio" name="reason" value="copyright">
+                                <span>版权侵犯</span>
+                            </label>
+                            <label class="reason-option">
+                                <input type="radio" name="reason" value="other">
+                                <span>其他</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="reportDescription">详细说明：</label>
+                        <textarea id="reportDescription" name="description" rows="4" placeholder="请详细描述举报原因..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="cancel-btn" id="cancelReport">取消</button>
+                        <button type="submit" class="submit-btn">提交举报</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录提示模态框 -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>需要登录</h3>
+                <button class="close-btn" id="closeLoginModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>您需要登录后才能进行此操作</p>
+                <div class="modal-actions">
+                    <button class="cancel-btn" id="cancelLogin">取消</button>
+                    <button class="primary-btn" id="goToLogin">去登录</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript引入 -->
+    <!-- 日期时间工具模块 -->
+    <script src="../js/common/date-utils.js" defer></script>
+    <!-- 通用脚本 -->
+    <script src="../js/common/utils.js" defer></script>
+    <script src="../js/common/api.js" defer></script>
+    <!-- 用户资料API -->
+    <script src="../js/api/user-profile-api.js" defer></script>
+    <!-- 用户认证脚本 -->
+    <script src="../js/common/auth.js" defer></script>
+    <!-- Quill富文本编辑器 -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js" defer></script>
+    <!-- 论坛API -->
+    <script src="../js/api/forum-api.js" defer></script>
+    <!-- 帖子详情页脚本 -->
+    <script src="../js/pages/forum-post.js" defer></script>
+    <!-- 农历日期转换库 -->
+    <script src="../js/lib/LunarSolarConverter.js" defer></script>
+    
+    <script>
+        // 初始化论坛帖子管理器
+        document.addEventListener('DOMContentLoaded', function() {
+            window.forumPostManager = new ForumPostManager();
+            // 确保用户头像正确显示
+            if (window.updateUserIcon) {
+                window.updateUserIcon();
+            }
+        });
+    </script>
+</body>
+</html>

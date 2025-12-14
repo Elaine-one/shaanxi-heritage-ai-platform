@@ -1,0 +1,55 @@
+/* 非遗统计数据样式 */
+.statistics-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.statistics-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #333;
+    border-left: 3px solid var(--shaanxi-red);
+    padding-left: 10px;
+}
+
+.heritage-total {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--shaanxi-red);
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.stats-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.stats-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px dashed #eee;
+}
+
+.stats-list li:last-child {
+    border-bottom: none;
+}
+
+.category-name, .level-name, .region-name {
+    color: #555;
+}
+
+.category-count, .level-count, .region-count {
+    font-weight: bold;
+    color: var(--shaanxi-red);
+}
+
+.category-stats, .level-stats, .region-stats {
+    margin-bottom: 15px;
+}

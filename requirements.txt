@@ -1,0 +1,69 @@
+# Web框架
+Django==4.2.7
+djangorestframework==3.16.0
+django-cors-headers==4.7.0
+django-celery-beat==2.5.0
+
+# 数据库
+mysqlclient==2.2.7
+PyMySQL==1.1.1
+redis==3.5.3
+psycopg2-binary==2.9.9
+
+# AI和机器学习
+langchain==0.1.0
+langchain-community==0.0.13
+langchain-core==0.1.12
+dashscope==1.17.0
+jieba==0.42.1
+pypinyin==0.55.0
+
+# HTTP请求和网络
+aiohttp==3.9.1
+requests==2.31.0
+httpx==0.25.2
+fastapi==0.109.0
+uvicorn==0.25.0
+
+# 数据处理和分析
+pandas==2.1.4
+numpy==1.24.3
+
+# 地理位置和地图
+geopy==2.4.1
+
+# 天气服务
+pyowm==3.3.0
+
+# 异步支持
+asyncio==3.4.3
+
+# 文档处理
+reportlab==4.0.7
+openpyxl==3.1.2
+
+# 图像处理
+Pillow==10.4.0
+
+# 工具库
+python-dotenv==1.0.0
+pydantic==2.5.2
+pydantic_core==2.14.5
+typing_extensions==4.15.0
+orjson==3.9.10
+
+# 时间处理
+python-dateutil==2.8.2
+pytz==2023.3
+
+# 日志
+loguru==0.7.2
+
+# 任务队列
+celery==5.5.2
+
+# 安全
+cryptography==44.0.2
+
+# 阿里云服务
+alibabacloud-alinlp20200629==2.0.2

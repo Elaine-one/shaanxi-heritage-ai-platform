@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>非遗名录 - 陕西非物质文化遗产展示平台</title>
+    <link rel="shortcut icon" href="../static/common/favicon.ico">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/pages/non-heritage-list.css">
+    <!-- API客户端 Core -->
+    <script src="../js/common/api.js" defer></script>
+    <!-- 用户资料API -->
+    <script src="../js/api/user-profile-api.js" defer></script>
+    <!-- 用户认证脚本 -->
+    <script src="../js/common/auth.js" defer></script>
+    <!-- 日期时间工具模块 -->
+    <script src="../js/common/date-utils.js" defer></script>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <h1>陕西非物质文化遗产 · 民间文化展示平台</h1>
+        </div>
+        <div class="header-right">
+            <div class="search-icon">🔍</div>
+            <div class="message-icon">💬</div>
+            <div class="refresh-icon">🔄</div>
+            <div class="date" id="current-date">2025年4月2日星期三 19:07</div>
+            <div class="user-icon">👤</div>
+        </div>
+    </header>
+    
+    <nav>
+        <ul class="main-nav">
+            <li><a href="../index.html">首页</a></li>
+<li><a href="/pages/policy.html">相关政策</a></li>
+            <li><a href="/pages/news.html">非遗资讯</a></li>
+            <li><a href="non-heritage-list.html" class="active">非遗名录</a></li>
+            <li><a href="forum.html">非遗论坛</a></li>
+            <li><a href="heritage-map.html">非遗地图</a></li>
+            <li><a href="user-creation.html">用户创作</a></li>
+            <li><a href="#">传承人风采</a></li>
+        </ul>
+    </nav>
+    
+    <main class="list-main">
+        <div class="filter-section">
+            <div class="filter-group">
+                <label for="level-filter">级别筛选：</label>
+                <select id="level-filter">
+                    <option value="全部">全部</option>
+                    <option value="国家级">国家级</option>
+                    <option value="省级">省级</option>
+                    <option value="市级">市级</option>
+                    <option value="县级">县级</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="category-filter">类别筛选：</label>
+                <select id="category-filter">
+                    <option value="全部">全部</option>
+                    <option value="传统戏剧">传统戏剧</option>
+                    <option value="传统音乐">传统音乐</option>
+                    <option value="传统技艺">传统技艺</option>
+                    <option value="传统美术">传统美术</option>
+                    <option value="传统舞蹈">传统舞蹈</option>
+                    <option value="传统医药">传统医药</option>
+                    <option value="民间文学">民间文学</option>
+                    <option value="民俗活动">民俗活动</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="region-filter">地区筛选：</label>
+                <select id="region-filter">
+                    <option value="全部">全部</option>
+                    <option value="西安市">西安市</option>
+                    <option value="咸阳市">咸阳市</option>
+                    <option value="宝鸡市">宝鸡市</option>
+                    <option value="渭南市">渭南市</option>
+                    <option value="延安市">延安市</option>
+                    <option value="汉中市">汉中市</option>
+                    <option value="榆林市">榆林市</option>
+                    <option value="安康市">安康市</option>
+                    <option value="商洛市">商洛市</option>
+                    <option value="铜川市">铜川市</option>
+                </select>
+            </div>
+            
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="搜索非遗项目...">
+                <button id="search-btn">搜索</button>
+            </div>
+        </div>
+        
+        <div id="heritage-list" class="heritage-list">
+            <!-- 项目列表将通过JavaScript动态生成 -->
+            <div class="loading-indicator">正在加载非遗项目...</div>
+        </div>
+        
+        <div class="pagination">
+            <button id="first-page" class="page-btn">首页</button>
+            <button id="prev-page" class="page-btn">上一页</button>
+            <span class="page-info">
+                <span id="current-page">1</span> / <span id="total-pages">1</span>
+            </span>
+            <button id="next-page" class="page-btn">下一页</button>
+            <button id="last-page" class="page-btn">末页</button>
+            <div class="page-jump">
+                <input type="number" id="page-input" min="1" value="1">
+                <button id="go-page" class="page-btn">跳转</button>
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>联系我们</h4>
+                <p>地址：陕西省西安市</p>
+                <p>电话：onee20589@gmail.com</p>
+                <p>邮箱：onee20589@gmail.com</p>
+            </div>
+            <div class="footer-section">
+                <h4>关注我们</h4>
+                <div class="social-icons">
+                    <span>微信</span>
+                    <span>微博</span>
+                    <span>抖音</span>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h4>友情链接</h4>
+                <p><a href="https://whhlyt.shaanxi.gov.cn/" target="_blank">陕西省文化旅游厅</a></p>
+                <p><a href="https://www.ihchina.cn/" target="_blank">中国非物质文化遗产网</a></p>
+                <p><a href="#">陕西文化展示平台</a></p>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>© 2025 陕西非物质文化遗产展示平台 版权所有</p>
+            <p>本网站仅用于学习和非商业用途</p>
+            <p>技术支持：elaine</p>
+        </div>
+    </footer>
+    
+    <script src="../js/common/utils.js" defer></script>
+<script src="../js/common/heritage-api.js" defer></script>
+
+<!-- 农历日期转换库 -->
+<script src="../js/lib/LunarSolarConverter.js" defer></script>
+<!-- API工具模块 -->
+<script src="../js/common/api-utils.js" defer></script>
+    
+    <script src="../lib/third-party-embed.js" defer></script>
+<script src="../js/pages/non-heritage-list.js" defer></script>
+<!-- 第三方聊天机器人工具模块 -->
+<script src="../lib/maxkb_embed.js" defer></script>
+</body>
+</html>

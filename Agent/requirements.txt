@@ -1,0 +1,54 @@
+# 智能旅游规划Agent依赖包
+
+# 核心框架
+langchain==0.1.0
+langchain-community==0.0.13
+langchain-core==0.1.12
+
+# 阿里云模型支持
+dashscope==1.17.0
+alibabacloud-alinlp20200629==2.0.2
+
+# HTTP请求
+requests==2.31.0
+httpx==0.25.2
+
+# 数据处理
+pandas==2.1.4
+numpy==1.24.3
+
+# 地理位置和地图
+geopy==2.4.1
+folium==0.15.1
+
+# 天气API
+pyowm==3.3.0
+
+# 异步支持
+aiohttp==3.9.1
+asyncio==3.4.3
+
+# 数据库连接
+psycopg2-binary==2.9.9
+Django==4.2.7
+
+# 工具库
+python-dotenv==1.0.0
+pydantic==2.5.2
+typing-extensions==4.8.0
+
+# 日志
+loguru==0.7.2
+
+# JSON处理
+orjson==3.9.10
+
+# 时间处理
+python-dateutil==2.8.2
+pytz==2023.3
+
+# 文件处理
+openpyxl==3.1.2
+reportlab==4.0.7
+
+# 测试

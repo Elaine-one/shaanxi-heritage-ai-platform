@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户创作 - 陕西非物质文化遗产展示平台</title>
+    <link rel="shortcut icon" href="../static/common/favicon.ico">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/pages/user-creation.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- 视频播放器 -->
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+    <!-- API相关脚本 -->
+    <script src="../js/common/date-utils.js" defer></script>
+    <script src="../js/common/utils.js" defer></script>
+    <script src="../js/common/api.js" defer></script>
+    <script src="../js/common/auth.js" defer></script>
+    <!-- 用户资料API -->
+    <script src="../js/api/user-profile-api.js" defer></script>
+    <!-- 非遗项目API -->
+    <script src="../js/common/heritage-api.js" defer></script>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <h1>陕西非物质文化遗产 · 民间文化展示平台</h1>
+        </div>
+        <div class="header-right">
+            <div class="search-icon">🔍</div>
+            <div class="message-icon">💬</div>
+            <div class="refresh-icon">🔄</div>
+            <div class="date" id="current-date">加载中...</div>
+            <div class="user-icon">👤</div>
+        </div>
+    </header>
+    
+    <nav>
+        <ul class="main-nav">
+            <li><a href="../index.html">首页</a></li>
+            <li><a href="policy.html">相关政策</a></li>
+            <li><a href="news.html">非遗资讯</a></li>
+            <li><a href="non-heritage-list.html">非遗名录</a></li>
+            <li><a href="forum.html">非遗论坛</a></li>
+            <li><a href="heritage-map.html">非遗地图</a></li>
+            <li><a href="user-creation.html" class="active">用户创作</a></li>
+            <li><a href="#">传承人风采</a></li>
+        </ul>
+    </nav>
+
+    <main class="creation-main">
+        <!-- 页面标题 - 已移除，避免与固定侧边栏冲突 -->
+
+        <!-- 创作内容区域 -->
+        <div class="creation-container">
+            <!-- 左侧：创作发布区 -->
+            <div class="creation-sidebar">
+                <!-- 统计信息 - 从页面标题区域移动过来 -->
+                <div class="creation-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalCreations">0</span>
+                        <span class="stat-label">创作数</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="todayCreations">0</span>
+                        <span class="stat-label">新增</span>
+                    </div>
+                </div>
+                
+                <!-- 发布创作按钮 -->
+                <button class="create-btn" id="createBtn">
+                    <i class="fas fa-plus"></i>
+                    发布创作
+                </button>
+
+                <!-- 创作者中心入口 -->
+                <div class="creator-center-section">
+                    <button class="creator-center-btn" id="creatorCenterBtn">
+                        <i class="fas fa-user-edit"></i>
+                        创作者中心
+                    </button>
+                </div>
+
+                <!-- 创作分类 -->
+                <div class="category-section">
+                    <h3><i class="fas fa-tags"></i> 创作分类</h3>
+                    <div class="category-list">
+                        <button class="category-btn active" data-category="all">全部</button>
+                        <button class="category-btn" data-category="video">视频创作</button>
+                        <button class="category-btn" data-category="photo">图片创作</button>
+                        <button class="category-btn" data-category="article">文章创作</button>
+                        <button class="category-btn" data-category="music">音乐创作</button>
+                    </div>
+                </div>
+
+                <!-- 热门标签和创作指南容器 -->
+                <div class="trending-guide-container">
+                    <!-- 热门标签 -->
+                    <div class="trending-tags">
+                        <h3><i class="fas fa-fire"></i> 热门标签</h3>
+                        <div class="tags-container" id="trendingTags">
+                            <!-- 动态加载热门标签 -->
+                        </div>
+                    </div>
+
+                    <!-- 创作指南 -->
+                    <div class="creation-guide">
+                        <h3><i class="fas fa-lightbulb"></i> 创作指南</h3>
+                        <ul>
+                            <li>分享真实的非遗体验</li>
+                            <li>标注正确的非遗类别</li>
+                            <li>尊重传统文化和版权</li>
+                            <li>鼓励原创，拒绝抄袭</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：创作内容流 -->
+            <div class="creation-feed">
+                <!-- 排序选项 -->
+                <div class="sort-options">
+                    <button class="sort-btn active" data-sort="latest">最新发布</button>
+                    <button class="sort-btn" data-sort="hot">最热创作</button>
+                    <button class="sort-btn" data-sort="featured">精选推荐</button>
+                </div>
+
+                <!-- 创作列表 -->
+                <div class="creation-list" id="creationList">
+                    <!-- 加载骨架屏 -->
+                    <div class="loading-skeleton">
+                        <div class="skeleton-creation">
+                            <div class="skeleton-video"></div>
+                            <div class="skeleton-content">
+                                <div class="skeleton-title"></div>
+                                <div class="skeleton-user"></div>
+                                <div class="skeleton-stats"></div>
+                            </div>
+                        </div>
+                        <div class="skeleton-creation">
+                            <div class="skeleton-video"></div>
+                            <div class="skeleton-content">
+                                <div class="skeleton-title"></div>
+                                <div class="skeleton-user"></div>
+                                <div class="skeleton-stats"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 加载更多 -->
+                <div class="load-more-container">
+                    <button class="load-more-btn" id="loadMoreBtn">加载更多创作</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 发布创作模态框 -->
+    <div class="modal" id="creationModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>发布创作</h2>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 创作类型选择 - 隐藏，根据上传文件自动识别 -->
+                <div class="creation-type" style="display: none;">
+                    <label>创作类型：</label>
+                    <select id="creationType">
+                        <option value="article">文章创作</option>
+                        <option value="video">视频创作</option>
+                        <option value="photo">图片创作</option>
+                        <option value="music">音乐创作</option>
+                    </select>
+                </div>
+
+                <!-- 标题输入 -->
+                <div class="form-group">
+                    <label for="creationTitle">创作标题：</label>
+                    <input type="text" id="creationTitle" placeholder="请输入创作标题（5-50字）" maxlength="50">
+                </div>
+
+                <!-- 内容区域 -->
+                <div class="form-group">
+                    <label for="creationContent">创作内容：</label>
+                    <textarea id="creationContent" placeholder="请描述您的创作内容..." rows="4"></textarea>
+                </div>
+
+                <!-- 文件上传 -->
+                <div class="form-group">
+                    <label>上传文件：</label>
+                    <div class="file-upload">
+                        <input type="file" id="creationFile" accept="video/*,image/*,audio/*">
+                        <label for="creationFile" class="upload-btn">
+                            <i class="fas fa-upload"></i>
+                            选择文件
+                        </label>
+                        <span class="file-name" id="fileName">未选择文件</span>
+                    </div>
+                    <div class="file-preview" id="filePreview"></div>
+                </div>
+
+                <!-- 标签选择 -->
+                <div class="form-group">
+                    <label>选择标签：</label>
+                    <div class="tag-selector">
+                        <input type="text" id="tagInput" placeholder="输入标签或选择现有标签">
+                        <div class="suggested-tags" id="suggestedTags">
+                            <!-- 动态加载建议标签 -->
+                        </div>
+                        <div class="selected-tags" id="selectedTags"></div>
+                    </div>
+                </div>
+
+                <!-- 非遗关联 -->
+                <div class="form-group">
+                    <label for="heritageSelect">关联非遗项目：</label>
+                    <select id="heritageSelect">
+                        <option value="">请选择关联的非遗项目</option>
+                        <!-- 动态加载非遗项目 -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" id="cancelBtn">取消</button>
+                <button class="submit-btn" id="submitBtn">发布创作</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>联系我们</h4>
+                <p>地址：陕西省西安市</p>
+                <p>电话：onee20589@gmail.com</p>
+                <p>邮箱：onee20589@gmail.com</p>
+            </div>
+            <div class="footer-section">
+                <h4>关注我们</h4>
+                <div class="social-icons">
+                    <span>微信</span>
+                    <span>微博</span>
+                    <span>抖音</span>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h4>友情链接</h4>
+                <p><a href="https://whhlyt.shaanxi.gov.cn/" target="_blank">陕西省文化旅游厅</a></p>
+                <p><a href="https://www.ihchina.cn/" target="_blank">中国非物质文化遗产网</a></p>
+                <p><a href="#">陕西文化展示平台</a></p>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>© 2025 陕西非物质文化遗产展示平台 版权所有</p>
+            <p>本网站仅用于学习和非商业用途</p>
+            <p>技术支持：elaine</p>
+        </div>
+    </footer>
+
+    <!-- 脚本引入 -->
+    <!-- 农历日期转换库 -->
+    <script src="../js/lib/LunarSolarConverter.js" defer></script>
+    
+    <script src="../lib/third-party-embed.js" defer></script>
+    <script src="../js/pages/user-creation.js" defer></script>
+    <script src="../lib/maxkb_embed.js" defer></script>
+</body>
+</html>

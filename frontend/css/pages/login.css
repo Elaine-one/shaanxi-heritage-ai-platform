@@ -1,0 +1,319 @@
+/* 登录和注册页面样式 */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 70vh;
+    background-color: var(--light-bg);
+    padding: 20px;
+}
+
+.auth-box {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 450px;
+    padding: 30px;
+}
+
+.auth-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.auth-header h2 {
+    color: var(--shaanxi-red);
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.auth-header p {
+    color: #666;
+    font-size: 14px;
+}
+
+.auth-form .form-group {
+    margin-bottom: 20px;
+}
+
+.auth-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: var(--dark-text);
+}
+
+.auth-form input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+.auth-form input:focus {
+    border-color: var(--dark-gold);
+    outline: none;
+}
+
+.form-actions {
+    margin-top: 25px;
+}
+
+.btn-primary {
+    background-color: var(--shaanxi-red);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 12px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+    background-color: var(--accent-color);
+}
+
+.form-footer-links {
+    margin-top: 15px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.forgot-password-link {
+    color: var(--shaanxi-red);
+    text-decoration: none;
+}
+
+.forgot-password-link:hover {
+    text-decoration: underline;
+}
+
+.form-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}
+
+.form-footer a {
+    color: var(--shaanxi-red);
+    text-decoration: none;
+}
+
+.form-footer a:hover {
+    text-decoration: underline;
+}
+
+/* 复选框样式 */
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+    display: none;
+}
+
+.checkmark {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #ddd;
+    border-radius: 3px;
+    margin-right: 10px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkmark {
+    background-color: var(--shaanxi-red);
+    border-color: var(--shaanxi-red);
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkmark::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 6px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* 密码强度指示器样式 */
+.password-strength {
+    margin-top: 8px;
+}
+
+.strength-bar {
+    width: 100%;
+    height: 6px;
+    background-color: #f0f0f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.strength-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 3px;
+    transition: all 0.3s ease;
+}
+
+.strength-text {
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+}
+
+/* 密码匹配指示器样式 */
+.password-match {
+    font-size: 12px;
+    margin-top: 5px;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.password-match.match {
+    color: #2ed573;
+    opacity: 1;
+}
+
+.password-match.no-match {
+    color: #ff4757;
+    opacity: 1;
+}
+
+.auth-message {
+    margin-top: 20px;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.auth-message.error {
+    background-color: #ffebee;
+    color: #c62828;
+    border: 1px solid #ffcdd2;
+}
+
+.auth-message.success {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+/* 密码输入容器样式 */
+.password-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-container input {
+    padding-right: 40px;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 12px;
+    cursor: pointer;
+    font-size: 18px;
+    user-select: none;
+    color: #666;
+    transition: color 0.3s ease;
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    text-align: center;
+    line-height: 1;
+}
+
+.toggle-password:hover {
+    color: var(--dark-gold);
+}
+
+/* 显示密码状态时添加斜杠效果 */
+.toggle-password.show-password::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: currentColor;
+    transform: rotate(45deg);
+    transform-origin: center;
+}
+
+/* 验证码样式 */
+.captcha-group {
+    margin-bottom: 20px;
+}
+
+.captcha-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.captcha-image-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#captcha-image {
+    width: 100%;
+    max-width: 390px;
+    height: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    object-fit: contain;
+    background-color: #f9f9f9;
+    /* 减小验证码图片高度 */
+    max-height: 50px;
+}
+
+#captcha {
+    height: 38px;
+    font-size: 14px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .auth-box {
+        padding: 20px;
+    }
+    
+    .auth-form input {
+        padding: 10px;
+    }
+    
+    .btn-primary {
+        padding: 10px 16px;
+    }
+    
+    #captcha-image {
+        max-width: 100%;
+    }
+}

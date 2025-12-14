@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>非遗地图 - 陕西非物质文化遗产展示平台</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="shortcut icon" href="/static/common/favicon.ico">
+    <link rel="stylesheet" href="/css/pages/heritage-map.css">
+    <!-- 百度地图API引用 -->
+    <!-- 农历日期转换库 -->
+    <script src="/js/lib/LunarSolarConverter.js" defer></script>
+    <!-- 日期时间工具模块 -->
+    <script src="/js/common/date-utils.js" defer></script>
+    <!-- 基础工具和数据 (depends on date-utils) -->
+    <script src="/js/common/utils.js" defer></script>
+    <!-- API客户端 Core -->
+    <script src="/js/common/api.js" defer></script>
+    <!-- Heritage Specific API (may be used by api-utils or others) -->
+    <script src="/js/common/heritage-api.js" defer></script>
+    <!-- API Utilities (depends on heritage-api, potentially api.js) -->
+    <script src="/js/common/api-utils.js" defer></script>
+    <!-- 用户认证脚本 -->
+    <script src="/js/common/auth.js" defer></script>
+    <!-- 统计跟踪脚本 -->
+    <script src="/js/common/tracker.js" defer></script>
+<!-- 百度地图API将通过下方的loadBaiduMapsAPI函数加载 -->    <!-- 用户资料API -->
+    <script src="/js/api/user-profile-api.js" defer></script>
+    
+    <link rel="stylesheet" href="/css/pages/heritage-map-overlay.css">
+    <script type="text/javascript">
+        // 百度地图AK通过后端API获取，避免在前端暴露
+        window.BMAP_AUTHENTIC_KEY = null; // 将通过API获取
+
+        // 简化的错误显示函数
+        function showMapError(message) {
+            const mapContainer = document.getElementById('baidu-map');
+            if (mapContainer) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'map-error-overlay';
+                errorDiv.innerHTML = `
+                    <div class="map-error-content">
+                        <h3>地图加载失败</h3>
+                        <p>${message}</p>
+                        <button onclick="location.reload()">重新加载</button>
+                    </div>
+                `;
+                mapContainer.appendChild(errorDiv);
+            }
+            // Update API status for debug panel as well
+            const apiStatusEl = document.getElementById('api-status');
+            if (apiStatusEl) {
+                apiStatusEl.textContent = `错误: ${message.substring(0, 30)}...`; // Show a snippet of the error
+                apiStatusEl.style.color = 'red';
+            }
+        }
+
+        // New function to be called by Baidu Maps API callback
+        function initializeMapAndCore() {
+            console.log('Baidu Maps API loaded via callback. Initializing extensions and MapCore...');
+
+            if (typeof BMap === 'undefined' || typeof BMap.Map === 'undefined') {
+                console.error('BMap object not available in initializeMapAndCore.');
+                showMapError('百度地图API核心未能正确加载，请刷新页面重试。');
+                return;
+            }
+
+            const apiStatusEl = document.getElementById('api-status');
+            if (apiStatusEl) {
+                apiStatusEl.textContent = '核心已加载, 扩展加载中...';
+                apiStatusEl.style.color = 'orange';
+            }
+
+            const protocol = window.location.protocol;
+            let scriptsToLoad = 2; // TextIconOverlay and MarkerClusterer
+            let scriptsLoaded = 0;
+
+            function checkAllExtensionsLoaded() {
+                scriptsLoaded++;
+                if (scriptsLoaded === scriptsToLoad) {
+                    console.log('All Baidu Map extensions loaded/attempted.');
+                    if (apiStatusEl) {
+                        apiStatusEl.textContent = '核心及扩展已加载';
+                        apiStatusEl.style.color = 'green';
+                    }
+                    
+                    if (window.MapCore && typeof window.MapCore.init === 'function') {
+                        console.log('Initializing MapCore...');
+                        window.MapCore.init().then(success => {
+                            if (success) {
+                                console.log('MapCore initialized successfully.');
+                            } else {
+                                console.error('MapCore initialization failed.');
+                                showMapError('地图核心功能初始化失败。');
+                            }
+                        }).catch(error => {
+                            console.error('Error during MapCore initialization:', error);
+                            showMapError('地图核心功能初始化时发生错误: ' + error.message);
+                        });
+                    } else {
+                        console.error('MapCore or MapCore.init not found after extensions loaded.');
+                        showMapError('地图核心组件丢失，无法初始化地图。');
+                    }
+                }
+            }
+
+            // Load TextIconOverlay
+            const textIconScript = document.createElement('script');
+            textIconScript.type = 'text/javascript';
+            textIconScript.src = `${protocol}//api.map.baidu.com/library/TextIconOverlay/1.2/src/TextIconOverlay_min.js`;
+            textIconScript.onload = function() {
+                console.log('TextIconOverlay library loaded successfully.');
+                checkAllExtensionsLoaded();
+            };
+            textIconScript.onerror = function(e) {
+                console.warn('TextIconOverlay library failed to load.', e);
+                checkAllExtensionsLoaded(); // Proceed even if an extension fails
+            };
+            document.head.appendChild(textIconScript);
+
+            // Load MarkerClusterer
+            const clusterScript = document.createElement('script');
+            clusterScript.type = 'text/javascript';
+            clusterScript.src = `${protocol}//api.map.baidu.com/library/MarkerClusterer/1.2/src/MarkerClusterer_min.js`;
+            clusterScript.onload = function() {
+                console.log('MarkerClusterer library loaded successfully.');
+                checkAllExtensionsLoaded();
+            };
+            clusterScript.onerror = function(e) {
+                console.warn('MarkerClusterer library failed to load.', e);
+                checkAllExtensionsLoaded(); // Proceed even if an extension fails
+            };
+            document.head.appendChild(clusterScript);
+        }
+
+        // Function to get encrypted AK from backend
+        async function getBaiduMapAK() {
+            try {
+                // 使用/api/map/config/端点获取百度地图AK
+                const response = await fetch('/api/map/config/');
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.bmap_ak;
+                } else {
+                    console.error('获取百度地图AK失败:', response.status);
+                    return null;
+                }
+            } catch (error) {
+                console.error('获取百度地图AK时发生错误:', error);
+                // 后端API不可用，返回null
+                return null;
+            }
+        }
+
+        // Function to dynamically load Baidu Maps API
+        async function loadBaiduMapsAPI() {
+            if (typeof BMap !== 'undefined' && typeof BMap.Map !== 'undefined') {
+                console.log('Baidu Maps API already loaded. Triggering initialization.');
+                initializeMapAndCore(); // Call directly if BMap is already there
+                return;
+            }
+
+            // 从后端获取加密的AK
+            const apiStatusEl = document.getElementById('api-status');
+            if (apiStatusEl) {
+                apiStatusEl.textContent = '获取API密钥中...';
+                apiStatusEl.style.color = 'orange';
+            }
+
+            const ak = await getBaiduMapAK();
+            if (!ak) {
+                const errorMsg = '无法获取百度地图AK，无法加载地图。';
+                console.error(errorMsg);
+                showMapError(errorMsg);
+                return;
+            }
+
+            window.BMAP_AUTHENTIC_KEY = ak;
+            
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            const protocol = window.location.protocol;
+            // 使用v3.0版本的百度地图API
+            script.src = `${protocol}//api.map.baidu.com/api?v=3.0&ak=${ak}&callback=initializeMapAndCore`;
+            script.onerror = function(e) {
+                const errorMsg = '百度地图API主脚本加载失败。请检查网络和AK。';
+                console.error(errorMsg, e);
+                showMapError(errorMsg);
+            };
+            document.head.appendChild(script);
+            console.log('Attempting to load Baidu Maps API v3.0 with callback...');
+            if (apiStatusEl) {
+                apiStatusEl.textContent = '主脚本加载中...';
+                apiStatusEl.style.color = 'orange';
+            }
+        }
+
+        // Load Baidu Maps API when the DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            loadBaiduMapsAPI();
+        });
+    </script>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <h1>陕西非物质文化遗产 · 民间文化展示平台</h1>
+        </div>
+        <div class="header-right">
+            <div class="search-icon">🔍</div>
+            <div class="message-icon">💬</div>
+            <div class="refresh-icon">🔄</div>
+            <div class="date" id="current-date">2025年4月2日星期三 19:04</div>
+            <div class="user-icon">👤</div>
+        </div>
+    </header>
+    
+    <nav>
+        <ul class="main-nav">
+            <li><a href="../index.html">首页</a></li>
+            <li><a href="/pages/policy.html">相关政策</a></li>
+            <li><a href="/pages/news.html">非遗资讯</a></li>
+            <li><a href="non-heritage-list.html">非遗名录</a></li>
+            <li><a href="forum.html">非遗论坛</a></li>
+            <li><a href="heritage-map.html" class="active">非遗地图</a></li>
+            <li><a href="user-creation.html">用户创作</a></li>
+            <li><a href="#">传承人风采</a></li>
+        </ul>
+    </nav>
+    
+    <main class="map-main">
+        <div class="map-container">
+            <div class="map-sidebar">
+                <div class="filter-section">
+                    <div class="filter-group">
+                        <label for="map-level-filter">级别筛选：</label>
+                        <select id="map-level-filter">
+                            <option value="全部">全部</option>
+                            <option value="国家级">国家级</option>
+                            <option value="省级">省级</option>
+                            <option value="市级">市级</option>
+                            <option value="县级">县级</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="map-category-filter">类别筛选：</label>
+                        <select id="map-category-filter">
+                            <option value="全部">全部</option>
+                            <option value="传统戏剧">传统戏剧</option>
+                            <option value="传统音乐">传统音乐</option>
+                            <option value="传统技艺">传统技艺</option>
+                            <option value="传统美术">传统美术</option>
+                            <option value="传统舞蹈">传统舞蹈</option>
+                            <option value="传统美食">传统美食</option>
+                            <option value="民间文学">民间文学</option>
+                            <option value="民俗">民俗</option>
+                            <option value="曲艺">曲艺</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="filtered-projects">
+                    <h4>项目清单</h4>
+                    <div class="project-list" id="filtered-project-list">
+                        <div class="project-empty">请选择筛选条件</div>
+                    </div>
+                    <div class="project-count"></div>
+                </div>
+                
+                <div class="heritage-preview" id="heritage-preview">
+                    <h3>项目预览</h3>
+                    <div class="preview-content">
+                        <p class="preview-placeholder">点击地图上的标记查看非遗项目详情</p>
+                    </div>
+                </div>
+                
+                <div class="map-refresh-container">
+                <button id="refresh-map" class="map-refresh-btn">
+                        刷新地图显示
+                    </button>
+                </div>
+            </div>
+            
+            <div id="baidu-map" class="map-view"></div>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>联系我们</h4>
+                <p>地址：陕西省西安市</p>
+                <p>电话：onee20589@gmail.com</p>
+                <p>邮箱：onee20589@gmail.com</p>
+            </div>
+            <div class="footer-section">
+                <h4>关注我们</h4>
+                <div class="social-icons">
+                    <span>微信</span>
+                    <span>微博</span>
+                    <span>抖音</span>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h4>友情链接</h4>
+                <p><a href="https://whhlyt.shaanxi.gov.cn/" target="_blank">陕西省文化旅游厅</a></p>
+                <p><a href="https://www.ihchina.cn/" target="_blank">中国非物质文化遗产网</a></p>
+                <p><a href="#">陕西文化展示平台</a></p>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>© 2025 陕西非物质文化遗产展示平台 版权所有</p>
+            <p>本网站仅用于学习和非商业用途</p>
+            <p>技术支持：elaine</p>
+        </div>
+    </footer>
+
+    <!-- 其他第三方脚本 -->
+    <script src="../lib/third-party-embed.js" defer></script>
+    <script src="../lib/maxkb_embed.js" defer></script>
+    
+    <!-- UI组件 -->
+    <script src="../js/common/heritage-ui.js" defer></script>
+    
+    <!-- 筛选功能 -->
+    <script src="../js/pages/heritage-filters.js" defer></script>
+    
+    <!-- 地图核心功能 -->
+    <script src="/js/pages/heritage-map.js" defer></script>
+    
+    <!-- 侧边栏功能 -->
+    <script src="/js/pages/heritage-map-sidebar.js" defer></script>
+    
+    <!-- 应用初始化脚本 (逻辑已移至新的地图加载回调中) -->
+    
+    <!-- 移除调试信息栏 -->
+    
+    <script>
+        // DOMContentLoaded 保证元素已渲染再操作
+        document.addEventListener('DOMContentLoaded', function() {
+            // 更新API协议信息
+            var protocolEl = document.getElementById('api-protocol');
+            if(protocolEl) protocolEl.textContent = window.location.protocol;
+
+            // API status is now updated by the map loading functions.
+
+            // 为刷新按钮添加点击事件
+            var refreshBtn = document.getElementById('refresh-map');
+            if(refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    console.log('手动刷新地图显示');
+                    if (window.MapCore && typeof window.MapCore.refreshMap === 'function') {
+                        window.MapCore.refreshMap();
+                    }
+                    if (window.HeritageFilters && typeof window.HeritageFilters.applyFilters === 'function') {
+                        window.HeritageFilters.applyFilters(window.currentHeritageData || []);
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

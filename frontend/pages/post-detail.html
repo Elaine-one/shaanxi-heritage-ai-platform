@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帖子详情 - 非遗传承网</title>
+    <!-- 引入基础样式 -->
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/forum.css">
+    <link rel="stylesheet" href="../css/forum-post.css">
+    <link rel="stylesheet" href="../css/forum-post-header.css">
+    <link rel="stylesheet" href="../css/post-detail.css">
+    
+    <!-- 引入Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 引入Quill编辑器样式 -->
+    <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.6/quill.snow.css">
+    
+    <style>
+        /* 重置页面基础样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+        
+        /* 专业级页面容器 - 精确边距控制 */
+        .post-detail-container {
+            max-width: 100%; /* 默认情况下完全利用可用宽度 */
+            margin: 1rem 0.5rem; /* 上下边距1rem，左右边距0.5rem - 减少边缘空白 */
+            padding: 0; /* 移除内边距，使用外边距控制 */
+            min-height: calc(100vh - 2rem); /* 减去上下边距 */
+            position: relative;
+        }
+        
+        /* 大屏幕适配 - 让内容向左右扩展，减少空白 */
+        @media (min-width: 1200px) {
+            .post-detail-container {
+                max-width: 100%; /* 完全利用屏幕宽度 */
+                margin: 1rem 0; /* 上下1rem，左右0边距 */
+            }
+        }
+        
+        /* 超大屏幕适配 */
+        @media (min-width: 1500px) {
+            .post-detail-container {
+                max-width: 100%; /* 完全利用屏幕宽度 */
+                margin: 1rem 0; /* 上下1rem，左右0边距 */
+            }
+        }
+        
+        /* 全屏优化 */
+        @media (min-width: 1800px) {
+            .post-detail-container {
+                max-width: 100%; /* 完全利用屏幕宽度 */
+                margin: 1rem 0; /* 上下1rem，左右0边距 */
+            }
+        }
+        
+        /* 精确边距控制类 - 可以根据需要调整 */
+        .post-detail-container.margin-small {
+            margin: 1rem auto;
+            min-height: calc(100vh - 2rem);
+        }
+        
+        .post-detail-container.margin-medium {
+            margin: 2rem auto;
+            min-height: calc(100vh - 4rem);
+        }
+        
+        .post-detail-container.margin-large {
+            margin: 3rem auto;
+            min-height: calc(100vh - 6rem);
+        }
+        
+        .post-detail-container.margin-custom {
+            /* 自定义边距，可以通过内联样式设置具体数值 */
+            margin: var(--page-margin, 2rem) auto;
+            min-height: calc(100vh - var(--page-margin-double, 4rem));
+        }
+        
+        /* 大屏幕下的边距控制类适配 */
+        @media (min-width: 1200px) {
+            .post-detail-container.margin-small {
+                margin: 1rem 1rem;
+            }
+            
+            .post-detail-container.margin-medium {
+                margin: 2rem 1rem;
+            }
+            
+            .post-detail-container.margin-large {
+                margin: 3rem 1rem;
+            }
+            
+            .post-detail-container.margin-custom {
+                margin: var(--page-margin, 2rem) 1rem;
+            }
+        }
+        
+        @media (min-width: 1500px) {
+            .post-detail-container.margin-small {
+                margin: 1rem 0.5rem;
+            }
+            
+            .post-detail-container.margin-medium {
+                margin: 2rem 0.5rem;
+            }
+            
+            .post-detail-container.margin-large {
+                margin: 3rem 0.5rem;
+            }
+            
+            .post-detail-container.margin-custom {
+                margin: var(--page-margin, 2rem) 0.5rem;
+            }
+        }
+        
+        @media (min-width: 1800px) {
+            .post-detail-container.margin-small {
+                margin: 1rem 0;
+            }
+            
+            .post-detail-container.margin-medium {
+                margin: 2rem 0;
+            }
+            
+            .post-detail-container.margin-large {
+                margin: 3rem 0;
+            }
+            
+            .post-detail-container.margin-custom {
+                margin: var(--page-margin, 2rem) 0;
+            }
+        }
+        
+        /* 文化背景装饰 */
+        .post-detail-container::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(201, 56, 56, 0.03) 0%, transparent 25%),
+                radial-gradient(circle at 80% 70%, rgba(52, 152, 219, 0.03) 0%, transparent 25%),
+                linear-gradient(135deg, rgba(248, 249, 250, 0.95) 0%, rgba(233, 236, 239, 0.95) 100%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        /* 文化边框装饰 */
+        .post-detail-container::after {
+            content: '';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: calc(100% - 4rem);
+            height: calc(100% - 4rem);
+            border: 2px solid rgba(201, 56, 56, 0.1);
+            border-radius: 12px;
+            pointer-events: none;
+            z-index: -1;
+            box-shadow: 
+                inset 0 0 50px rgba(201, 56, 56, 0.05),
+                inset 0 0 30px rgba(52, 152, 219, 0.05);
+        }
+        
+        /* 专业级导航栏 */
+        .professional-nav {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        
+        .nav-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 2rem;
+        }
+        
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: white;
+            text-decoration: none;
+            font-size: 1.4rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-brand:hover {
+            transform: translateX(-5px);
+            color: #ecf0f1;
+        }
+        
+        .nav-brand i {
+            font-size: 1.6rem;
+            color: #e74c3c;
+        }
+        
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 专业级面包屑导航 */
+        .professional-breadcrumb {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+        }
+        
+        .breadcrumb-content {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.95rem;
+            color: #7f8c8d;
+        }
+        
+        .breadcrumb-link {
+            color: #3498db;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+        
+        .breadcrumb-link:hover {
+            background: rgba(52, 152, 219, 0.1);
+            color: #2980b9;
+            transform: translateY(-1px);
+        }
+        
+        .breadcrumb-separator {
+            color: #bdc3c7;
+            font-weight: 300;
+        }
+        
+        .breadcrumb-current {
+            color: #2c3e50;
+            font-weight: 600;
+            background: rgba(44, 62, 80, 0.05);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+        
+        /* 专业级帖子容器 - 加宽并增强文化感 */
+        .professional-post {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 
+                0 12px 40px rgba(0, 0, 0, 0.15),
+                0 4px 20px rgba(201, 56, 56, 0.08);
+            overflow: hidden;
+            margin-bottom: 2rem;
+            border: 2px solid rgba(255, 255, 255, 0.95);
+            position: relative;
+            max-width: 100%;
+        }
+        
+        /* 文化装饰边框 */
+        .professional-post::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 1px solid rgba(201, 56, 56, 0.1);
+            border-radius: 20px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        /* 帖子头部 - 专业级设计，增强文化感 */
+        .post-header-pro {
+            background: linear-gradient(135deg, #c93838 0%, #a62c2c 100%);
+            padding: 2rem 1.5rem;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 3px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .post-header-pro::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>'),
+                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 40%);
+            opacity: 0.4;
+        }
+        
+        /* 文化装饰元素 */
+        .post-header-pro::after {
+            content: '❖';
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 2rem;
+            color: rgba(255, 255, 255, 0.3);
+            font-family: serif;
+            transform: rotate(15deg);
+        }
+        
+        .author-info-pro {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+        
+        .author-info-pro::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .author-avatar-pro {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: 600;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .author-avatar-pro:hover {
+            transform: scale(1.05) rotate(5deg);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
+        }
+        
+        .author-details-pro {
+            flex: 1;
+            color: white;
+        }
+        
+        .author-name-pro {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .author-meta-pro {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
+        
+        .author-level-pro {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-weight: 500;
+        }
+        
+        .post-time-pro {
+            font-style: italic;
+        }
+        
+        .follow-btn-pro {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .follow-btn-pro:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        /* 帖子内容区域 */
+        .post-content-pro {
+            padding: 2rem 1.5rem;
+            line-height: 1.9;
+            font-size: 1.15rem;
+            color: #2c3e50;
+            background: white;
+            max-width: 100%;
+            position: relative;
+        }
+        
+        .post-content-pro::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 1.5rem;
+            right: 1.5rem;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(201, 56, 56, 0.3), transparent);
+        }
+        
+        .post-content-pro::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 1.5rem;
+            right: 1.5rem;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(52, 152, 219, 0.3), transparent);
+        }
+        
+        .post-title-pro {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            line-height: 1.3;
+            text-align: center;
+        }
+        
+        .post-tags-pro {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .post-tag-pro {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .post-body-pro {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #34495e;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .post-body-pro p {
+            margin-bottom: 1.5rem;
+        }
+        
+        .post-body-pro img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 1rem 0;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 帖子操作区域 */
+        .post-actions-pro {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .action-btn-pro {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            color: #7f8c8d;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .action-btn-pro:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .action-btn-pro.active {
+            background: #e74c3c;
+            color: white;
+            border-color: #e74c3c;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .post-detail-container {
+                padding: 1rem;
+            }
+            
+            .nav-container {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .author-info-pro {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .post-title-pro {
+                font-size: 1.8rem;
+            }
+            
+            .post-content-pro {
+                padding: 2rem 1rem;
+            }
+        }
+        
+        /* 动画效果 */
+        .fade-in-pro {
+            animation: fadeInPro 0.8s ease-out;
+        }
+        
+        @keyframes fadeInPro {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.6s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
+            align-items: center;
+            text-decoration: none;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+        
+        .logo a:hover {
+            transform: scale(1.05);
+        }
+        
+        .logo span {
+            font-size: 1.4rem;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* 导航菜单 */
+        .nav {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            flex: 1;
+            justify-content: center;
+        }
+        
+        .nav a {
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            white-space: nowrap;
+        }
+        
+        .nav a:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .nav a.active {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.2);
+            font-weight: 600;
+        }
+        
+        .nav a.active::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 2px;
+            background-color: #ffd700;
+            border-radius: 1px;
+        }
+        
+        /* 用户操作区 */
+        .user-actions {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-icon {
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            font-weight: 600;
+            font-size: 0.9rem;
+            background-color: rgb(140, 46, 46);
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .user-icon:hover {
+            transform: scale(1.1);
+        }
+        
+        /* 面包屑导航增强 - 重新设计 */
+        .breadcrumb {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 249, 250, 0.9));
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            margin: 1rem 0 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            font-size: 0.9rem;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            max-width: 100%;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .breadcrumb:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .breadcrumb-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .breadcrumb a {
+            color: #c93838;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        .breadcrumb a:hover {
+            color: #a62c2c;
+            background-color: rgba(201, 56, 56, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .breadcrumb .separator {
+            color: #999;
+            font-size: 0.8rem;
+        }
+        
+        .breadcrumb .current {
+            color: #333;
+            font-weight: 600;
+            background-color: rgba(201, 56, 56, 0.05);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+        }
+        
+        /* 返回按钮增强 - 重新设计 */
+        .back-to-forum-btn {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #fff, #f8f9fa);
+            border: 2px solid #c93838;
+            border-radius: 25px;
+            color: #c93838;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        .back-to-forum-btn:hover {
+            background: linear-gradient(135deg, #c93838, #a62c2c);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(201, 56, 56, 0.3);
+        }
+        
+        .back-to-forum-btn:active {
+            transform: translateY(0) scale(0.95);
+        }
+        
+        .back-to-forum-btn i {
+            transition: transform 0.3s ease;
+        }
+        
+        .back-to-forum-btn:hover i {
+            transform: translateX(-3px);
+        }
+        
+        /* 作者头像悬停效果增强 - 重新设计 */
+        .author-avatar {
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #fff, #f0f0f0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #c93838;
+            border: 4px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 
+                0 4px 15px rgba(0, 0, 0, 0.2),
+                inset 0 2px 4px rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        
+        .author-avatar:hover {
+            transform: scale(1.05) rotate(2deg);
+            box-shadow: 
+                0 6px 20px rgba(0, 0, 0, 0.3),
+                inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        }
+        
+        .author-avatar:hover {
+            box-shadow: 
+                0 8px 25px rgba(0, 0, 0, 0.3),
+                inset 0 2px 4px rgba(255, 255, 255, 0.3),
+                0 0 0 4px rgba(255, 215, 0, 0.3);
+        }
+        
+        /* 关注按钮点击效果 */
+        .follow-btn {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .follow-btn:active {
+            transform: translateY(0) scale(0.95);
+        }
+        
+        /* 导航链接悬停效果 */
+        .nav a {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .nav a:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Logo悬停效果 */
+        .logo a {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .logo a:hover {
+            transform: scale(1.05) rotate(-1deg);
+        }
+        
+        /* 用户图标悬停效果 */
+        .user-icon {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        
+        .user-icon:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 专业级评论区样式 - 加宽并增强文化感 */
+        .comments-section-pro {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 
+                0 12px 40px rgba(0, 0, 0, 0.15),
+                0 4px 20px rgba(52, 152, 219, 0.08);
+            overflow: hidden;
+            margin-bottom: 2rem;
+            border: 2px solid rgba(255, 255, 255, 0.95);
+            position: relative;
+            max-width: 100%;
+            padding: 1.5rem;
+        }
+        
+        .comments-section-pro::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 1px solid rgba(52, 152, 219, 0.1);
+            border-radius: 20px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .comments-header-pro {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .comments-header-pro h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .comment-count-pro {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .comment-form-pro {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .comment-form-pro textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 1rem;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            resize: vertical;
+            font-family: inherit;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .comment-form-pro textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        .comment-actions-pro {
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .submit-btn-pro {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .submit-btn-pro:hover {
+            background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(34, 153, 84, 0.3);
+        }
+        
+        .comments-list-pro {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .comment-item-pro {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .comment-item-pro:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .comment-header-pro {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .comment-avatar-pro {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .comment-author-pro {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .comment-time-pro {
+            color: #7f8c8d;
+            font-size: 0.85rem;
+        }
+        
+        .comment-content-pro {
+            color: #34495e;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        
+        .comment-actions-pro {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .comment-action-btn {
+            background: none;
+            border: none;
+            color: #7f8c8d;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .comment-action-btn:hover {
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <!-- 专业级页面容器 -->
+    <div class="post-detail-container margin-medium">
+        <!-- 专业级导航栏 -->
+        <nav class="professional-nav fade-in-pro">
+            <div class="nav-container">
+                <a href="../index.html" class="nav-brand">
+                    <i class="fas fa-landmark"></i>
+                    非遗传承网
+                </a>
+                
+                <div class="nav-actions">
+                    <a href="forum.html" class="nav-btn">
+                        <i class="fas fa-arrow-left"></i>
+                        返回论坛
+                    </a>
+                    <div class="nav-btn" id="userIcon" title="elaine (点击查看个人中心)" style="background-color: #e74c3c; border-color: #e74c3c;">
+                        <i class="fas fa-user"></i>
+                        elaine
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 专业级面包屑导航 -->
+        <div class="professional-breadcrumb slide-in">
+            <div class="breadcrumb-content">
+                <a href="../index.html" class="breadcrumb-link">首页</a>
+                <span class="breadcrumb-separator">/</span>
+                <a href="forum.html" class="breadcrumb-link">非遗论坛</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current">帖子详情</span>
+            </div>
+        </div>
+
+        <!-- 专业级帖子容器 -->
+        <div class="professional-post fade-in-pro">
+            <!-- 帖子头部 - 专业级设计 -->
+            <div class="post-header-pro">
+                <div class="author-info-pro">
+                    <div id="authorAvatar" class="author-avatar-pro">
+                        <!-- 作者头像或首字母 -->
+                    </div>
+                    
+                    <div class="author-details-pro">
+                        <h2 id="authorName" class="author-name-pro">
+                            <!-- 作者名称 -->
+                        </h2>
+                        
+                        <div class="author-meta-pro">
+                            <span id="authorLevel" class="author-level-pro">
+                                <!-- 作者等级 -->
+                            </span>
+                            <span id="postTime" class="post-time-pro">
+                                <!-- 发布时间 -->
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <button id="followBtn" class="follow-btn-pro">
+                        <i class="fas fa-plus"></i>
+                        关注作者
+                    </button>
+                </div>
+            </div>
+
+            <!-- 帖子内容区域 -->
+            <div class="post-content-pro">
+                <!-- 帖子标题 -->
+                <h1 id="postTitle" class="post-title-pro">
+                    <!-- 帖子标题 -->
+                </h1>
+
+                <!-- 帖子标签 -->
+                <div id="postTags" class="post-tags-pro">
+                    <!-- 标签将通过JS动态生成 -->
+                </div>
+
+                <!-- 帖子内容 -->
+                <div id="postSkeleton" class="post-skeleton">
+                    <!-- 加载骨架屏 -->
+                    <div class="skeleton-content"></div>
+                </div>
+                
+                <div id="postContentWrapper" class="post-content-wrapper" style="display: none;">
+                    <div id="postContent" class="post-body-pro">
+                        <!-- 帖子内容将通过JS动态生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 帖子操作区域 -->
+            <div class="post-actions-pro">
+                <div class="action-group">
+                    <button id="likeBtn" class="action-btn-pro like-btn">
+                        <i class="fas fa-heart"></i>
+                        <span id="likeCount">0</span>
+                    </button>
+                    
+                    <button id="favoriteBtn" class="action-btn-pro favorite-btn">
+                        <i class="fas fa-star"></i>
+                        <span id="favoriteCount">0</span>
+                    </button>
+                    
+                    <button id="shareBtn" class="action-btn-pro share-btn">
+                        <i class="fas fa-share-alt"></i>
+                        分享
+                    </button>
+                </div>
+                
+                <div id="adminActions" class="admin-actions" style="display: none;">
+                    <button id="pinPostBtn" class="action-btn-pro">
+                        <i class="fas fa-thumbtack"></i>
+                        置顶
+                    </button>
+                    
+                    <button id="featurePostBtn" class="action-btn-pro">
+                        <i class="fas fa-star"></i>
+                        设为精华
+                    </button>
+                    
+                    <button id="editPostBtn" class="action-btn-pro">
+                        <i class="fas fa-edit"></i>
+                        编辑
+                    </button>
+                    
+                    <button id="deletePostBtn" class="action-btn-pro">
+                        <i class="fas fa-trash"></i>
+                        删除
+                    </button>
+                </div>
+            </div>
+
+            <!-- 专业级评论区 -->
+            <div class="comments-section-pro slide-in">
+                <div class="comments-header-pro">
+                    <h3>评论</h3>
+                    <span id="commentCount" class="comment-count-pro">0 条评论</span>
+                </div>
+
+                <!-- 评论表单 -->
+                <div class="comment-form-pro">
+                    <textarea id="commentInput" placeholder="写下你的评论..." rows="3"></textarea>
+                    <div class="comment-actions-pro">
+                        <button id="submitCommentBtn" class="submit-btn-pro">发表评论</button>
+                    </div>
+                </div>
+
+                <!-- 评论列表 -->
+                <div id="commentsList" class="comments-list-pro">
+                    <!-- 评论将通过JS动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分享模态框 -->
+    <div id="shareModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>分享帖子</h3>
+                <button id="closeShareModal" class="close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="share-link">
+                    <input type="text" id="shareLinkInput" readonly>
+                    <button id="copyLinkBtn" class="copy-btn">
+                        复制链接
+                    </button>
+                </div>
+                
+                <div class="share-options">
+                    <button class="share-option">
+                        <i class="fab fa-weixin"></i>
+                        微信
+                    </button>
+                    
+                    <button class="share-option">
+                        <i class="fab fa-weibo"></i>
+                        微博
+                    </button>
+                    
+                    <button class="share-option">
+                        <i class="fas fa-qrcode"></i>
+                        二维码
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 举报模态框 -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>举报帖子</h3>
+                <button id="closeReportModal" class="close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="reportForm">
+                    <div class="form-group">
+                        <label for="reportReason">举报原因</label>
+                        <textarea id="reportReason" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" id="cancelReport" class="cancel-btn">
+                            取消
+                        </button>
+                        
+                        <button type="submit" class="submit-btn">
+                            提交
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录提示模态框 -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>登录提示</h3>
+                <button id="closeLoginModal" class="close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <p>您需要登录后才能进行此操作。</p>
+                
+                <div class="form-actions">
+                    <button type="button" id="cancelLogin" class="cancel-btn">
+                        取消
+                    </button>
+                    
+                    <button type="button" id="goToLogin" class="submit-btn">
+                        前往登录
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 返回顶部按钮 -->
+    <button id="scrollToTopBtn" class="scroll-to-top-btn">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- 通知提示 -->
+    <div id="notification" class="notification">
+        <span id="notificationMessage"></span>
+    </div>
+
+    <!-- 引入JavaScript库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+
+    <!-- 引入自定义JavaScript -->
+    <script src="../js/common/utils.js"></script>
+    <script src="../js/common/api.js"></script>
+    <script src="../js/common/auth.js"></script>
+    <script src="../js/api/forum-api.js"></script>
+    <script src="../js/pages/post-detail.js"></script>
+
+    <!-- 页面初始化脚本 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化帖子详情管理器
+            const postManager = new PostDetailManager();
+        });
+    </script>
+</body>
+</html>

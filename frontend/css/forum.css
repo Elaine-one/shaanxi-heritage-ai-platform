@@ -1,0 +1,1540 @@
+/* 论坛页面样式 - 现代化设计 */
+:root {
+    --shaanxi-red: #BC2E24;
+    --shaanxi-dark-red: #8B1E1E;
+    --shaanxi-gold: #DAA520;
+    --shaanxi-earth: #8B4513;
+    --shaanxi-light-earth: #F5E6D3;
+    --shaanxi-dark: #2C1810;
+    --shaanxi-gray: #696969;
+    --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    
+    /* 现代化配色方案 */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --bg-tertiary: #f1f3f4;
+    --text-primary: #1a1a1a;
+    --text-secondary: #5f6368;
+    --text-muted: #9aa0a6;
+    --border-light: #e8eaed;
+    --border-medium: #dadce0;
+    --hover-bg: #f8f9fa;
+    --active-bg: #e8f0fe;
+    --radius-small: 4px;
+    --radius-medium: 8px;
+    --radius-large: 12px;
+    --shadow-light: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    --shadow-medium: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+    --shadow-heavy: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+}
+
+/* 用户头像样式定义 */
+.user-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #8c2e2e;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.user-icon:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 页面标题区域 */
+.page-header {
+    background: linear-gradient(135deg, var(--shaanxi-red) 0%, var(--shaanxi-dark-red) 100%);
+    color: white;
+    padding: 0.6rem 0 0.5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+}
+
+.page-header .container {
+    width: 100%;
+    margin: 0;
+    padding: 0 2rem;
+}
+
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="%23ffffff" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>') repeat;
+    opacity: 0.3;
+}
+
+.page-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--shaanxi-gold), var(--shaanxi-red), var(--shaanxi-gold));
+}
+
+.page-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.page-title i {
+    margin-right: 1rem;
+    color: var(--shaanxi-gold);
+    text-shadow: none;
+}
+
+.page-subtitle {
+    font-size: 1rem;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    margin: 0;
+}
+
+/* 主内容区域 */
+.main-content {
+    max-width: 2200px;
+    margin: 0 auto;
+    background-color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(193, 48, 48, 0.1);
+    border-top: none;
+}
+
+/* 论坛容器 - 现代化布局 */
+.forum-container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 2rem 2.5rem;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 32px;
+    align-items: start;
+    min-height: calc(100vh - 200px);
+}
+
+/* 主栏样式 - 卡片式设计 */
+.main-column {
+    background: var(--bg-primary);
+    border-radius: var(--radius-medium);
+    box-shadow: var(--shadow-light);
+    overflow: hidden;
+    border: 1px solid var(--border-light);
+}
+
+/* 功能控制区 - 现代化设计 */
+.forum-controls {
+    background: var(--bg-secondary);
+    padding: 28px 32px;
+    border-bottom: 1px solid var(--border-light);
+    backdrop-filter: blur(10px);
+}
+
+/* 排序选项卡 - 现代化设计 */
+.sort-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    background: var(--bg-tertiary);
+    padding: 8px;
+    border-radius: var(--radius-medium);
+    position: relative;
+}
+
+.sort-tab {
+    background: transparent;
+    border: none;
+    padding: 16px 24px;
+    border-radius: var(--radius-small);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    position: relative;
+    z-index: 1;
+}
+
+.sort-tab:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+}
+
+.sort-tab.active {
+    background: var(--bg-primary);
+    color: var(--shaanxi-red);
+    box-shadow: var(--shadow-light);
+    font-weight: 600;
+}
+
+/* 筛选和搜索区 - 现代化设计 */
+.filter-search {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.tag-filter {
+    padding: 14px 16px;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-small);
+    background: var(--bg-primary);
+    min-width: 160px;
+    font-size: 16px;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+}
+
+.tag-filter:focus {
+    outline: none;
+    border-color: var(--shaanxi-red);
+    box-shadow: 0 0 0 3px rgba(188, 46, 36, 0.1);
+}
+
+.search-box {
+    display: flex;
+    flex: 1;
+    max-width: 400px;
+    position: relative;
+    border-radius: var(--radius-small);
+    overflow: hidden;
+    box-shadow: var(--shadow-light);
+}
+
+.search-box input {
+    flex: 1;
+    padding: 14px 20px;
+    border: 1px solid var(--border-medium);
+    border-right: none;
+    border-radius: var(--radius-small) 0 0 var(--radius-small);
+    font-size: 16px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--shaanxi-red);
+    box-shadow: 0 0 0 3px rgba(188, 46, 36, 0.1);
+}
+
+.search-box input::placeholder {
+    color: var(--text-muted);
+}
+
+.search-btn {
+    background: var(--shaanxi-red);
+    color: white;
+    border: 1px solid var(--shaanxi-red);
+    padding: 14px 20px;
+    border-radius: 0 var(--radius-small) var(--radius-small) 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.search-btn:hover {
+    background: var(--shaanxi-dark-red);
+    transform: translateY(-1px);
+}
+
+/* 发布新帖按钮 - 现代化设计 */
+.new-post-btn {
+    background: linear-gradient(135deg, var(--shaanxi-red) 0%, var(--shaanxi-dark-red) 100%);
+    color: white;
+    border: none;
+    padding: 28px 40px;
+    margin: 32px 32px;
+    border-radius: var(--radius-medium);
+    font-size: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-medium);
+    width: calc(100% - 64px);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.new-post-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.new-post-btn:hover::before {
+    left: 100%;
+}
+
+.new-post-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-heavy);
+}
+
+.new-post-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-light);
+}
+
+.new-post-btn i {
+    font-size: 18px;
+}
+
+/* 帖子列表 - 现代化卡片设计 */
+.post-list {
+    padding: 0;
+    background: var(--bg-primary);
+}
+
+.post-item {
+    display: flex;
+    padding: 32px 40px;
+    border-bottom: 1px solid var(--border-light);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    position: relative;
+    background: var(--bg-primary);
+    min-height: 120px;
+}
+
+.post-item:hover {
+    background: var(--hover-bg);
+    transform: translateX(4px);
+    border-left: 3px solid var(--shaanxi-red);
+    padding-left: 37px;
+}
+
+.post-item:last-child {
+    border-bottom: none;
+    border-bottom-left-radius: var(--radius-medium);
+    border-bottom-right-radius: var(--radius-medium);
+}
+
+/* 帖子状态标识 */
+.post-status {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.25rem;
+}
+
+.status-badge {
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-pinned {
+    background: #ffc107;
+    color: #856404;
+}
+
+.status-featured {
+    background: #28a745;
+    color: white;
+}
+
+.status-hot {
+    background: #dc3545;
+    color: white;
+}
+
+.status-new-reply {
+    background: #007bff;
+    color: white;
+}
+
+/* 帖子头像 - 现代化设计 */
+.post-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    margin-right: 24px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, var(--shaanxi-red), var(--shaanxi-gold));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-light);
+    position: relative;
+    overflow: hidden;
+}
+
+.post-avatar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+}
+
+.post-avatar:hover::before {
+    transform: translateX(100%);
+}
+
+.post-avatar:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-medium);
+}
+
+.post-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    position: relative;
+    z-index: 1;
+}
+
+/* 帖子内容 - 现代化设计 */
+.post-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 0;
+}
+
+.post-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+    text-decoration: none;
+    display: block;
+    margin: 0;
+    transition: color 0.2s ease;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.post-title:hover {
+    color: var(--shaanxi-red);
+}
+
+.post-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.post-author {
+    font-weight: 500;
+    color: var(--shaanxi-red);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.post-author:hover {
+    color: var(--shaanxi-dark-red);
+}
+
+.post-time {
+    color: var(--text-muted);
+}
+
+.post-time::before {
+    content: '•';
+    margin-right: 8px;
+    color: var(--border-medium);
+}
+
+/* 关注按钮样式 */
+.follow-btn {
+    padding: 4px 12px;
+    background: var(--shaanxi-red);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-left: 12px;
+    white-space: nowrap;
+}
+
+.follow-btn:hover {
+    background: var(--shaanxi-dark-red);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(188, 46, 36, 0.3);
+}
+
+.follow-btn.following {
+    background: var(--shaanxi-gray);
+    color: white;
+}
+
+.follow-btn.following:hover {
+    background: #555;
+}
+
+.follow-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.last-reply {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.last-reply-author {
+    color: var(--shaanxi-red);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.last-reply-author:hover {
+    color: var(--shaanxi-dark-red);
+}
+
+/* 帖子统计数据 - 现代化设计 */
+.post-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 0;
+    transition: color 0.2s ease;
+}
+
+.stat-item:hover {
+    color: var(--shaanxi-red);
+}
+
+.stat-item i {
+    color: var(--text-muted);
+    font-size: 13px;
+    transition: color 0.2s ease;
+}
+
+.stat-item:hover i {
+    color: var(--shaanxi-red);
+}
+
+/* 帖子标签 - 现代化设计 */
+.post-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 0;
+}
+
+.post-tag {
+    background: white;
+    color: var(--shaanxi-red);
+    padding: 10px 16px;
+    border-radius: var(--radius-small);
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid var(--shaanxi-red);
+    line-height: 1;
+    box-shadow: 0 2px 8px rgba(188, 46, 36, 0.15);
+}
+
+.post-tag:hover {
+    background: var(--shaanxi-red);
+    color: white;
+    border-color: var(--shaanxi-red);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(188, 46, 36, 0.3);
+}
+
+/* 快速操作按钮 */
+.post-actions {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.post-item:hover .post-actions {
+    opacity: 1;
+}
+
+.action-btn {
+    background: none;
+    border: 1px solid #ddd;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.8rem;
+}
+
+.action-btn:hover {
+    background: var(--shaanxi-red);
+    color: white;
+    border-color: var(--shaanxi-red);
+}
+
+/* 加载更多 */
+.load-more-container {
+    padding: 2rem;
+    text-align: center;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-light);
+}
+
+.load-more-btn {
+    background: var(--shaanxi-red);
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+    box-shadow: var(--shadow-light);
+}
+
+.load-more-btn:hover {
+    background: var(--shaanxi-dark-red);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+.pagination-info {
+    margin-top: 1rem;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* 侧边栏 */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* 大屏幕优化 - 1400px以上 */
+@media (min-width: 1400px) {
+    .forum-container {
+        max-width: 95%;
+        margin: 0 auto;
+        grid-template-columns: 7fr 3fr;
+        padding: 2rem 3rem;
+        gap: 40px;
+    }
+    
+    /* 帖子内容区域在大屏幕上更宽敞 */
+    .post-content {
+        gap: 24px;
+    }
+    
+    .post-title {
+        font-size: 36px;
+    }
+    
+    .post-meta {
+        font-size: 20px;
+    }
+    
+    .last-reply {
+        font-size: 20px;
+    }
+    
+    .post-stats {
+        font-size: 20px;
+    }
+}
+
+/* 超大屏幕优化 - 1800px以上 */
+@media (min-width: 1800px) {
+    .forum-container {
+        max-width: 90%;
+        grid-template-columns: 8fr 2fr;
+        padding: 2rem 4rem;
+    }
+    
+    /* 主内容区在超大屏幕上充分利用空间 */
+    .main-column {
+        max-width: 100%;
+    }
+    
+    .new-post-btn {
+        margin: 32px 48px;
+        width: calc(100% - 96px);
+    }
+    
+    .post-item {
+        padding: 32px 48px;
+    }
+    
+    .post-item:hover {
+        padding-left: 45px;
+    }
+}
+
+/* 响应式设计 - 1024px以下 */
+@media (max-width: 1024px) {
+    .forum-container {
+        max-width: 100%;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 0 15px;
+    }
+    
+    .sidebar {
+        order: -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .forum-container {
+        padding: 0 10px;
+        margin: 0.5rem auto 0;
+    }
+    
+    .post-item {
+        padding: 0.75rem 1rem;
+    }
+    
+    .post-avatar {
+        width: 40px;
+        height: 40px;
+        margin-right: 0.75rem;
+    }
+    
+    .sidebar {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 侧边栏 - 现代化设计 */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.sidebar-section {
+    background: var(--bg-primary);
+    border-radius: var(--radius-medium);
+    box-shadow: var(--shadow-light);
+    overflow: hidden;
+    border: 1px solid var(--border-light);
+    transition: all 0.3s ease;
+}
+
+.sidebar-section:hover {
+    box-shadow: var(--shadow-medium);
+    transform: translateY(-2px);
+}
+
+.sidebar-section h3 {
+    background: linear-gradient(135deg, var(--shaanxi-red) 0%, var(--shaanxi-dark-red) 100%);
+    color: white;
+    padding: 24px 28px;
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar-section h3::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+}
+
+.sidebar-section:hover h3::before {
+    transform: translateX(100%);
+}
+
+.sidebar-section h3 i {
+    margin-right: 8px;
+    color: var(--shaanxi-gold);
+    font-size: 14px;
+}
+
+/* 置顶公告 - 现代化设计 */
+.announcement-list {
+    padding: 24px;
+}
+
+.announcement-item {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-light);
+    transition: all 0.2s ease;
+}
+
+.announcement-item:last-child {
+    border-bottom: none;
+}
+
+.announcement-item:hover {
+    background: var(--hover-bg);
+    margin: 0 -24px;
+    padding: 16px 24px;
+    border-radius: var(--radius-small);
+}
+
+.announcement-item a {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+    display: block;
+    margin-bottom: 6px;
+    font-size: 18px;
+    line-height: 1.4;
+    transition: color 0.2s ease;
+}
+
+.announcement-item a:hover {
+    color: var(--shaanxi-red);
+}
+
+.announcement-date {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+/* 热门标签云 - 现代化设计 */
+.tags {
+    padding: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tag-item {
+    background: white;
+    color: var(--shaanxi-red);
+    padding: 10px 18px;
+    border-radius: var(--radius-full);
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid var(--shaanxi-red);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(188, 46, 36, 0.15);
+}
+
+.tag-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.tag-item:hover::before {
+    left: 100%;
+}
+
+.tag-item:hover {
+    background: var(--shaanxi-red);
+    color: white;
+    border-color: var(--shaanxi-red);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(188, 46, 36, 0.3);
+}
+
+.tag {
+    background: var(--light-bg);
+    color: var(--shaanxi-red);
+    padding: 0.4rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.tag:hover {
+    background: var(--shaanxi-red);
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* 活跃用户排行榜 - 简化设计 */
+.user-ranking {
+    padding: 20px;
+}
+
+.ranking-item {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--border-light);
+    transition: all 0.2s ease;
+    border-radius: var(--radius-small);
+}
+
+.ranking-item:last-child {
+    border-bottom: none;
+}
+
+.ranking-item:hover {
+    background: var(--hover-bg);
+    margin: 0 -16px;
+    padding: 12px 16px;
+    transform: translateX(2px);
+}
+
+.ranking-number {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--shaanxi-red) 0%, var(--shaanxi-dark-red) 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 12px;
+    box-shadow: var(--shadow-light);
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.ranking-number.top-3 {
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+    color: #333;
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
+.ranking-item:hover .ranking-number {
+    transform: scale(1.05);
+}
+
+.ranking-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--shaanxi-red);
+    border: 2px solid var(--border-light);
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.ranking-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.ranking-item:hover .ranking-avatar {
+    border-color: var(--shaanxi-red);
+    transform: scale(1.05);
+}
+
+/* 版规摘要 - 现代化设计 */
+.rules-content {
+    padding: 24px;
+}
+
+.rules-content ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.rules-content li {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border-light);
+    position: relative;
+    padding-left: 28px;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.rules-content li:last-child {
+    border-bottom: none;
+}
+
+.rules-content li:hover {
+    color: var(--text-primary);
+    background: var(--hover-bg);
+    margin: 0 -20px;
+    padding: 12px 44px 12px 44px;
+    border-radius: var(--radius-small);
+}
+
+.rules-content li::before {
+    content: '•';
+    position: absolute;
+    left: 8px;
+    top: 12px;
+    color: var(--shaanxi-red);
+    font-weight: bold;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.rules-content li:before {
+    content: '•';
+    color: var(--shaanxi-red);
+    position: absolute;
+    left: 0;
+    font-weight: 600;
+}
+
+.rules-content li:last-child {
+    border-bottom: none;
+}
+
+.view-full-rules {
+    color: var(--shaanxi-red);
+    text-decoration: none;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    display: inline-block;
+}
+
+.view-full-rules:hover {
+    text-decoration: underline;
+}
+
+/* 模态框样式 - 现代化设计 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-content {
+    background: var(--bg-primary);
+    border-radius: var(--radius-large);
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: var(--shadow-heavy);
+    border: 1px solid var(--border-light);
+    animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border-light);
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.close-btn:hover {
+    background: var(--shaanxi-red);
+    color: white;
+    border-color: var(--shaanxi-red);
+    transform: scale(1.05);
+}
+
+.modal-body {
+    padding: 28px;
+    overflow-y: auto;
+    max-height: calc(90vh - 120px);
+}
+
+/* 表单样式 - 现代化设计 */
+.form-group {
+    margin-bottom: 24px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius-medium);
+    font-size: 14px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--shaanxi-red);
+    box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
+    background: var(--bg-primary);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 120px;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--shaanxi-red);
+    box-shadow: 0 0 0 2px rgba(193, 48, 48, 0.2);
+}
+
+.char-count {
+    text-align: right;
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.tag-selector small {
+    display: block;
+    margin-top: 0.25rem;
+    color: #666;
+    font-size: 0.8rem;
+}
+
+/* 表单操作按钮 - 现代化设计 */
+.form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-light);
+}
+
+.btn-cancel,
+.btn-submit {
+    padding: 12px 24px;
+    border-radius: var(--radius-medium);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+    min-width: 100px;
+}
+
+.btn-cancel {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border-color: var(--border-light);
+}
+
+.btn-cancel:hover {
+    background: var(--hover-bg);
+    color: var(--text-primary);
+    border-color: var(--border-medium);
+    transform: translateY(-1px);
+}
+
+.btn-submit {
+    background: linear-gradient(135deg, var(--shaanxi-red) 0%, var(--shaanxi-dark-red) 100%);
+    color: white;
+    border-color: var(--shaanxi-red);
+    box-shadow: var(--shadow-light);
+}
+
+.btn-submit::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-submit:hover::before {
+    left: 100%;
+}
+
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+.btn-submit:active {
+    transform: translateY(0);
+}
+
+/* 返回顶部按钮 - 现代化设计 */
+.back-to-top {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--shaanxi-red) 0%, var(--shaanxi-dark-red) 100%);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    box-shadow: var(--shadow-medium);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.back-to-top::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%);
+    transform: rotate(-45deg) scale(0);
+    transition: transform 0.6s;
+}
+
+.back-to-top:hover::before {
+    transform: rotate(45deg) scale(1);
+}
+
+.back-to-top:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: var(--shadow-heavy);
+}
+
+.back-to-top.show {
+    display: flex;
+    animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 加载骨架屏 */
+.loading-skeleton {
+    padding: 1rem;
+}
+
+.skeleton-post {
+    display: flex;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.skeleton-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    margin-right: 1rem;
+}
+
+.skeleton-content {
+    flex: 1;
+}
+
+.skeleton-title {
+    height: 20px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    width: 70%;
+}
+
+.skeleton-meta {
+    height: 16px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    width: 50%;
+}
+
+.skeleton-stats {
+    height: 14px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px;
+    width: 40%;
+}
+
+@keyframes loading {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* 动画效果 */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0px);
+    }
+    to {
+        opacity: 1;
+        backdrop-filter: blur(4px);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200px 0;
+    }
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+@keyframes bounceIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+    70% {
+        transform: scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .forum-container {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .sidebar {
+        order: -1;
+    }
+    
+    .filter-search {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .search-box {
+        max-width: none;
+    }
+    
+    .post-item {
+        padding: 1rem;
+    }
+    
+    .post-avatar {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .post-title {
+        font-size: 1.1rem;
+    }
+    
+    .post-meta {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .post-stats {
+        flex-wrap: wrap;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 1rem;
+    }
+    
+    .back-to-top {
+        bottom: 1rem;
+        right: 1rem;
+        width: 45px;
+        height: 45px;
+    }
+}

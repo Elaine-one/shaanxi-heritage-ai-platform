@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>非遗资讯 - 陕西非物质文化遗产保护平台</title>
+    <link rel="shortcut icon" href="../static/common/favicon.ico">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/news.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <h1>陕西非物质文化遗产 · 民间文化展示平台</h1>
+        </div>
+        <div class="header-right">
+            <div class="search-icon">🔍</div>
+            <div class="message-icon">💬</div>
+            <div class="refresh-icon">🔄</div>
+            <div class="date" id="current-date">加载中...</div>
+            <div class="user-icon">👤</div>
+        </div>
+    </header>
+    
+    <nav>
+        <ul class="main-nav">
+            <li><a href="../index.html">首页</a></li>
+            <li><a href="policy.html">相关政策</a></li>
+            <li><a href="news.html" class="active">非遗资讯</a></li>
+            <li><a href="non-heritage-list.html">非遗名录</a></li>
+            <li><a href="forum.html">非遗论坛</a></li>
+            <li><a href="heritage-map.html">非遗地图</a></li>
+            <li><a href="user-creation.html">用户创作</a></li>
+            <li><a href="#">传承人风采</a></li>
+        </ul>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="main-content">
+        <!-- 页面标题 -->
+        <section class="page-header">
+            <div class="container">
+                <h1 class="page-title">
+                    <i class="fas fa-newspaper"></i>
+                    非遗资讯
+                </h1>
+                <p class="page-subtitle">了解最新的非物质文化遗产动态与资讯</p>
+            </div>
+        </section>
+
+        <!-- 搜索和筛选 -->
+        <section class="search-filter-section">
+            <div class="container">
+                <div class="search-filter-container">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="搜索资讯标题、内容...">
+                        <button type="button" id="searchBtn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <div class="filter-options">
+                        <select id="sourceFilter">
+                            <option value="">全部来源</option>
+                        </select>
+                        <select id="tagFilter">
+                            <option value="">全部标签</option>
+                        </select>
+                        <select id="sortBy">
+                            <option value="-publish_date">最新发布</option>
+                            <option value="-view_count">最多浏览</option>
+                            <option value="publish_date">最早发布</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 资讯列表 -->
+        <section class="news-section">
+            <div class="container">
+                <div class="news-grid" id="newsGrid">
+                    <!-- 资讯卡片将通过JavaScript动态加载 -->
+                </div>
+                
+                <!-- 加载更多按钮 -->
+                <div class="load-more-container">
+                    <button id="loadMoreBtn" class="load-more-btn">
+                        <i class="fas fa-plus"></i>
+                        加载更多
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 资讯详情模态框 -->
+    <div id="newsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle"></h2>
+                <span class="close" id="closeModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="news-meta">
+                    <span class="news-author"><i class="fas fa-user"></i> <span id="modalAuthor"></span></span>
+                    <span class="news-date"><i class="fas fa-calendar"></i> <span id="modalDate"></span></span>
+                    <span class="news-source"><i class="fas fa-globe"></i> <span id="modalSource"></span></span>
+                    <span class="news-views"><i class="fas fa-eye"></i> <span id="modalViews"></span> 次浏览</span>
+                </div>
+                <div class="news-image" id="modalImageContainer">
+                    <img id="modalImage" alt="">
+                </div>
+                <div class="news-summary" id="modalSummary"></div>
+                <div class="news-content" id="modalContent"></div>
+                <div class="news-tags" id="modalTags"></div>
+                <div class="news-actions">
+                    <a id="modalSourceLink" href="#" target="_blank" class="source-link">
+                        <i class="fas fa-external-link-alt"></i>
+                        查看原文
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>陕西非遗保护平台</h3>
+                    <p>致力于保护和传承陕西省非物质文化遗产</p>
+                </div>
+                <div class="footer-section">
+                    <h4>快速链接</h4>
+                    <ul>
+                        <li><a href="../index.html">首页</a></li>
+                        <li><a href="heritage-map.html">非遗地图</a></li>
+                        <li><a href="non-heritage-list.html">非遗项目</a></li>
+                        <li><a href="news.html">非遗资讯</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>联系我们</h4>
+                    <p><i class="fas fa-envelope"></i> info@shaanxi-heritage.com</p>
+                    <p><i class="fas fa-phone"></i> 029-12345678</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 陕西非物质文化遗产保护平台. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/common/api.js" defer></script>
+<script src="../js/common/heritage-api.js" defer></script>
+<script src="../js/common/auth.js" defer></script>
+<script src="../js/api/user-profile-api.js" defer></script>
+
+<!-- 农历日期转换库 -->
+<script src="../js/lib/LunarSolarConverter.js" defer></script>
+<!-- 日期时间工具模块 -->
+<script src="../js/common/date-utils.js" defer></script>
+<!-- API工具模块 -->
+<script src="../js/common/api-utils.js" defer></script>
+
+<script src="../js/news.js" defer></script>
+</body>
+</html>

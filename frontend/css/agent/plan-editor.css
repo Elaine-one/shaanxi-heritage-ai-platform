@@ -1,0 +1,486 @@
+/* Plan Editor CSS Styles */
+/* 重置样式，确保一致的基础样式 */
+* {
+    box-sizing: border-box;
+}
+
+/* 聊天容器样式优化 */
+.chat-container {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    padding: 10px 0;
+    scroll-behavior: smooth;
+}
+
+/* 聊天消息容器 */
+.chat-message {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: flex-start;
+    padding: 0 10px;
+    animation: messageSlideIn 0.3s ease-out;
+}
+
+/* 消息滑入动画 */
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 旋转动画 */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 用户消息样式 */
+.user-message {
+    justify-content: flex-end;
+}
+
+/* AI消息样式 */
+.ai-message {
+    justify-content: flex-start;
+}
+
+/* 头像样式优化 */
+.message-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 10px;
+    font-size: 20px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+
+.message-avatar:hover {
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+}
+
+/* 用户头像样式 */
+.user-message .message-avatar {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+}
+
+/* AI头像样式 */
+.ai-message .message-avatar {
+    background: linear-gradient(135deg, #6c757d, #495057);
+    color: white;
+}
+
+/* 消息内容样式优化 */
+.message-content {
+    max-width: 80%;
+    padding: 12px 18px;
+    border-radius: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    line-height: 1.5;
+    word-wrap: break-word;
+    transition: all 0.3s ease;
+}
+
+.message-content:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}
+
+/* 用户消息内容样式 */
+.user-message .message-content {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border-bottom-right-radius: 6px;
+}
+
+/* AI消息内容样式 */
+.ai-message .message-content {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    color: #333;
+    border-bottom-left-radius: 6px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* 消息内容中的段落样式 */
+.message-content p {
+    margin: 8px 0;
+    font-size: 15px;
+}
+
+/* 消息内容中的列表样式 */
+.message-content ul {
+    margin: 8px 0 8px 20px;
+    padding: 0;
+}
+
+.message-content li {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+/* 打字指示器样式 */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: #666;
+}
+
+.typing-dots {
+    display: flex;
+    margin-left: 10px;
+}
+
+.typing-dots span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #6c757d;
+    margin: 0 3px;
+    animation: typing 1.4s infinite;
+}
+
+.typing-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.5;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
+}
+
+/* 完整规划展示样式 */
+.complete-plan-display {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    padding: 20px;
+    border-radius: 12px;
+    margin: 15px 0;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    border-left: 5px solid #007bff;
+}
+
+.complete-plan-display h5 {
+    margin-top: 0;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.complete-plan-display h6 {
+    margin: 15px 0 10px 0;
+    color: #34495e;
+    font-weight: 500;
+}
+
+/* 每日规划样式 */
+.day-plan {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 12px 0;
+    border-left: 4px solid #007bff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+
+.day-plan:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.day-plan h6 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #007bff;
+    font-weight: 600;
+}
+
+/* 修改摘要样式 */
+.changes-summary {
+    background: linear-gradient(135deg, #e7f3ff, #d1ecf1);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 12px 0;
+    border-left: 4px solid #2196f3;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+}
+
+.changes-summary h6 {
+    margin: 0 0 10px 0;
+    color: #155724;
+    font-weight: 600;
+}
+
+/* 导出选项容器样式 */
+.export-options-container {
+    display: flex;
+    gap: 15px;
+    margin-top: 18px;
+    justify-content: center;
+    padding: 15px;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+    border: 1px solid #dee2e6;
+}
+
+/* 导出PDF按钮样式 */
+.export-options-container .btn {
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    border: none;
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.export-options-container .btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+    z-index: -1;
+}
+
+.export-options-container .btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(220,53,69,0.4);
+    background: linear-gradient(135deg, #c82333, #a71e2a);
+}
+
+.export-options-container .btn:hover::before {
+    left: 100%;
+}
+
+.export-options-container .btn i {
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.export-options-container .btn:hover i {
+    transform: scale(1.2) rotate(5deg);
+}
+
+/* 缩放按钮样式 */
+.header-actions {
+    display: flex;
+    align-items: center;
+    margin-right: 10px;
+    z-index: 1000;
+    position: relative;
+}
+
+.header-actions .btn {
+    transition: all 0.3s ease;
+    border-radius: 50%;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 18px;
+    font-weight: bold;
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    color: white;
+    z-index: 1001;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+    position: relative;
+}
+
+.header-actions .btn:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+    transform: scale(1.15);
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.3);
+    border-color: white;
+}
+
+.header-actions .btn i,
+.header-actions .btn span {
+    font-size: 16px;
+    font-weight: bold;
+    z-index: 1002;
+    position: relative;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* 确保缩放按钮在最上层 */
+#zoom-in-btn, #zoom-out-btn {
+    z-index: 1003 !important;
+    position: relative !important;
+}
+
+/* 模态框样式优化 */
+#plan-editor-modal {
+    transition: all 0.3s ease;
+    border-radius: 15px;
+    box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+}
+
+#plan-editor-modal:hover {
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+
+/* 模态框头部样式 */
+.modal-header {
+    border-bottom: 1px solid #e9ecef;
+    border-radius: 15px 15px 0 0;
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
+}
+
+.bg-danger {
+    background: linear-gradient(135deg, #dc3545, #c82333) !important;
+}
+
+.modal-header h5 {
+    margin: 0;
+    font-weight: 600;
+}
+
+/* 模态框底部样式 */
+.modal-footer {
+    border-top: 1px solid #e9ecef;
+    border-radius: 0 0 15px 15px;
+    padding: 15px 20px;
+    background: #f8f9fa;
+}
+
+/* 聊天滚动容器样式 */
+.chat-scroll-container {
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 输入区域样式优化 */
+.border-top {
+    border-top: 1px solid #e9ecef;
+    background: white;
+}
+
+/* 输入框样式 */
+#chat-input {
+    border-radius: 25px;
+    padding: 10px 15px;
+    border: 1px solid #ced4da;
+    transition: all 0.3s ease;
+    font-size: 15px;
+}
+
+#chat-input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    outline: none;
+}
+
+/* 发送按钮样式 */
+#send-message-btn {
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border: none;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    z-index: 100;
+    position: relative;
+}
+
+#send-message-btn:hover {
+    transform: scale(1.15);
+    box-shadow: 0 5px 12px rgba(0,123,255,0.4);
+    background: linear-gradient(135deg, #0056b3, #004085);
+}
+
+#send-message-btn i {
+    font-size: 18px;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* 模态框按钮样式优化 */
+.modal-footer .btn {
+    border-radius: 25px;
+    padding: 8px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.modal-footer .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+/* 按钮组间距优化 */
+.modal-footer .btn + .btn {
+    margin-left: 10px;
+}
+
+/* 滚动条样式优化 */
+.chat-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.chat-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+.chat-container::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}

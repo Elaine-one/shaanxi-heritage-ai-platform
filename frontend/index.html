@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>陕西非物质文化遗产展示平台</title>
+     <!-- Font Awesome图标库 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="shortcut icon" href="/static/common/favicon.ico">
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/pages/index.css">
+    <!-- 先加载API相关脚本 -->
+    <script src="/js/common/api.js" defer></script>
+    <script src="/js/common/heritage-api.js" defer></script>
+    <!-- 用户认证脚本 -->
+    <script src="/js/common/auth.js" defer></script>
+    <!-- 用户资料API -->
+    <script src="/js/api/user-profile-api.js" defer></script>
+    <!-- Markdown处理库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js" defer></script>
+    <!-- 备用Markdown处理库 -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js" defer></script>
+   
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <h1>陕西非物质文化遗产 · 民间文化展示平台</h1>
+        </div>
+        <div class="header-right">
+            <div class="search-icon">🔍</div>
+            <div class="message-icon">💬</div>
+            <div class="refresh-icon">🔄</div>
+            <div class="date" id="current-date">加载中...</div>
+            <div class="user-icon">👤</div>
+        </div>
+    </header>
+    
+    <nav>
+        <ul class="main-nav">
+            <li><a href="/index.html" class="active">首页</a></li>
+            <li><a href="/pages/policy.html">相关政策</a></li>
+            <li><a href="/pages/news.html">非遗资讯</a></li>
+            <li><a href="/pages/non-heritage-list.html">非遗名录</a></li>
+            <li><a href="/pages/forum.html">非遗论坛</a></li>
+            <li><a href="/pages/heritage-map.html">非遗地图</a></li>
+            <li><a href="/pages/user-creation.html">用户创作</a></li>
+            <li><a href="#">传承人风采</a></li>
+        </ul>
+    </nav>
+    
+    <main>
+        <div class="lantern left-lantern"></div>
+        <div class="lantern right-lantern"></div>
+        
+        <div class="fireworks firework1"></div>
+        <div class="fireworks firework2"></div>
+        <div class="fireworks firework3"></div>
+        
+        <div class="shaanxi-decoration"></div>
+        
+        <div class="main-title">
+            <h2>陕西非物质文化遗产</h2>
+            <h2>展示平台</h2>
+        </div>
+        
+        <div class="featured-items">
+            <div class="featured-item" data-id="1">
+                <div class="item-image item1"></div>
+                <h3>安塞腰鼓</h3>
+                <p>黄土高原的热情律动</p>
+            </div>
+            <div class="featured-item" data-id="8">
+                <div class="item-image item2"></div>
+                <h3>华阴老腔</h3>
+                <p>古老声音的生命力</p>
+            </div>
+            <div class="featured-item" data-id="22">
+                <div class="item-image item3"></div>
+                <h3>陕西皮影戏</h3>
+                <p>千年艺术，光影传奇</p>
+            </div>
+        </div>
+        
+        <div class="decorative-elements">
+            <span class="decorative-item">◆</span>
+            <span class="decorative-item">◆</span>
+            <span class="decorative-item">◆</span>
+            <span class="decorative-item">◆</span>
+            <span class="decorative-item">◆</span>
+        </div>
+        
+        <div class="additional-content">
+            <div class="intro-section">
+                <h3>探索陕西非遗文化</h3>
+                <p>陕西作为中华文明的重要发祥地，拥有丰富多彩的非物质文化遗产。本平台致力于展示、保护和传承这些珍贵的文化瑰宝，让更多人了解陕西非遗的独特魅力。</p>
+                <a href="/pages/non-heritage-list.html" class="explore-btn">探索更多非遗项目</a>
+            </div>
+            
+            <div class="stats-section">
+                <div class="stat-item">
+                    <span class="stat-number">127</span>
+                    <span class="stat-label">国家级非遗</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">312</span>
+                    <span class="stat-label">省级非遗</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">580</span>
+                    <span class="stat-label">市县级非遗</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">1200+</span>
+                    <span class="stat-label">非遗传承人</span>
+                </div>
+            </div>
+            
+            <div class="news-preview">
+                <h3>最新资讯</h3>
+                <div class="news-items">
+                    <div class="news-item">
+                        <div class="news-date">2025-05-15</div>
+                        <div class="news-title">陕西非遗保护工作会议在西安召开</div>
+                    </div>
+                    <div class="news-item">
+                        <div class="news-date">2025-05-10</div>
+                        <div class="news-title">2025年"文化和自然遗产日"陕西主场活动公布</div>
+                    </div>
+                    <div class="news-item">
+                        <div class="news-date">2025-05-03</div>
+                        <div class="news-title">陕西皮影戏走进校园活动启动</div>
+                    </div>
+                </div>
+                <a href="#" class="more-link">查看更多 →</a>
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>联系我们</h4>
+                <p>地址：陕西省西安市</p>
+                <p>电话：onee20589@gmail.com</p>
+                <p>邮箱：onee20589@gmail.com</p>
+            </div>
+            <div class="footer-section">
+                <h4>关注我们</h4>
+                <div class="social-icons">
+                    <span>微信</span>
+                    <span>微博</span>
+                    <span>抖音</span>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h4>友情链接</h4>
+                <p><a href="https://whhlyt.shaanxi.gov.cn/" target="_blank">陕西省文化旅游厅</a></p>
+                <p><a href="https://www.ihchina.cn/" target="_blank">中国非物质文化遗产网</a></p>
+                <p><a href="#">陕西文化展示平台</a></p>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>© 2025 陕西非物质文化遗产展示平台 版权所有</p>
+            <p>本网站仅用于学习和非商业用途</p>
+            <p>技术支持：elaine</p>
+        </div>
+    </footer>
+    
+    <script src="/js/common/utils.js" defer></script>
+    <!-- 背景图片处理工具 -->
+    <script src="/js/common/bg-image-handler.js" defer></script>
+    
+    <!-- 农历日期转换库 -->
+    <script src="/js/lib/LunarSolarConverter.js" defer></script>
+    <!-- 日期时间工具模块 -->
+    <script src="/js/common/date-utils.js" defer></script>
+    <!-- API工具模块 -->
+    <script src="/js/common/api-utils.js" defer></script>
+    
+    <script src="/js/lib/third-party-embed.js" defer></script>
+    <script src="/js/pages/index.js" defer></script>
+    <!-- 第三方聊天机器人工具模块 -->
+    <script src="/js/lib/maxkb_embed.js" defer></script> 
+</body>
+</html>

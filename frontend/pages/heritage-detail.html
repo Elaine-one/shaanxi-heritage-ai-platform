@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>非遗详情 - 陕西非物质文化遗产展示平台</title>
+    <link rel="shortcut icon" href="../static/common/favicon.ico">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/pages/heritage-detail.css">
+    <!-- 用户认证脚本 -->
+    <script src="../js/common/auth.js" defer></script>
+    <!-- 用户资料API -->
+    <script src="../js/api/user-profile-api.js" defer></script>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <h1>陕西非物质文化遗产 · 民间文化展示平台</h1>
+        </div>
+        <div class="header-right">
+            <div class="search-icon">🔍</div>
+            <div class="message-icon">💬</div>
+            <div class="refresh-icon">🔄</div>
+            <div class="date" id="current-date">加载中...</div>
+            <div class="user-icon">👤</div>
+        </div>
+    </header>
+    
+    <nav>
+        <ul class="main-nav">
+            <li><a href="../index.html">首页</a></li>
+<li><a href="/pages/policy.html">相关政策</a></li>
+            <li><a href="/pages/news.html">非遗资讯</a></li>
+            <li><a href="non-heritage-list.html">非遗名录</a></li>
+            <li><a href="forum.html">非遗论坛</a></li>
+            <li><a href="heritage-map.html">非遗地图</a></li>
+            <li><a href="user-creation.html">用户创作</a></li>
+            <li><a href="#">传承人风采</a></li>
+        </ul>
+    </nav>
+    
+    <main class="detail-main" id="heritage-detail">
+        <!-- 确保详情页HTML包含以下结构 -->
+        <div class="heritage-detail-container" id="heritage-detail-container">
+            <!-- 内容将由JavaScript动态生成 -->
+            <div class="loading-indicator">正在加载详情内容，请稍候...</div>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>联系我们</h4>
+                <p>地址：陕西省西安市</p>
+                <p>电话：onee20589@gmail.com</p>
+                <p>邮箱：onee20589@gmail.com</p>
+            </div>
+            <div class="footer-section">
+                <h4>关注我们</h4>
+                <div class="social-icons">
+                    <span>微信</span>
+                    <span>微博</span>
+                    <span>抖音</span>
+                </div>
+            </div>
+            <div class="footer-section">
+                <h4>友情链接</h4>
+                <p><a href="https://whhlyt.shaanxi.gov.cn/" target="_blank">陕西省文化旅游厅</a></p>
+                <p><a href="https://www.ihchina.cn/" target="_blank">中国非物质文化遗产网</a></p>
+                <p><a href="#">陕西文化展示平台</a></p>
+            </div>
+        </div>
+        <div class="copyright">
+            <p>© 2025 陕西非物质文化遗产展示平台 版权所有</p>
+            <p>本网站仅用于学习和非商业用途</p>
+            <p>技术支持：elaine</p>
+        </div>
+    </footer>
+    
+    <script src="../js/common/utils.js" defer></script>
+    <script src="../js/common/api.js" defer></script>
+    <script src="../js/common/heritage-api.js" defer></script>
+    
+    <!-- 农历日期转换库 -->
+    <script src="../js/lib/LunarSolarConverter.js" defer></script>
+    <!-- 日期时间工具模块 -->
+    <script src="../js/common/date-utils.js" defer></script>
+    <!-- API工具模块 -->
+    <script src="../js/common/api-utils.js" defer></script>
+    
+    <script src="../lib/third-party-embed.js" defer></script>
+    <script src="../js/pages/heritage-detail.js" defer></script>
+    <script src="../lib/maxkb_embed.js" defer></script>
+</body>
+</html>

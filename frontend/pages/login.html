@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 陕西非物质文化遗产展示平台</title>
+    <link rel="shortcut icon" href="../static/common/favicon.ico">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/pages/login.css">
+    <!-- 先加载API相关脚本 -->
+    <script src="../js/common/api.js" defer></script>
+    <script src="../js/common/heritage-api.js" defer></script>
+    <!-- 工具函数 -->
+    <script src="../js/common/utils.js" defer></script>
+    <!-- 用户认证脚本 -->
+    <script src="../js/common/auth.js" defer></script>
+    <!-- 用户资料API -->
+    <script src="../js/api/user-profile-api.js" defer></script>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <h1>陕西非物质文化遗产 · 民间文化展示平台</h1>
+        </div>
+        <div class="header-right">
+            <div class="search-icon">🔍</div>
+            <div class="message-icon">💬</div>
+            <div class="refresh-icon">🔄</div>
+            <div class="date" id="current-date">加载中...</div>
+            <div class="user-icon">👤</div>
+        </div>
+    </header>
+    
+    <nav>
+        <ul class="main-nav">
+            <li><a href="../index.html">首页</a></li>
+<li><a href="/pages/policy.html">相关政策</a></li>
+            <li><a href="/pages/news.html">非遗资讯</a></li>
+            <li><a href="non-heritage-list.html">非遗名录</a></li>
+            <li><a href="forum.html">非遗论坛</a></li>
+            <li><a href="heritage-map.html">非遗地图</a></li>
+            <li><a href="user-creation.html">用户创作</a></li>
+            <li><a href="#">传承人风采</a></li>
+        </ul>
+    </nav>
+    
+    <main class="auth-container">
+        <div class="auth-box">
+            <div class="auth-header">
+                <h2>用户登录</h2>
+                <p>登录后可收藏非遗项目，参与讨论</p>
+            </div>
+            
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="email">邮箱地址</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <div class="password-container">
+                        <input type="password" id="password" name="password" required>
+                        <span id="toggle-password" class="toggle-password" style="display: none;">
+                            👁
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="form-group captcha-group">
+                    <label for="captcha">验证码</label>
+                    <div class="captcha-container">
+                        <input type="text" id="captcha" name="captcha" placeholder="请输入验证码" required>
+                        <div class="captcha-image-container">
+                            <img id="captcha-image" src="" alt="图形验证码" style="cursor: pointer;">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="remember-me" name="remember_me">
+                        <span class="checkmark"></span>
+                        记住我（30天内自动登录）
+                    </label>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">登录</button>
+                </div>
+                
+                <div class="form-footer-links">
+                    <a href="forgot-password.html" class="forgot-password-link">忘记密码？</a>
+                </div>
+                
+                <div class="form-footer">
+                    <p>还没有账号？<a href="register.html">立即注册</a></p>
+                </div>
+            </form>
+            
+            <div id="login-message" class="auth-message"></div>
+        </div>
+    </main>
+    
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>关于我们</h3>
+                <p>陕西非物质文化遗产展示平台致力于展示、保护和传承陕西丰富的非物质文化遗产。</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>联系方式</h3>
+                <p>地址：陕西省西安市</p>
+                <p>电话：029-XXXXXXXX</p>
+                <p>邮箱：contact@shaanxi-heritage.com</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>友情链接</h3>
+                <ul>
+                    <li><a href="https://whhlyt.shaanxi.gov.cn/" target="_blank">陕西省文化旅游厅</a></li>
+                    <li><a href="https://www.ihchina.cn/" target="_blank">中国非物质文化遗产网</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>&copy; 2025 陕西非物质文化遗产展示平台 版权所有</p>
+            <p>技术支持：elaine</p>
+        </div>
+    </footer>
+    
+    <script src="../js/pages/login.js" defer></script>
+    <!-- 第三方聊天机器人工具模块（暂时禁用） -->
+    <!-- <script src="../lib/maxkb_embed.js" defer></script> -->
+</body>
+</html>

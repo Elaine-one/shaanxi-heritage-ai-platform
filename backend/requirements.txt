@@ -1,0 +1,11 @@
+Django==4.2.7
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+PyMySQL==1.1.1
+mysqlclient==2.2.4
+redis==5.0.1
+celery==5.3.4
+django-celery-beat==2.5.0
+jieba==0.42.1
+cryptography==41.0.7
+Pillow==10.4.0

@@ -1,0 +1,372 @@
+/* 帖子详情页顶部栏专用样式文件 */
+
+/* 帖子头部容器增强样式 - 与主样式协调 */
+.post-header {
+    /* 保持主样式的基础定义，只增强特定属性 */
+    background: linear-gradient(135deg, 
+        var(--shaanxi-red) 0%, 
+        #d32f2f 50%, 
+        var(--shaanxi-red) 100%) !important;
+    box-shadow: 0 4px 20px rgba(196, 30, 58, 0.3) !important;
+}
+
+/* 添加装饰性背景图案 - 使用不同的伪元素避免冲突 */
+.post-header .header-decoration {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* 添加底部装饰线 */
+.post-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.6) 25%, 
+        rgba(255, 255, 255, 0.8) 50%, 
+        rgba(255, 255, 255, 0.6) 75%, 
+        transparent 100%);
+}
+
+/* 作者信息区域重新布局 */
+.post-header .author-info {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    position: relative;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 16px !important;
+    padding: 1.5rem !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* 作者头像增强 */
+.post-header .author-avatar {
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #fff, #f0f0f0) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 2rem !important;
+    font-weight: bold !important;
+    color: var(--shaanxi-red) !important;
+    border: 4px solid rgba(255, 255, 255, 0.9) !important;
+    box-shadow: 
+        0 4px 15px rgba(0, 0, 0, 0.2),
+        inset 0 2px 4px rgba(255, 255, 255, 0.3) !important;
+    transition: all 0.3s ease !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.author-avatar::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transform: rotate(45deg);
+    transition: all 0.6s ease;
+    opacity: 0;
+}
+
+.author-avatar:hover::before {
+    opacity: 1;
+    animation: shimmer 1.5s ease-in-out;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+/* 作者详情区域 */
+.post-header .author-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.post-header .author-name {
+    font-size: 1.3rem !important;
+    font-weight: 700 !important;
+    color: white !important;
+    margin: 0 0 0.5rem 0 !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.post-header .author-meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.post-header .author-level,
+.post-header .post-time {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 关注按钮增强 */
+.post-header .follow-btn {
+    background: linear-gradient(135deg, #fff, #f8f9fa) !important;
+    color: var(--shaanxi-red) !important;
+    border: 2px solid rgba(255, 255, 255, 0.9) !important;
+    padding: 0.75rem 1.5rem !important;
+    border-radius: 25px !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+    white-space: nowrap;
+}
+
+.post-header .follow-btn:hover {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.post-header .follow-btn i {
+    font-size: 0.9rem;
+}
+
+/* 移动端响应式适配 */
+@media (max-width: 768px) {
+    .post-header {
+        padding: 2rem 1.5rem !important;
+    }
+    
+    .post-header .author-info {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem !important;
+        padding: 1rem !important;
+    }
+    
+    .post-header .author-avatar {
+        width: 70px !important;
+        height: 70px !important;
+        font-size: 1.8rem !important;
+    }
+    
+    .post-header .author-details {
+        text-align: center;
+    }
+    
+    .post-header .author-meta {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .post-header .follow-btn {
+        padding: 0.6rem 1.2rem !important;
+        font-size: 0.9rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .post-header {
+        padding: 1.5rem 1rem !important;
+    }
+    
+    .post-header .author-name {
+        font-size: 1.1rem !important;
+    }
+    
+    .post-header .author-level,
+    .post-header .post-time {
+        font-size: 0.8rem;
+        padding: 0.2rem 0.6rem;
+    }
+}
+
+/* 作者详细信息 */
+.author-details {
+    grid-area: details;
+    min-width: 0;
+}
+
+.author-name {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.5px;
+}
+
+/* 作者元信息重新设计 */
+.author-meta {
+    grid-area: meta;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.author-level {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    text-shadow: none;
+}
+
+.post-time {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.post-time::before {
+    content: '🕒';
+    font-size: 0.8rem;
+}
+
+/* 关注按钮重新设计 */
+.follow-btn {
+    grid-area: actions;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    padding: 0.8rem 1.5rem;
+    border-radius: 25px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-shadow: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.follow-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.follow-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.follow-btn:hover::before {
+    left: 100%;
+}
+
+.follow-btn:active {
+    transform: translateY(0);
+}
+
+.follow-btn i {
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+}
+
+.follow-btn:hover i {
+    transform: scale(1.1);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .post-header {
+        padding: 2rem 1.5rem;
+        margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+    }
+    
+    .author-info {
+        grid-template-columns: auto 1fr;
+        grid-template-areas: 
+            "avatar details"
+            "avatar meta"
+            "actions actions";
+        gap: 1rem;
+    }
+    
+    .author-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+    
+    .author-name {
+        font-size: 1.4rem;
+    }
+    
+    .follow-btn {
+        justify-self: center;
+        margin-top: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .post-header {
+        padding: 1.5rem 1rem;
+    }
+    
+    .author-info {
+        grid-template-columns: 1fr;
+        grid-template-areas: 
+            "avatar"
+            "details"
+            "meta"
+            "actions";
+        text-align: center;
+        gap: 0.8rem;
+    }
+    
+    .author-avatar {
+        justify-self: center;
+        width: 70px;
+        height: 70px;
+    }
+    
+    .author-meta {
+        justify-content: center;
+    }
+}
