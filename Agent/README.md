@@ -22,32 +22,26 @@
 ```
 Agent/
 ├── api/                    # FastAPI接口层
-│   └── app.py             # 主应用入口
+│   ├── export/             # 导出功能模块
+│   │   ├── csv_exporter.py    # CSV导出
+│   │   ├── json_exporter.py   # JSON导出
+│   │   └── pdf_exporter.py    # PDF导出
+│   ├── app.py              # 主应用入口
+│   ├── edit_endpoints.py   # 编辑相关接口
+│   └── weather_endpoints.py   # 天气相关接口
 ├── core/                   # 核心业务逻辑
 │   ├── heritage_analyzer.py   # 非遗项目分析
 │   ├── travel_planner.py      # 旅游规划核心
-│   └── weather_service.py     # 天气服务
-├── models/                 # AI模型集成
-│   └── ali_model.py       # 阿里云模型调用
+│   ├── weather_service.py     # 天气服务
+│   ├── ali_model.py           # 阿里云模型调用
+│   ├── plan_editor.py         # 规划编辑器
+│   ├── pdf_generator.py       # PDF生成器
+│   └── ai_content_integrator.py  # AI内容整合
+├── font_cache/             # 字体缓存目录
 ├── utils/                  # 工具模块
-│   ├── config.py          # 配置管理
 │   └── logger_config.py   # 日志配置
-├── data/                   # 数据文件
-│   └── heritage_data.json # 非遗项目数据
+├── config.py               # 配置管理
 └── main.py                # 主入口文件
-```
-
-### 前端架构
-
-```
-frontend/
-├── css/                   # 样式文件
-│   └── agent/
-│       └── travel-planning.css
-├── js/                    # JavaScript文件
-│   └── agent/
-│       └── travel-planning.js
-└── index.html            # 主页面
 ```
 
 ## 快速开始
@@ -66,12 +60,7 @@ pip install -r requirements.txt
 
 ### 配置API密钥
 
-1. 复制配置文件模板：
-```bash
-cp utils/config.py.example utils/config.py
-```
-
-2. 编辑 `utils/config.py`，填入你的API密钥：
+直接编辑 `config.py` 文件，填入你的API密钥：
 ```python
 # 阿里云API配置
 DASHSCOPE_API_KEY = "your_dashscope_api_key"
@@ -402,15 +391,19 @@ tail -f logs/error.log
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 打开 Pull Request
 
-## 许可证
+## 版权声明
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+**© 2025 版权所有** - 本项目仅用于个人作品集展示，**禁止任何形式的使用、修改、分发或商业利用**。
+
+* 本项目代码仅供学习和参考，不得用于任何实际项目
+* 未经授权，禁止复制或引用本项目的任何代码
+* 所有权利保留，侵权必究
 
 ## 联系方式
 
-- 项目维护者: [Your Name]
-- 邮箱: [your.email@example.com]
-- 项目链接: [https://github.com/yourusername/travel-agent]
+- 项目维护者: elaine
+- 邮箱: onee20589@gmail.com
+- 项目链接: https://github.com/Elaine-one/shaanxi-heritage-ai-platform
 
 ## 更新日志
 

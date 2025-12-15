@@ -162,29 +162,32 @@ frontend/
 
 ### 收藏功能相关文件
 
-- **heritage-api.js**: 封装了收藏相关的 API 调用
+- **js/common/heritage-api.js**: 封装了收藏相关的 API 调用
   - `addFavorite()`: 添加收藏
   - `removeFavorite()`: 移除收藏
   - `checkFavoriteStatus()`: 检查收藏状态
   - `getUserFavorites()`: 获取用户收藏列表
 
-- **heritage-detail.js**: 详情页收藏功能
+- **js/pages/heritage-detail.js**: 详情页收藏功能
   - `toggleFavorite()`: 切换收藏状态
   - `checkFavoriteStatus()`: 检查收藏状态
   - `updateFavoriteButton()`: 更新收藏按钮样式
 
-- **heritage-map-sidebar.js**: 地图页收藏功能
+- **js/pages/heritage-map-sidebar.js**: 地图页收藏功能
   - `toggleCollection()`: 切换收藏状态
   - `updateCollectionButtonsState()`: 更新所有收藏按钮状态
   - `loadCollectionsFromStorage()`: 从本地存储加载收藏
   - `saveCollectionsToStorage()`: 保存收藏到本地存储
   - `updateCollectionCount()`: 更新收藏计数
 
-- **profile.js**: 个人中心收藏管理
+- **js/pages/profile.js**: 个人中心收藏管理
   - `fetchUserFavorites()`: 获取用户收藏列表
   - `renderFavorites()`: 渲染收藏列表
   - `removeFavorite()`: 移除收藏
   - `sortFavorites()`: 排序收藏列表
+
+- **js/modules/profile-favorites.js**: 个人中心收藏功能模块
+  - 提供收藏列表的管理和操作功能
 
 ## 聊天助手功能
 
@@ -194,6 +197,7 @@ frontend/
 
 - **lib/dify_chatbot_embed.js**: AI聊天助手嵌入脚本
 - **lib/maxkb_embed.js**: 知识库嵌入脚本
+- **lib/third-party-embed.js**: 其他第三方嵌入脚本
 
 ### 使用方法
 
@@ -202,6 +206,7 @@ frontend/
 ```html
 <!-- 在页面底部引入聊天助手脚本 -->
 <script src="../lib/dify_chatbot_embed.js"></script>
+<script src="../lib/maxkb_embed.js"></script>
 ```
 
 ## 如何运行
@@ -339,7 +344,7 @@ function updateDateTimeDisplay() {
 
 ## 最新更新记录
 
-### v1.2.0 (2024-01-20)
+### v1.2.0 (2025-01-20)
 
 #### Bug修复
 - ✅ 修复了favicon.ico文件404错误
@@ -429,6 +434,14 @@ A: 检查AI服务配置是否正确，网络连接是否稳定
 - 确保后端 API 服务器已启动并正确配置跨域访问
 - 聊天助手功能需要配置相应的AI服务接口
 
+## 版权声明
+
+**© 2025 版权所有** - 本项目仅用于个人作品集展示，**禁止任何形式的使用、修改、分发或商业利用**。
+
+* 本项目代码仅供学习和参考，不得用于任何实际项目
+* 未经授权，禁止复制或引用本项目的任何代码
+* 所有权利保留，侵权必究
+
 ## 贡献指南
 
 欢迎为陕西非物质文化遗产展示平台贡献代码！
@@ -446,6 +459,8 @@ A: 检查AI服务配置是否正确，网络连接是否稳定
 - 更新相关文档
 - 通过所有自动化测试
 
-## 许可证
+## 联系方式
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](../LICENSE) 文件了解详情
+- 项目维护者: elaine
+- 邮箱: onee20589@gmail.com
+- 项目链接: https://github.com/Elaine-one/shaanxi-heritage-ai-platform

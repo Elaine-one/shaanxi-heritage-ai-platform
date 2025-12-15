@@ -14,11 +14,8 @@
 
 - `url_encryption_tool.py` - 独立版工具，不依赖Django项目
 - `django_compatible_tool.py` - Django兼容版，与Django项目使用相同的密钥
-- `run.bat` - 独立版工具启动脚本
-- `run_django.bat` - Django兼容版工具启动脚本
 - `requirements.txt` - 依赖列表
-- `使用指南.md` - 详细使用说明
-- `问题解决指南.md` - 常见问题解决方案
+- `README.md` - 项目说明文档
 
 ## 快速开始
 
@@ -98,6 +95,16 @@ python django_compatible_tool.py
 
 请参考 [问题解决指南.md](问题解决指南.md) 获取详细的故障排除信息。
 
-## 许可证
+## 版权声明
 
-MIT License
+**© 2025 版权所有** - 本项目仅用于个人作品集展示，**禁止任何形式的使用、修改、分发或商业利用**。
+
+* 本项目代码仅供学习和参考，不得用于任何实际项目
+* 未经授权，禁止复制或引用本项目的任何代码
+* 所有权利保留，侵权必究
+
+## 联系方式
+
+- 项目维护者: elaine
+- 邮箱: onee20589@gmail.com
+- 项目链接: https://github.com/Elaine-one/shaanxi-heritage-ai-platform

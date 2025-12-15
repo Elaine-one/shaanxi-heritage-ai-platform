@@ -71,6 +71,20 @@ python test_decrypt.py
 python test_api.py
 ```
 
+## 版权声明
+
+**© 2025 版权所有** - 本项目仅用于个人作品集展示，**禁止任何形式的使用、修改、分发或商业利用**。
+
+* 本项目代码仅供学习和参考，不得用于任何实际项目
+* 未经授权，禁止复制或引用本项目的任何代码
+* 所有权利保留，侵权必究
+
+## 联系方式
+
+- 项目维护者: elaine
+- 邮箱: onee20589@gmail.com
+- 项目链接: https://github.com/Elaine-one/shaanxi-heritage-ai-platform
+
 ## 注意事项
 
 1. **SECRET_KEY安全**：确保Django的SECRET_KEY安全，不要泄露
