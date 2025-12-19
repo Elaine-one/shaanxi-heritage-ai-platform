@@ -1,6 +1,6 @@
 /**
  * 旅游规划编辑器 - AI对话式编辑功能 (交互体验优化版)
- * 优化：AI打字时自动跟随滚动、丝滑缩放动画
+ * 优化：AI打字时自动跟随滚动、丝滑缩放动画、Markdown实时渲染、对话历史透传
  */
 
 class PlanEditor {
@@ -207,10 +207,9 @@ class PlanEditor {
         this.isEditing = true;
         this.chatHistory = [];
         this.showEditor();
-        this.enableApplyButton(); // 初始即可用，因为可能只是想问问题
+        this.enableApplyButton(); 
         
         const welcome = "您好！我是您的专属旅行规划师。\n\n如果您对当前的行程安排有任何调整想法（比如想更轻松一点、想增加某个景点、或者想调整预算），请直接告诉我，我会为您重新定制。";
-        // 初始消息也使用打字效果
         this.addChatMessage('ai', welcome, true);
         
         this.initializeChatSession();
@@ -234,7 +233,7 @@ class PlanEditor {
 
     /**
      * 丝滑放大
-     * 直接修改尺寸，利用 CSS transition 实现动画
+     * 利用 CSS transition 实现动画
      */
     zoomIn() {
         const modal = document.getElementById('plan-editor-modal');
@@ -271,8 +270,6 @@ class PlanEditor {
             
             // 获取计算后的样式值
             const style = window.getComputedStyle(modal);
-            // 转换为绝对像素位置，如果之前是 transform 居中，现在转为固定 top/left
-            const matrix = new DOMMatrix(style.transform);
             const rect = modal.getBoundingClientRect();
             
             // 移除 transform，改为绝对定位，防止拖拽时的计算冲突
@@ -451,7 +448,6 @@ class PlanEditor {
     scrollToBottom() {
         const area = document.querySelector('.chat-scroll-area');
         if (area) {
-            // 使用 smooth 滚动可能在连续打字时不够跟手，打字时直接跳转
             area.scrollTop = area.scrollHeight;
         }
     }
@@ -480,15 +476,17 @@ class PlanEditor {
         
         try {
             const apiUrl = await this.getApiBaseUrl('agent');
+            // 将聊天记录转换为后端需要的格式
             const formattedHistory = this.chatHistory.map(msg => ({
                 role: msg.type === 'user' ? 'user' : 'assistant',
                 content: msg.content
             }));
 
+            // 构建请求体，包含规划数据和对话历史
             const requestBody = {
                 complete_plan_data: {
                     ...this.currentPlan,
-                    conversation_history: formattedHistory
+                    conversation_history: formattedHistory // 关键：传递对话历史
                 },
                 title: this.currentPlan?.title,
                 destination: this.currentPlan?.destination,

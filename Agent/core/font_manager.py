@@ -19,6 +19,9 @@ class FontManager:
         """初始化字体管理器"""
         self.system = platform.system()
         self.available_fonts = {}
+        # 优先扫描font_cache目录
+        self._scan_font_cache_directory()
+        # 然后扫描系统字体
         self._scan_system_fonts()
     
     def _scan_system_fonts(self):
@@ -34,6 +37,37 @@ class FontManager:
                 logger.warning(f"不支持的操作系统: {self.system}")
         except Exception as e:
             logger.error(f"扫描系统字体时发生错误: {e}")
+    
+    def _scan_font_cache_directory(self):
+        """扫描项目font_cache目录中的字体文件"""
+        try:
+            # 获取font_cache目录路径
+            current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            font_cache_dir = os.path.join(current_dir, 'font_cache')
+            
+            if not os.path.exists(font_cache_dir):
+                logger.debug(f"font_cache目录不存在: {font_cache_dir}")
+                return
+            
+            logger.info(f"扫描font_cache目录: {font_cache_dir}")
+            
+            # 支持的字体扩展名
+            font_extensions = ['.ttf', '.otf', '.ttc']
+            
+            # 遍历目录中的字体文件
+            for filename in os.listdir(font_cache_dir):
+                file_path = os.path.join(font_cache_dir, filename)
+                if os.path.isfile(file_path):
+                    # 检查文件扩展名
+                    _, ext = os.path.splitext(filename)
+                    if ext.lower() in font_extensions:
+                        # 从文件名提取字体名称（去掉扩展名）
+                        font_name = os.path.splitext(filename)[0]
+                        self.available_fonts[font_name] = file_path
+                        logger.info(f"找到font_cache中的字体: {font_name} -> {file_path}")
+                        
+        except Exception as e:
+            logger.error(f"扫描font_cache目录时发生错误: {e}")
     
     def _scan_linux_fonts(self):
         """扫描Linux系统的中文字体"""
@@ -111,7 +145,7 @@ class FontManager:
     
     def get_chinese_font(self) -> Optional[Tuple[str, str]]:
         """
-        获取第一个可用的中文字体
+        获取第一个可用的中文字体，优先返回font_cache中的字体
         
         Returns:
             Optional[Tuple[str, str]]: 字体名称和路径的元组，如果没有找到则返回None
@@ -120,9 +154,15 @@ class FontManager:
             logger.warning("没有找到可用的中文字体")
             return None
         
-        # 返回第一个可用的中文字体
+        # 优先返回font_cache中的字体
+        for font_name, font_path in self.available_fonts.items():
+            if 'font_cache' in font_path:
+                logger.info(f"使用font_cache中的中文字体: {font_name} -> {font_path}")
+                return font_name, font_path
+        
+        # 如果没有font_cache中的字体，返回第一个可用的中文字体
         font_name, font_path = next(iter(self.available_fonts.items()))
-        logger.info(f"使用中文字体: {font_name} -> {font_path}")
+        logger.info(f"使用系统中文字体: {font_name} -> {font_path}")
         return font_name, font_path
     
     def get_font_path(self, font_name: str) -> Optional[str]:
@@ -181,6 +221,18 @@ class FontManager:
             return font_name
         except Exception as e:
             logger.error(f"注册字体失败: {font_name} -> {font_path}, 错误: {e}")
+            # 如果是font_cache中的字体失败，尝试使用系统字体
+            if 'font_cache' in font_path:
+                logger.info("尝试使用系统字体作为备选")
+                for sys_font_name, sys_font_path in self.available_fonts.items():
+                    if 'font_cache' not in sys_font_path:
+                        try:
+                            pdfmetrics.registerFont(TTFont(sys_font_name, sys_font_path))
+                            logger.info(f"成功注册系统字体: {sys_font_name} -> {sys_font_path}")
+                            return sys_font_name
+                        except Exception as sys_e:
+                            logger.debug(f"系统字体注册失败: {sys_font_name} -> {sys_font_path}, 错误: {sys_e}")
+                            continue
             return None
 
 

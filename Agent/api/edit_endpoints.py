@@ -3,7 +3,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-规划编辑API端点
+规划编辑API端点 (修复版：确保对话历史正确导出)
 提供AI对话式编辑功能的REST API接口
 """
 
@@ -102,7 +102,7 @@ async def edit_plan(request: EditPlanRequest):
 @edit_router.post('/export_pdf', response_model=EditResponse)
 async def export_plan_pdf(request: ExportPdfRequest):
     """
-    导出规划为PDF格式 (增强版，支持对话上下文)
+    导出规划为PDF格式 (修复版：强制传递对话历史)
     """
     try:
         logger.info(f"开始导出PDF (编辑模式)，会话ID: {request.session_id}")
@@ -118,7 +118,17 @@ async def export_plan_pdf(request: ExportPdfRequest):
         current_plan = session_data.get('current_plan', {})
         conversation_history = session_data.get('conversation_history', [])
         
+        # 【关键修复】确保 conversation_history 被正确传递
+        # 有时候 session_data 里的 conversation_history 可能还没同步，尝试从 active_sessions 获取
+        if not conversation_history and hasattr(plan_editor, 'active_sessions'):
+            if request.session_id in plan_editor.active_sessions:
+                 conversation_history = plan_editor.active_sessions[request.session_id].get('conversation_history', [])
+
         logger.info(f"提取到对话历史: {len(conversation_history)} 条")
+        
+        # 将对话历史打印出来看看（调试用）
+        for msg in conversation_history[-3:]:
+             logger.debug(f"近期对话: {msg.get('role')}: {msg.get('content')[:50]}")
 
         # 3. 初始化导出器
         from core.pdf_content_integrator import PDFContentIntegrator
@@ -132,10 +142,13 @@ async def export_plan_pdf(request: ExportPdfRequest):
             
         pdf_integrator = PDFContentIntegrator(ali_model=travel_planner.ali_model)
         
-        # 4. 执行导出 - 显式传递对话历史
+        # 4. 执行导出 - 显式传递对话历史，并将其注入到 plan_data 中作为双重保障
+        # current_plan 是一个字典，我们把 conversation_history 塞进去
+        current_plan['conversation_history'] = conversation_history
+        
         result = await pdf_integrator.integrate_and_export(
-            plan_data=current_plan,
-            conversation_history=conversation_history, 
+            plan_data=current_plan, # 这里已经包含了 conversation_history
+            conversation_history=conversation_history, # 这里再次显式传递
             output_filename=request.output_filename
         )
         
@@ -184,4 +197,3 @@ async def apply_plan_changes(request: ApplyChangesRequest):
 @edit_router.post('/reset_plan', response_model=EditResponse)
 async def reset_plan(request: EndSessionRequest):
     return EditResponse(success=True, message='重置成功')
-

@@ -1,4 +1,4 @@
-#--- START OF FILE core/content_extractor.py ---
+#--- START OF FILE content_extractor.py ---
 
 # -*- coding: utf-8 -*-
 """
@@ -8,7 +8,6 @@
 
 import json
 import re
-import hashlib
 from typing import Dict, List, Any
 from loguru import logger
 
@@ -24,15 +23,12 @@ class ContentExtractor:
     def extract_destination(self, result: Dict[str, Any]) -> str:
         """提取目的地信息"""
         try:
-            # 优先从 plan_data 提取
             data = result.get('plan_data', result)
-            
             if 'destination' in data:
                 return str(data['destination'])
             if 'basic_info' in data and 'destination' in data['basic_info']:
                 return str(data['basic_info']['destination'])
             
-            # 尝试从对话历史推断
             history = self.extract_conversation_history_list(result)
             for msg in history:
                 content = str(msg.get('content', '')).lower()
@@ -40,7 +36,6 @@ class ContentExtractor:
                     match = re.search(r'去([\u4e00-\u9fa5]{2,5})', content)
                     if match:
                         return match.group(1)
-            
             return "非遗文化之旅"
         except Exception as e:
             logger.error(f"提取目的地失败: {str(e)}")
@@ -54,9 +49,9 @@ class ContentExtractor:
                 return str(data['travel_dates'])
             if 'dates' in data:
                 return str(data['dates'])
-            return "待定"
+            return "近期"
         except Exception:
-            return "待定"
+            return "近期"
     
     def extract_travel_days(self, result: Dict[str, Any]) -> int:
         """提取旅行天数"""
@@ -66,35 +61,28 @@ class ContentExtractor:
                 return int(data['travel_days'])
             if 'days' in data:
                 return int(data['days'])
-            if 'itinerary' in data:
+            if 'itinerary' in data and isinstance(data['itinerary'], list):
                 return len(data['itinerary'])
             return 3
         except Exception:
             return 3
 
     def extract_conversation_history_list(self, result: Dict[str, Any]) -> List[Dict]:
-        """
-        深度提取对话历史列表
-        """
-        # 1. 根目录
+        """深度提取对话历史列表"""
         if 'conversation_history' in result and isinstance(result['conversation_history'], list):
             return result['conversation_history']
         
-        # 2. plan_data 目录
         if 'plan_data' in result and isinstance(result['plan_data'], dict):
              if 'conversation_history' in result['plan_data']:
                  return result['plan_data']['conversation_history']
         
-        # 3. session_info 目录 (PlanEditor 结构)
         if 'session_info' in result and isinstance(result['session_info'], dict):
              return result['session_info'].get('conversation_history', [])
              
         return []
 
     def extract_conversation_history(self, result: Dict[str, Any]) -> str:
-        """
-        提取对话历史为文本（向后兼容）
-        """
+        """提取对话历史为文本"""
         history = self.extract_conversation_history_list(result)
         if not history:
             return "无对话记录"
@@ -108,16 +96,62 @@ class ContentExtractor:
         return "\n".join(parts)
     
     def format_weather_info(self, weather_info: Dict[str, Any]) -> str:
-        """格式化天气信息"""
+        """
+        【关键修复】格式化天气信息，提取详细预报数据
+        """
         try:
             if not weather_info:
-                return "暂无天气信息"
+                return "暂无天气信息，建议出行前查询实时天气。"
             
+            # 1. 提取整体摘要
+            summary_text = ""
             summary = weather_info.get('summary', {})
             if summary:
                 suitability = summary.get('overall_recommendation', '适宜')
-                return f"整体{suitability}，请关注实时预报"
-            return "暂无详细数据"
-        except Exception:
-            return "天气信息解析失败"
+                summary_text = f"整体建议：{suitability}。"
+            
+            # 2. 提取详细预报 (遍历 locations)
+            details = []
+            locations = weather_info.get('locations', {})
+            
+            # 场景A: 标准 locations 字典结构
+            if isinstance(locations, dict):
+                for loc_name, loc_data in locations.items():
+                    if 'forecast' in loc_data and isinstance(loc_data['forecast'], list):
+                        daily_weather = []
+                        # 只取前3天或全部
+                        for day in loc_data['forecast'][:5]:
+                            date = day.get('date', '')
+                            cond = day.get('weather_description', '未知')
+                            min_t = day.get('min_temp', 0)
+                            max_t = day.get('max_temp', 0)
+                            temp_str = f"{min_t}-{max_t}°C"
+                            
+                            daily_weather.append(f"{date}({cond}, {temp_str})")
+                        
+                        if daily_weather:
+                            # 简化地名显示
+                            short_name = loc_name.split(',')[0] if ',' in loc_name else loc_name
+                            details.append(f"【{short_name}】: " + "；".join(daily_weather))
+            
+            # 场景B: 直接包含 forecast 列表 (兼容旧结构)
+            elif 'forecast' in weather_info and isinstance(weather_info['forecast'], list):
+                 daily_weather = []
+                 for day in weather_info['forecast'][:5]:
+                    date = day.get('date', '')
+                    cond = day.get('weather_description', '未知')
+                    min_t = day.get('min_temp', 0)
+                    max_t = day.get('max_temp', 0)
+                    daily_weather.append(f"{date}: {cond}, {min_t}-{max_t}°C")
+                 if daily_weather:
+                     details.append("；".join(daily_weather))
 
+            if not details and not summary_text:
+                return "暂无详细天气数据。"
+            
+            final_text = summary_text + "\n详细预报：\n" + "\n".join(details)
+            return final_text
+
+        except Exception as e:
+            logger.warning(f"天气格式化异常: {str(e)}")
+            return "天气数据解析异常，建议查询当地气象台。"

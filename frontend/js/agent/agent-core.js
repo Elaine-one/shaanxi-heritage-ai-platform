@@ -1,3 +1,5 @@
+
+
 /**
  * 旅游规划Agent核心类
  * 负责与Agent API通信，处理核心业务逻辑
@@ -163,6 +165,12 @@ class TravelPlanningAgent {
             planButton.addEventListener('click', () => this.startTravelPlanning());
         }
         
+        // 导出规划按钮事件
+        const exportButton = document.getElementById('exportPlanBtn');
+        if (exportButton) {
+            exportButton.addEventListener('click', () => this.exportTravelPlan());
+        }
+        
         // 取消规划按钮事件
         const cancelButton = document.getElementById('cancelPlanBtn');
         if (cancelButton) {
@@ -275,7 +283,10 @@ class TravelPlanningAgent {
                     this.currentPlanId = result.plan_id;
                     // 将planId保存到localStorage，确保页面刷新后仍能访问
                     localStorage.setItem('travelCurrentPlanId', this.currentPlanId);
-                    this.showMessage(`规划任务已启动，预计需要${result.data.estimated_time}`, 'success');
+                    
+                    // 【修复点】提供默认时间，防止 undefined
+                    const estTime = (result.data && result.data.estimated_time) ? result.data.estimated_time : "2-5分钟";
+                    this.showMessage(`规划任务已启动，预计需要${estTime}`, 'success');
                     
                     // 开始监控进度
                     this.progressManager.startProgressMonitoring();
@@ -485,7 +496,7 @@ class TravelPlanningAgent {
             }
             
             // 保存所有导出按钮的原始状态
-            const exportButtons = document.querySelectorAll('[onclick*="exportTravelPlan"]');
+            const exportButtons = document.querySelectorAll('#exportPlanBtn, [onclick*="exportTravelPlan"]');
             
             // 更新所有导出按钮状态为"导出中"
             exportButtons.forEach(button => {
