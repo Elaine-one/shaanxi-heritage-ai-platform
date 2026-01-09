@@ -57,6 +57,8 @@ frontend/
 │       ├── non-heritage-list.css  # 列表页样式
 │       └── profile.css            # 个人中心样式
 ├── js/                 # JavaScript 文件
+│   ├── agent/             # AI智能体相关脚本
+│   │   └── plan-editor.js     # AI规划编辑器
 │   ├── common/           # 通用脚本
 │   │   ├── heritage-api.js   # API 封装
 │   │   ├── date-utils.js     # 日期时间工具
@@ -310,15 +312,6 @@ function updateDateTimeDisplay() {
 }
 ```
 
-## 浏览器兼容性
-
-本项目支持以下现代浏览器：
-
-- Chrome 60+
-- Firefox 60+
-- Safari 11+
-- Edge 79+
-
 ## 开发指南
 
 ### 添加新页面
@@ -344,7 +337,7 @@ function updateDateTimeDisplay() {
 
 ## 最新更新记录
 
-### v1.2.0 (2025-01-20)
+### v1.2.0 (2025-10-21)
 
 #### Bug修复
 - ✅ 修复了favicon.ico文件404错误
@@ -377,32 +370,6 @@ function updateDateTimeDisplay() {
 - CSS文件按功能模块命名
 - JavaScript文件按页面或功能命名
 - 图片文件使用描述性名称
-
-### Git提交规范
-- feat: 新功能
-- fix: Bug修复
-- docs: 文档更新
-- style: 代码格式调整
-- refactor: 代码重构
-- test: 测试相关
-- chore: 构建过程或辅助工具的变动
-
-## 性能优化建议
-
-### 图片优化
-- 使用WebP格式的图片以减少文件大小
-- 实现图片懒加载以提升页面加载速度
-- 为不同设备提供不同尺寸的图片
-
-### 代码优化
-- 压缩CSS和JavaScript文件
-- 使用CDN加速静态资源加载
-- 实现资源缓存策略
-
-### 用户体验优化
-- 添加加载动画和骨架屏
-- 实现离线缓存功能
-- 优化移动端触摸交互
 
 ## 故障排除
 
@@ -441,23 +408,6 @@ A: 检查AI服务配置是否正确，网络连接是否稳定
 * 本项目代码仅供学习和参考，不得用于任何实际项目
 * 未经授权，禁止复制或引用本项目的任何代码
 * 所有权利保留，侵权必究
-
-## 贡献指南
-
-欢迎为陕西非物质文化遗产展示平台贡献代码！
-
-### 贡献流程
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
-### 代码审查
-- 确保代码符合项目规范
-- 添加必要的测试用例
-- 更新相关文档
-- 通过所有自动化测试
 
 ## 联系方式
 

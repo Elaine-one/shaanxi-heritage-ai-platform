@@ -7,7 +7,7 @@
 提供AI对话式编辑功能的REST API接口
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from loguru import logger
 import traceback
@@ -21,7 +21,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from core.plan_editor import PlanEditor
+from Agent.agent.plan_editor import PlanEditor
+from Agent.api.session_dependencies import get_current_user_from_session, TokenData
 
 # 创建路由器
 edit_router = APIRouter(prefix='/api/agent', tags=['edit'])
@@ -65,7 +66,8 @@ class EditResponse(BaseModel):
     status: Optional[str] = None
 
 @edit_router.post('/start_edit_session', response_model=EditResponse)
-async def start_edit_session(request: StartEditSessionRequest):
+async def start_edit_session(request: StartEditSessionRequest, current_user: TokenData = Depends(get_current_user_from_session)):
+    """启动编辑会话（需要认证）"""
     try:
         plan_data = request.plan_data
         plan_id = plan_data.get('plan_id', f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
@@ -85,7 +87,8 @@ async def start_edit_session(request: StartEditSessionRequest):
         raise HTTPException(status_code=500, detail='服务器内部错误')
 
 @edit_router.post('/edit_plan', response_model=EditResponse)
-async def edit_plan(request: EditPlanRequest):
+async def edit_plan(request: EditPlanRequest, current_user: TokenData = Depends(get_current_user_from_session)):
+    """编辑规划（需要认证）"""
     try:
         result = await plan_editor.process_edit_request(request.session_id, request.user_input)
         
@@ -100,9 +103,9 @@ async def edit_plan(request: EditPlanRequest):
         raise HTTPException(status_code=500, detail='处理失败')
 
 @edit_router.post('/export_pdf', response_model=EditResponse)
-async def export_plan_pdf(request: ExportPdfRequest):
+async def export_plan_pdf(request: ExportPdfRequest, current_user: TokenData = Depends(get_current_user_from_session)):
     """
-    导出规划为PDF格式 (修复版：强制传递对话历史)
+    导出规划为PDF格式 (修复版：强制传递对话历史)（需要认证）
     """
     try:
         logger.info(f"开始导出PDF (编辑模式)，会话ID: {request.session_id}")
@@ -131,8 +134,8 @@ async def export_plan_pdf(request: ExportPdfRequest):
              logger.debug(f"近期对话: {msg.get('role')}: {msg.get('content')[:50]}")
 
         # 3. 初始化导出器
-        from core.pdf_content_integrator import PDFContentIntegrator
-        from core.travel_planner import get_travel_planner
+        from Agent.services.pdf_content_integrator import PDFContentIntegrator
+        from Agent.agent import get_travel_planner
         
         travel_planner = get_travel_planner()
         # 必须传入 ali_model 才能进行 AI 扩写

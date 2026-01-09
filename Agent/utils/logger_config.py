@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 from loguru import logger
-from config import config
+from Agent.config import config
 
 def setup_logger():
     """
@@ -17,9 +17,14 @@ def setup_logger():
     # 移除默认的日志处理器
     logger.remove()
     
-    # 创建日志目录
-    log_dir = Path(config.LOG_FILE).parent
+    # 创建日志目录 - 使用绝对路径
+    project_root = Path(__file__).resolve().parent.parent
+    log_dir = project_root / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 日志文件路径
+    log_file = log_dir / "agent.log"
+    error_log_file = log_dir / "error.log"
     
     # 控制台日志格式
     console_format = (
@@ -41,31 +46,28 @@ def setup_logger():
     logger.add(
         sys.stdout,
         format=console_format,
-        level=config.LOG_LEVEL,
+        level="DEBUG",
         colorize=True
     )
     
     # 添加文件处理器
     logger.add(
-        config.LOG_FILE,
+        str(log_file),
         format=file_format,
-        level=config.LOG_LEVEL,
+        level="DEBUG",
         rotation="10 MB",
         retention="7 days",
-        compression="zip",
         encoding="utf-8"
     )
     
     # 添加错误日志文件
-    error_log_file = str(Path(config.LOG_FILE).parent / "error.log")
     logger.add(
-        error_log_file,
+        str(error_log_file),
         format=file_format,
         level="ERROR",
         rotation="10 MB",
         retention="30 days",
-        compression="zip",
         encoding="utf-8"
     )
     
-    logger.info("日志系统初始化完成")
+    logger.info(f"日志系统初始化完成，日志目录: {log_dir}")

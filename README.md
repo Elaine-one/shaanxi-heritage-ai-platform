@@ -30,17 +30,107 @@
 ```
 .
 ├── Agent/              # 智能旅游规划Agent系统
-│   ├── api/           # API接口模块
-│   ├── core/          # 核心功能模块
+│   ├── api/           # FastAPI接口层
+│   │   ├── export/        # 导出功能模块（PDF、CSV、JSON）
+│   │   ├── app.py         # 主应用入口
+│   │   ├── session_dependencies.py  # Django Session认证模块
+│   │   ├── edit_endpoints.py   # 编辑相关接口
+│   │   └── weather_endpoints.py   # 天气相关接口
+│   ├── agent/         # AI代理核心模块
+│   │   ├── react_agent.py      # ReAct代理实现
+│   │   ├── plan_editor.py      # 规划编辑器和AI交互
+│   │   └── travel_planner.py   # 旅游规划核心逻辑
+│   ├── config/        # 配置管理
+│   │   └── settings.py         # 配置文件
+│   ├── memory/        # 内存管理和会话管理
+│   │   └── session.py          # 会话池和上下文管理
+│   ├── models/        # AI模型集成
+│   │   ├── langchain/          # LangChain模型封装
+│   │   │   └── llm.py          # 大语言模型接口
+│   │   └── dashscope.py        # DashScope模型
+│   ├── prompts/       # AI提示词管理
+│   │   └── react.py            # ReAct代理提示词模板
+│   ├── services/      # 业务服务层
+│   │   ├── heritage_analyzer.py   # 非遗项目分析
+│   │   ├── weather.py              # 天气服务
+│   │   ├── weather_config.py       # 天气配置
+│   │   ├── content_integrator.py   # 内容整合
+│   │   ├── pdf_generator.py        # PDF生成器
+│   │   └── pdf_content_integrator.py  # PDF内容整合
+│   ├── tools/         # 工具模块
+│   │   ├── base.py             # 基础工具类
+│   │   ├── langchain_wrappers.py  # LangChain工具封装
+│   │   └── schemas.py          # 数据模式定义
+│   ├── utils/         # 工具模块
+│   │   ├── logger_config.py    # 日志配置
+│   │   ├── font_manager.py     # 字体管理
+│   │   └── content_extractor.py  # 内容提取
 │   ├── font_cache/    # 字体缓存目录
-│   ├── pdf_cache/     # PDF缓存目录
-│   └── utils/         # 工具模块
+│   ├── logs/          # 日志目录
+│   │   ├── agent.log           # Agent日志
+│   │   └── error.log           # 错误日志
+│   ├── .env           # 环境变量配置
+│   ├── README.md      # Agent项目文档
+│   └── main.py        # 主入口文件
 ├── backend/           # 后端API服务（Django）
 │   ├── heritage_api/  # 主要API应用
+│   │   ├── admin.py               # 管理后台配置
+│   │   ├── agent_views.py         # Agent相关视图
+│   │   ├── auth_views.py          # 认证相关视图
+│   │   ├── forum_views.py         # 论坛相关视图
+│   │   ├── plan_views.py          # 规划相关视图
+│   │   ├── user_views.py          # 用户相关视图
+│   │   ├── models.py              # 数据模型
+│   │   ├── serializers.py         # 序列化器
+│   │   ├── urls.py                # URL路由
+│   │   └── management/            # 管理命令
+│   │       └── commands/
+│   │           └── import_heritage_data.py  # 数据导入命令
 │   ├── heritage_project/ # Django项目配置
+│   │   ├── settings.py            # 项目设置
+│   │   ├── urls.py                # 主URL路由
+│   │   ├── wsgi.py                # WSGI配置
+│   │   └── celery.py              # Celery配置
 │   ├── media/         # 媒体文件目录
+│   │   └── heritage_images/       # 非遗项目图片
 │   ├── logs/          # 日志目录
-│   └── static/        # 静态文件目录
+│   │   └── heritage.log           # 后端日志
+│   ├── .env           # 环境变量配置
+│   ├── manage.py      # Django管理脚本
+│   ├── complete_database_schema.md  # 完整数据库结构文档
+│   └── Agent_URL_加密使用指南.md  # Agent URL加密使用说明
+├── frontend/          # 前端界面
+│   ├── css/           # 样式文件
+│   │   ├── common/              # 通用样式
+│   │   ├── pages/               # 页面特定样式
+│   │   ├── news.css             # 新闻页样式
+│   │   └── policy.css           # 政策页样式
+│   ├── js/            # JavaScript文件
+│   │   ├── agent/               # AI智能规划相关脚本
+│   │   │   ├── agent-core.js    # 规划核心功能
+│   │   │   └── plan-editor.js   # AI对话式规划编辑器
+│   │   ├── common/              # 通用脚本
+│   │   ├── pages/               # 页面特定脚本
+│   │   ├── news.js              # 新闻页脚本
+│   │   └── policy.js            # 政策页脚本
+│   ├── lib/           # 第三方库
+│   │   ├── dify_chatbot_embed.js    # AI聊天助手嵌入脚本
+│   │   ├── maxkb_embed.js           # 知识库嵌入脚本
+│   │   └── third-party-embed.js    # 其他第三方嵌入脚本
+│   ├── pages/         # HTML页面
+│   │   ├── heritage-detail.html    # 详情页
+│   │   ├── heritage-map.html       # 地图页
+│   │   ├── login.html              # 登录页
+│   │   ├── news.html               # 新闻页
+│   │   ├── non-heritage-list.html  # 列表页
+│   │   ├── policy.html             # 政策页
+│   │   ├── profile.html            # 个人中心
+│   │   └── register.html           # 注册页
+│   ├── static/        # 静态资源
+│   │   └── images/                # 图片资源
+│   ├── index.html     # 首页
+│   └── README.md      # 前端项目文档
+├── FONT_MANAGER_UPDATE.md  # 字体管理器更新说明
 ├── .gitignore         # Git忽略文件配置
 └── README.md          # 项目说明文档
 ```
