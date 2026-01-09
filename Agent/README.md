@@ -160,7 +160,7 @@ python manage.py runserver 0.0.0.0:8000
 python -m uvicorn Agent.api.app:app --host 0.0.0.0 --port 8001 --reload
 
 # 或者直接运行
-python Agent/main.py
+python -m Agent.api.app
 ```
 
 服务启动后，访问：
