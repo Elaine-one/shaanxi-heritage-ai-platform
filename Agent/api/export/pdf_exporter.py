@@ -13,8 +13,8 @@ from loguru import logger
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
-from core.pdf_content_integrator import PDFContentIntegrator
-from main import get_agent
+from Agent.services.pdf_content_integrator import PDFContentIntegrator
+from Agent.main import get_agent
 
 
 class PDFExporter:

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import logging
 
-from core.weather_service import get_weather_service
+from Agent.services.weather import get_weather_service
 
 # 配置日志
 logger = logging.getLogger(__name__)

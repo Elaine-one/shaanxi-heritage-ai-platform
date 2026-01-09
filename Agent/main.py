@@ -15,10 +15,10 @@ from loguru import logger
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from config import config
-from core.travel_planner import TravelPlanner
-from core.heritage_analyzer import HeritageAnalyzer
-from utils.logger_config import setup_logger
+from Agent.config import config
+from Agent.agent.travel_planner import TravelPlanner
+from Agent.services.heritage_analyzer import HeritageAnalyzer
+from Agent.utils.logger_config import setup_logger
 
 class TravelPlanningAgent:
     """
@@ -67,7 +67,7 @@ class TravelPlanningAgent:
             logger.info(f"处理用户消息: {session_id} - {message[:50]}...")
             
             # 导入plan_editor来处理聊天
-            from core.plan_editor import get_plan_editor
+            from Agent.agent import get_plan_editor
             
             # 获取plan_editor实例
             plan_editor = get_plan_editor()

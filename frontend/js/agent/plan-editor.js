@@ -15,14 +15,104 @@ class PlanEditor {
 
     async getApiBaseUrl(apiType = 'agent') {
         let apiUrl = '';
+        
+        // 1. 检查localStorage中的自定义配置
         const customApiUrl = localStorage.getItem('travel_agent_api_url');
         if (customApiUrl && customApiUrl.trim()) {
             try {
                 const url = new URL(customApiUrl.trim());
                 apiUrl = `${url.origin}/api/${apiType}`;
-            } catch (e) {}
+            } catch (e) {
+                console.warn('自定义API URL格式错误，使用默认配置');
+            }
         }
-        if (!apiUrl) apiUrl = `http://localhost:8001/api/${apiType}`;
+        
+        // 2. 从后端API获取Agent服务地址
+        if (!apiUrl) {
+            try {
+                const response = await fetch('/api/agent-service-url/');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'success' && data.url) {
+                        // 确保URL是完整的
+                        let agentUrl = data.url;
+                        if (!agentUrl.startsWith('http://') && !agentUrl.startsWith('https://')) {
+                            // 如果不是完整URL，使用当前页面的协议和主机
+                            const currentOrigin = window.location.origin;
+                            agentUrl = `${currentOrigin}/${agentUrl.replace(/^\//, '')}`;
+                        }
+                        // 确保URL不以斜杠结尾
+                        agentUrl = agentUrl.replace(/\/$/, '');
+                        // 确保URL不包含双斜杠（除了协议部分）
+                        const protocolIndex = agentUrl.indexOf('://');
+                        if (protocolIndex !== -1) {
+                            const protocol = agentUrl.substring(0, protocolIndex + 3);
+                            const rest = agentUrl.substring(protocolIndex + 3).replace(/\/+\//g, '/');
+                            agentUrl = protocol + rest;
+                        }
+                        apiUrl = `${agentUrl}/api/${apiType}`;
+                    }
+                }
+            } catch (e) {
+                console.warn('无法从后端API获取Agent服务地址，使用备选方案');
+            }
+        }
+        
+        // 3. 使用当前页面的主机和端口
+        if (!apiUrl) {
+            try {
+                const currentUrl = new URL(window.location.href);
+                apiUrl = `http://${currentUrl.hostname}:8001/api/${apiType}`;
+            } catch (e) {
+                console.warn('无法解析当前页面URL，使用备选方案');
+            }
+        }
+        
+        // 4. 检查环境变量配置
+        if (!apiUrl) {
+            const envApiUrl = window.TRAVEL_AGENT_API_URL || process.env.TRAVEL_AGENT_API_URL;
+            if (envApiUrl) {
+                try {
+                    const url = new URL(envApiUrl);
+                    apiUrl = `${url.origin}/api/${apiType}`;
+                } catch (envError) {
+                    console.warn('环境变量API URL格式错误');
+                }
+            }
+        }
+        
+        // 5. 尝试使用当前页面的origin
+        if (!apiUrl) {
+            try {
+                const currentOrigin = window.location.origin;
+                if (currentOrigin && currentOrigin !== 'null') {
+                    apiUrl = `${currentOrigin}/api/${apiType}`;
+                }
+            } catch (originError) {
+                console.warn('无法获取当前页面origin');
+            }
+        }
+        
+        // 6. 最终备选方案
+        if (!apiUrl) {
+            apiUrl = `http://localhost:8001/api/${apiType}`;
+        }
+        
+        // 确保URL格式正确
+        // 移除开头的斜杠
+        if (apiUrl.startsWith('/')) {
+            apiUrl = apiUrl.substring(1);
+        }
+        
+        // 确保URL不包含双斜杠（除了协议部分）
+        const protocolIndex = apiUrl.indexOf('://');
+        if (protocolIndex !== -1) {
+            const protocol = apiUrl.substring(0, protocolIndex + 3);
+            const rest = apiUrl.substring(protocolIndex + 3).replace(/\/+\//g, '/');
+            apiUrl = protocol + rest;
+        }
+        
+        console.log(`使用API URL: ${apiUrl}`);
         return apiUrl;
     }
 
@@ -318,6 +408,7 @@ class PlanEditor {
             const response = await fetch(`${apiUrl}/edit_plan`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ session_id: this.sessionId, user_input: message })
             });
 
@@ -497,6 +588,7 @@ class PlanEditor {
             const response = await fetch(`${apiUrl}/export_plan_pdf`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(requestBody)
             });
 
@@ -526,6 +618,7 @@ class PlanEditor {
             const res = await fetch(`${apiUrl}/start_edit_session`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ plan_data: planData })
             });
             const data = await res.json();

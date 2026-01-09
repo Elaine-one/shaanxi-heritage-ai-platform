@@ -8,7 +8,7 @@ import asyncio
 import uuid
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
@@ -31,9 +31,10 @@ if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 # --- 关键路径修复结束 ---
 
-from main import get_agent
-from core.travel_planner import get_travel_planner
-from utils.logger_config import setup_logger
+from Agent.main import get_agent
+from Agent.agent.travel_planner import get_travel_planner
+from Agent.utils.logger_config import setup_logger
+from Agent.api.session_dependencies import get_current_user_from_session, TokenData
 
 # 导入路由
 try:
@@ -143,11 +144,11 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 @app.post("/api/travel-plan/create", response_model=PlanResponse)
-async def create_travel_plan(request: TravelPlanRequest, background_tasks: BackgroundTasks):
-    """创建旅游规划任务"""
+async def create_travel_plan(request: TravelPlanRequest, background_tasks: BackgroundTasks, current_user: TokenData = Depends(get_current_user_from_session)):
+    """创建旅游规划任务（需要认证）"""
     try:
         plan_id = f"plan_{uuid.uuid4().hex[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        logger.info(f"收到旅游规划请求: {plan_id}, 非遗项目: {request.heritage_ids}")
+        logger.info(f"收到旅游规划请求: {plan_id}, 用户: {current_user.user_id}, 非遗项目: {request.heritage_ids}")
         
         planning_request = request.dict()
         planning_request['plan_id'] = plan_id
@@ -185,7 +186,8 @@ async def execute_travel_planning(request: Dict[str, Any], callback: callable):
             progress_callbacks[pid].update({'status': 'error', 'error_message': str(e)})
 
 @app.get("/api/travel-plan/progress/{plan_id}", response_model=ProgressResponse)
-async def get_planning_progress(plan_id: str):
+async def get_planning_progress(plan_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
+    """获取规划进度（需要认证）"""
     if plan_id in progress_callbacks:
         data = progress_callbacks[plan_id]
         return ProgressResponse(
@@ -214,7 +216,8 @@ async def get_planning_progress(plan_id: str):
     raise HTTPException(status_code=404, detail="规划不存在")
 
 @app.get("/api/travel-plan/result/{plan_id}")
-async def get_planning_result(plan_id: str):
+async def get_planning_result(plan_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
+    """获取规划结果（需要认证）"""
     if plan_id in progress_callbacks:
         data = progress_callbacks[plan_id]
         if data.get('status') == 'completed':
@@ -227,9 +230,9 @@ async def get_planning_result(plan_id: str):
 
 # --- 核心导出接口（AI 增强版） ---
 @app.post("/api/agent/export_plan_pdf")
-async def export_plan_pdf(request: PDFExportRequest, background_tasks: BackgroundTasks):
+async def export_plan_pdf(request: PDFExportRequest, background_tasks: BackgroundTasks, current_user: TokenData = Depends(get_current_user_from_session)):
     """
-    AI编辑后的PDF导出专用接口
+    AI编辑后的PDF导出专用接口（需要认证）
     直接使用前端传入的最新数据（含对话历史），确保所见即所得
     """
     try:
@@ -251,8 +254,8 @@ async def export_plan_pdf(request: PDFExportRequest, background_tasks: Backgroun
         logger.info(f"导出上下文包含 {len(conversation_history)} 条对话记录")
 
         # 3. 执行导出
-        from core.pdf_content_integrator import PDFContentIntegrator
-        from core.travel_planner import get_travel_planner
+        from Agent.services.pdf_content_integrator import PDFContentIntegrator
+        from Agent.agent import get_travel_planner
         
         planner = get_travel_planner()
         integrator = PDFContentIntegrator(ali_model=planner.ali_model)
@@ -286,7 +289,8 @@ async def export_plan_pdf(request: PDFExportRequest, background_tasks: Backgroun
 
 # 传统的导出接口 (保留用于兼容)
 @app.post("/api/travel-plan/export/{plan_id}")
-async def export_travel_plan(plan_id: str, export_request: ExportRequest, background_tasks: BackgroundTasks = None):
+async def export_travel_plan(plan_id: str, export_request: ExportRequest, background_tasks: BackgroundTasks = None, current_user: TokenData = Depends(get_current_user_from_session)):
+    """导出旅游规划（需要认证）"""
     try:
         result = None
         if plan_id in progress_callbacks and progress_callbacks[plan_id].get('status') == 'completed':
@@ -299,7 +303,7 @@ async def export_travel_plan(plan_id: str, export_request: ExportRequest, backgr
             raise HTTPException(status_code=404, detail="规划数据未找到")
 
         # 智能查找：尝试从 PlanEditor 查找是否有该 plan_id 的活跃编辑会话
-        from core.plan_editor import get_plan_editor
+        from Agent.agent import get_plan_editor
         plan_editor = get_plan_editor()
         
         final_plan_data = result
@@ -320,8 +324,8 @@ async def export_travel_plan(plan_id: str, export_request: ExportRequest, backgr
 
         fmt = export_request.format.lower()
         if fmt == "pdf":
-            from core.pdf_content_integrator import PDFContentIntegrator
-            from core.travel_planner import get_travel_planner
+            from Agent.services.pdf_content_integrator import PDFContentIntegrator
+            from Agent.agent import get_travel_planner
             planner = get_travel_planner()
             integrator = PDFContentIntegrator(ali_model=planner.ali_model)
             
@@ -362,7 +366,8 @@ async def cleanup_temp_file(path: str):
     except Exception: pass
 
 @app.post("/api/agent/chat")
-async def agent_chat(request: Dict[str, Any]):
+async def agent_chat(request: Dict[str, Any], current_user: TokenData = Depends(get_current_user_from_session)):
+    """AI对话接口（需要认证）"""
     try:
         msg = request.get('message', '')
         sid = request.get('session_id', str(uuid.uuid4()))
