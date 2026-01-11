@@ -5,7 +5,10 @@ LangChain 工具输入模式
 """
 
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+try:
+    from pydantic.v1 import BaseModel, Field
+except ImportError:
+    from pydantic import BaseModel, Field
 
 
 class HeritageSearchInput(BaseModel):

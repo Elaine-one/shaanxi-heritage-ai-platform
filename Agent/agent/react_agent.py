@@ -10,7 +10,7 @@ from loguru import logger
 
 from Agent.models.langchain import get_dashscope_llm
 from Agent.tools import get_langchain_tools
-from Agent.prompts import REACT_AGENT_PROMPT
+from Agent.prompts import REACT_AGENT_PROMPT, CONVERSATION_SUMMARY_PROMPT
 
 
 class LangChainReActAgent:
@@ -71,8 +71,8 @@ class LangChainReActAgent:
             full_input = user_input
             
             if conversation_history:
-                # 添加对话历史上下文
-                history_context = self._build_conversation_context(conversation_history)
+                # 添加对话历史上下文（基于 LLM 智能摘要）
+                history_context = await self._build_conversation_context(conversation_history)
                 if history_context:
                     full_input = f"{history_context}\n\n当前用户问题: {user_input}"
                     logger.info(f"包含对话历史上下文，历史消息数: {len(conversation_history)}")
@@ -99,9 +99,68 @@ class LangChainReActAgent:
                 'answer': f"抱歉，处理您的请求时遇到了问题: {str(e)}"
             }
 
-    def _build_conversation_context(self, conversation_history: List[Dict[str, Any]]) -> str:
+    async def _build_conversation_context(self, conversation_history: List[Dict[str, Any]]) -> str:
         """
-        构建对话历史上下文
+        构建对话历史上下文（基于 LLM 智能摘要）
+        
+        Args:
+            conversation_history: 对话历史列表
+        
+        Returns:
+            str: 对话历史摘要上下文字符串
+        """
+        if not conversation_history:
+            return ""
+        
+        try:
+            # 将对话历史转换为文本格式
+            conversation_text = self._format_conversation_to_text(conversation_history)
+            
+            logger.info(f"开始对 {len(conversation_history)} 条对话历史进行智能摘要...")
+            
+            # 使用 LLM 进行智能摘要
+            summary_prompt = CONVERSATION_SUMMARY_PROMPT.format(
+                conversation_history=conversation_text
+            )
+            
+            # 调用 LLM 生成摘要
+            summary_result = await self.llm.ainvoke(summary_prompt)
+            summary = summary_result.content if hasattr(summary_result, 'content') else str(summary_result)
+            
+            logger.info(f"对话历史摘要生成完成，摘要长度: {len(summary)} 字符")
+            
+            return f"【对话历史摘要】\n{summary}"
+            
+        except Exception as e:
+            logger.error(f"对话历史摘要生成失败，降级为简单截取: {str(e)}")
+            # 降级方案：使用简单截取
+            return self._build_conversation_context_fallback(conversation_history)
+    
+    def _format_conversation_to_text(self, conversation_history: List[Dict[str, Any]]) -> str:
+        """
+        将对话历史转换为文本格式
+        
+        Args:
+            conversation_history: 对话历史列表
+        
+        Returns:
+            str: 格式化的对话文本
+        """
+        lines = []
+        for idx, msg in enumerate(conversation_history, 1):
+            role = msg.get('role', 'unknown')
+            content = msg.get('content', '')
+            
+            if role == 'user':
+                lines.append(f"{idx}. 用户: {content}")
+            elif role == 'assistant':
+                lines.append(f"{idx}. 助手: {content}")
+        
+        return "\n".join(lines)
+    
+    def _build_conversation_context_fallback(self, conversation_history: List[Dict[str, Any]]) -> str:
+        """
+        降级方案：构建对话历史上下文（简单截取）
         
         Args:
             conversation_history: 对话历史列表
@@ -109,9 +168,6 @@ class LangChainReActAgent:
         Returns:
             str: 对话历史上下文字符串
         """
-        if not conversation_history:
-            return ""
-        
         context_parts = ["【对话历史】"]
         
         # 只取最近5条历史，避免上下文过长

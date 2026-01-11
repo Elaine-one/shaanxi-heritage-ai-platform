@@ -16,6 +16,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 from loguru import logger
 from Agent.utils.content_extractor import ContentExtractor
+from Agent.prompts import CONVERSATION_SUMMARY_PROMPT
 
 
 class AIContentIntegrator:
@@ -162,19 +163,8 @@ class AIContentIntegrator:
             sys_recs = self._format_recommendations(actual_data.get('recommendations', {}))
             start_location = actual_data.get('basic_info', {}).get('departure', '未指定')
             
-            # 2. 【性能优化：对话历史瘦身】仅保留最近 8 条，减少 Token 浪费
-            user_demands = []
-            if not conversation_history and 'conversation_history' in actual_data:
-                conversation_history = self._extract_conversation_history_list(actual_data)
-            
-            if conversation_history:
-                # 聚焦最近几轮对话，这是用户修改意图最集中的地方
-                for msg in conversation_history[-8:]:
-                    role = "用户" if msg.get('role') == 'user' else "助手"
-                    content = msg.get('content', '')[:200]
-                    user_demands.append(f"{role}: {content}")
-            
-            formatted_history = "\n".join(user_demands) if user_demands else "暂无特殊要求。"
+            # 2. 【智能摘要：对话历史处理】使用 LLM 智能摘要提取关键信息
+            formatted_history = await self._build_conversation_summary(conversation_history, actual_data)
 
             # 3. 【性能优化：素材库精准匹配】只提取行程中出现的非遗项目描述
             itinerary_raw = actual_data.get('itinerary', [])
@@ -286,6 +276,92 @@ class AIContentIntegrator:
         except Exception as e:
             logger.error(f"AI自主内容整合失败: {str(e)}")
             return self._create_fallback_content(result.get('plan_data', result))
+    
+    async def _build_conversation_summary(self, conversation_history: List[Dict] = None, actual_data: Dict = None) -> str:
+        """
+        构建对话历史摘要（基于 LLM 智能摘要）
+        
+        Args:
+            conversation_history: 对话历史列表
+            actual_data: 实际数据
+        
+        Returns:
+            str: 对话历史摘要
+        """
+        if not conversation_history and actual_data:
+            conversation_history = self._extract_conversation_history_list(actual_data)
+        
+        if not conversation_history:
+            return "暂无特殊要求。"
+        
+        try:
+            # 将对话历史转换为文本格式
+            conversation_text = self._format_conversation_to_text(conversation_history)
+            
+            logger.info(f"开始对 {len(conversation_history)} 条对话历史进行智能摘要...")
+            
+            # 使用 LLM 进行智能摘要
+            summary_prompt = CONVERSATION_SUMMARY_PROMPT.format(
+                conversation_history=conversation_text
+            )
+            
+            # 调用 LLM 生成摘要
+            response = await self.ali_model._call_model(summary_prompt)
+            
+            if response and response.get('success'):
+                summary = response.get('content', '').strip()
+                logger.info(f"对话历史摘要生成完成，摘要长度: {len(summary)} 字符")
+                return summary
+            else:
+                logger.warning("LLM 摘要生成失败，使用降级方案")
+                return self._build_conversation_summary_fallback(conversation_history)
+                
+        except Exception as e:
+            logger.error(f"对话历史摘要生成失败，降级为简单截取: {str(e)}")
+            # 降级方案：使用简单截取
+            return self._build_conversation_summary_fallback(conversation_history)
+    
+    def _format_conversation_to_text(self, conversation_history: List[Dict]) -> str:
+        """
+        将对话历史转换为文本格式
+        
+        Args:
+            conversation_history: 对话历史列表
+        
+        Returns:
+            str: 格式化的对话文本
+        """
+        lines = []
+        for idx, msg in enumerate(conversation_history, 1):
+            role = msg.get('role', 'unknown')
+            content = msg.get('content', '')
+            
+            if role == 'user':
+                lines.append(f"{idx}. 用户: {content}")
+            elif role == 'assistant':
+                lines.append(f"{idx}. 助手: {content}")
+        
+        return "\n".join(lines)
+    
+    def _build_conversation_summary_fallback(self, conversation_history: List[Dict]) -> str:
+        """
+        降级方案：构建对话历史摘要（简单截取）
+        
+        Args:
+            conversation_history: 对话历史列表
+        
+        Returns:
+            str: 对话历史摘要
+        """
+        user_demands = []
+        
+        # 聚焦最近几轮对话，这是用户修改意图最集中的地方
+        for msg in conversation_history[-8:]:
+            role = "用户" if msg.get('role') == 'user' else "助手"
+            content = msg.get('content', '')[:200]
+            user_demands.append(f"{role}: {content}")
+        
+        return "\n".join(user_demands) if user_demands else "暂无特殊要求。"
     
     def _create_fallback_content(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """创建备用内容"""
