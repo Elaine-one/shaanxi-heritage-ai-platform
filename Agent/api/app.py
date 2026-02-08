@@ -21,7 +21,8 @@ from pathlib import Path
 
 # --- 关键路径修复开始 ---
 # 1. 添加项目根目录到Python路径 (用于引用 core, utils, main 等)
-project_root = Path(__file__).resolve().parent.parent
+# 需要指向 shaanxi-heritage-ai-platform 目录，以便可以使用 from Agent.xxx import xxx
+project_root = Path(__file__).resolve().parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
@@ -37,13 +38,9 @@ from Agent.utils.logger_config import setup_logger
 from Agent.api.session_dependencies import get_current_user_from_session, TokenData
 
 # 导入路由
-try:
-    from edit_endpoints import edit_router
-    from weather_endpoints import router as weather_router
-except ImportError as e:
-    logger.warning(f"尝试相对导入失败，使用绝对路径: {e}")
-    from api.edit_endpoints import edit_router
-    from api.weather_endpoints import router as weather_router
+from api.edit_endpoints import edit_router
+from api.weather_endpoints import router as weather_router
+from api.conversation_endpoints import router as conversation_router
 
 # 设置日志
 setup_logger()
@@ -71,10 +68,12 @@ async def lifespan(app: FastAPI):
 
 # 创建FastAPI应用
 app = FastAPI(
-    title="智能旅游规划Agent API",
-    description="基于非遗文化的智能旅游规划服务",
+    title="非遗旅游规划API",
+    description="基于陕西非遗文化的智能旅游规划服务",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
 # 配置CORS
@@ -89,6 +88,7 @@ app.add_middleware(
 # 注册路由器
 app.include_router(edit_router)
 app.include_router(weather_router)
+app.include_router(conversation_router)
 
 # --- 数据模型定义 ---
 
@@ -141,17 +141,58 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    """健康检查端点"""
+    from Agent.memory import get_session_pool
+    from Agent.memory.redis_session import RedisSessionPool
+    
+    health_info = {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "components": {}
+    }
+    
+    # 检查会话存储
+    try:
+        session_pool = get_session_pool()
+        if isinstance(session_pool, RedisSessionPool):
+            redis_health = session_pool.health_check()
+            health_info["components"]["session_storage"] = {
+                "type": "redis",
+                **redis_health
+            }
+        else:
+            stats = session_pool.get_session_stats()
+            health_info["components"]["session_storage"] = {
+                "type": "memory",
+                **stats
+            }
+    except Exception as e:
+        health_info["components"]["session_storage"] = {
+            "type": "unknown",
+            "status": "error",
+            "error": str(e)
+        }
+    
+    return health_info
 
-@app.post("/api/travel-plan/create", response_model=PlanResponse)
+@app.post("/api/travel-plan/create", summary="创建规划", response_model=PlanResponse)
 async def create_travel_plan(request: TravelPlanRequest, background_tasks: BackgroundTasks, current_user: TokenData = Depends(get_current_user_from_session)):
-    """创建旅游规划任务（需要认证）"""
+    """创建新的旅游规划任务"""
     try:
         plan_id = f"plan_{uuid.uuid4().hex[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         logger.info(f"收到旅游规划请求: {plan_id}, 用户: {current_user.user_id}, 非遗项目: {request.heritage_ids}")
         
         planning_request = request.dict()
         planning_request['plan_id'] = plan_id
+        
+        # 立即初始化进度，避免前端首次轮询出现 404
+        progress_callbacks[plan_id] = {
+            'status': 'processing',
+            'progress': 5,
+            'current_step': '正在启动规划引擎...',
+            'steps': ['分析非遗项目', '获取天气信息', '生成AI建议', '路径规划计算', '生成路书', '完成'],
+            'start_time': datetime.now().isoformat()
+        }
         
         async def progress_callback(pid: str, pdata: Dict[str, Any]):
             progress_callbacks[pid] = pdata
@@ -185,9 +226,9 @@ async def execute_travel_planning(request: Dict[str, Any], callback: callable):
         if pid in progress_callbacks:
             progress_callbacks[pid].update({'status': 'error', 'error_message': str(e)})
 
-@app.get("/api/travel-plan/progress/{plan_id}", response_model=ProgressResponse)
+@app.get("/api/travel-plan/progress/{plan_id}", summary="规划进度", response_model=ProgressResponse)
 async def get_planning_progress(plan_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
-    """获取规划进度（需要认证）"""
+    """查询旅游规划的生成进度"""
     if plan_id in progress_callbacks:
         data = progress_callbacks[plan_id]
         return ProgressResponse(
@@ -215,9 +256,9 @@ async def get_planning_progress(plan_id: str, current_user: TokenData = Depends(
         )
     raise HTTPException(status_code=404, detail="规划不存在")
 
-@app.get("/api/travel-plan/result/{plan_id}")
+@app.get("/api/travel-plan/result/{plan_id}", summary="规划结果")
 async def get_planning_result(plan_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
-    """获取规划结果（需要认证）"""
+    """获取已完成的旅游规划结果"""
     if plan_id in progress_callbacks:
         data = progress_callbacks[plan_id]
         if data.get('status') == 'completed':
@@ -228,15 +269,11 @@ async def get_planning_result(plan_id: str, current_user: TokenData = Depends(ge
             return {"success": False, "status": data.get('status'), "message": "规划进行中"}
     raise HTTPException(status_code=404, detail="结果不存在")
 
-# --- 核心导出接口（AI 增强版） ---
-@app.post("/api/agent/export_plan_pdf")
+@app.post("/api/agent/export_plan_pdf", summary="导出PDF")
 async def export_plan_pdf(request: PDFExportRequest, background_tasks: BackgroundTasks, current_user: TokenData = Depends(get_current_user_from_session)):
-    """
-    AI编辑后的PDF导出专用接口（需要认证）
-    直接使用前端传入的最新数据（含对话历史），确保所见即所得
-    """
+    """将旅游规划导出为PDF文件，自动上传到对象存储"""
     try:
-        logger.info(f"收到AI PDF导出请求，目的地: {request.destination}")
+        logger.info(f"收到AI PDF导出请求，目的地: {request.destination}, 用户: {current_user.username}")
         
         # 1. 获取完整数据
         plan_data = request.complete_plan_data or {}
@@ -256,6 +293,7 @@ async def export_plan_pdf(request: PDFExportRequest, background_tasks: Backgroun
         # 3. 执行导出
         from Agent.services.pdf_content_integrator import PDFContentIntegrator
         from Agent.agent import get_travel_planner
+        from Agent.services.minio_storage import get_minio_service
         
         planner = get_travel_planner()
         integrator = PDFContentIntegrator(ali_model=planner.ali_model)
@@ -269,14 +307,58 @@ async def export_plan_pdf(request: PDFExportRequest, background_tasks: Backgroun
         
         if file_response.get('success'):
             path = file_response.get('pdf_path')
+            
+            # 4. 读取PDF文件并上传到MinIO
+            minio_url = None
+            upload_success = False
+            try:
+                with open(path, 'rb') as f:
+                    pdf_bytes = f.read()
+                
+                minio_service = get_minio_service()
+                upload_result = minio_service.upload_pdf(
+                    username=current_user.username,
+                    pdf_bytes=pdf_bytes,
+                    metadata={
+                        "destination": request.destination,
+                        "duration": request.duration,
+                        "title": request.title,
+                        "exported_by": current_user.user_id,
+                        "session_id": request.session_id,
+                        "message_count": len(conversation_history)
+                    }
+                )
+                
+                if upload_result.get('success'):
+                    minio_url = upload_result.get('url')
+                    upload_success = True
+                    logger.info(f"PDF已上传到MinIO: {upload_result.get('object_path')}")
+                else:
+                    logger.warning(f"MinIO上传失败: {upload_result.get('error')}")
+            except Exception as e:
+                logger.error(f"MinIO上传过程异常: {str(e)}")
+
+            # 5. 清理临时文件（在返回FileResponse后异步清理）
             background_tasks.add_task(cleanup_temp_file, path)
+            
             filename = f"TravelPlan_{request.destination}_{datetime.now().strftime('%H%M%S')}.pdf"
             
-            # 使用 FileResponse 返回文件流
+            # 构建响应头
+            headers = {
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+            if minio_url:
+                headers["X-MinIO-URL"] = minio_url
+                headers["X-MinIO-Status"] = "success"
+            else:
+                headers["X-MinIO-Status"] = "failed"
+            
+            # 返回PDF文件内容
             return FileResponse(
-                path=path, 
-                filename=filename, 
-                media_type='application/pdf'
+                path=path,
+                filename=filename,
+                media_type='application/pdf',
+                headers=headers
             )
         else:
             raise HTTPException(status_code=500, detail=file_response.get('error', '生成失败'))
@@ -287,10 +369,9 @@ async def export_plan_pdf(request: PDFExportRequest, background_tasks: Backgroun
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-# 传统的导出接口 (保留用于兼容)
-@app.post("/api/travel-plan/export/{plan_id}")
+@app.post("/api/travel-plan/export/{plan_id}", summary="导出规划")
 async def export_travel_plan(plan_id: str, export_request: ExportRequest, background_tasks: BackgroundTasks = None, current_user: TokenData = Depends(get_current_user_from_session)):
-    """导出旅游规划（需要认证）"""
+    """导出旅游规划为PDF或JSON格式"""
     try:
         result = None
         if plan_id in progress_callbacks and progress_callbacks[plan_id].get('status') == 'completed':
@@ -326,6 +407,8 @@ async def export_travel_plan(plan_id: str, export_request: ExportRequest, backgr
         if fmt == "pdf":
             from Agent.services.pdf_content_integrator import PDFContentIntegrator
             from Agent.agent import get_travel_planner
+            from Agent.services.minio_storage import get_minio_service
+
             planner = get_travel_planner()
             integrator = PDFContentIntegrator(ali_model=planner.ali_model)
             
@@ -337,8 +420,43 @@ async def export_travel_plan(plan_id: str, export_request: ExportRequest, backgr
             
             if file_response.get('success'):
                 path = file_response.get('pdf_path')
+                
+                # 读取PDF并上传到MinIO
+                minio_url = None
+                try:
+                    with open(path, 'rb') as f:
+                        pdf_bytes = f.read()
+                    
+                    minio_service = get_minio_service()
+                    upload_result = minio_service.upload_pdf(
+                        username=current_user.username,
+                        pdf_bytes=pdf_bytes,
+                        metadata={
+                            "destination": final_plan_data.get("basic_info", {}).get("destination", "unknown"),
+                            "title": final_plan_data.get("basic_info", {}).get("title", f"Plan {plan_id}"),
+                            "exported_by": current_user.user_id,
+                            "plan_id": plan_id
+                        }
+                    )
+                    
+                    if upload_result.get('success'):
+                        minio_url = upload_result.get('url')
+                        logger.info(f"PDF已上传到MinIO: {upload_result.get('object_path')}")
+                except Exception as e:
+                    logger.error(f"MinIO上传失败: {str(e)}")
+
                 if background_tasks: background_tasks.add_task(cleanup_temp_file, path)
-                return FileResponse(path, filename=f"plan_{plan_id}.pdf", media_type='application/pdf')
+                
+                headers = {
+                    "Content-Disposition": f'attachment; filename="plan_{plan_id}.pdf"'
+                }
+                if minio_url:
+                    headers["X-MinIO-URL"] = minio_url
+                    headers["X-MinIO-Status"] = "success"
+                else:
+                    headers["X-MinIO-Status"] = "failed"
+
+                return FileResponse(path, filename=f"plan_{plan_id}.pdf", media_type='application/pdf', headers=headers)
             else:
                 raise HTTPException(status_code=500, detail="PDF生成失败")
         
@@ -365,9 +483,9 @@ async def cleanup_temp_file(path: str):
             os.remove(path)
     except Exception: pass
 
-@app.post("/api/agent/chat")
+@app.post("/api/agent/chat", summary="AI对话")
 async def agent_chat(request: Dict[str, Any], current_user: TokenData = Depends(get_current_user_from_session)):
-    """AI对话接口（需要认证）"""
+    """与AI助手进行对话交互"""
     try:
         msg = request.get('message', '')
         sid = request.get('session_id', str(uuid.uuid4()))
@@ -377,15 +495,17 @@ async def agent_chat(request: Dict[str, Any], current_user: TokenData = Depends(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/travel-plan/{plan_id}")
+@app.delete("/api/travel-plan/{plan_id}", summary="删除规划")
 async def delete_plan(plan_id: str):
+    """删除指定的旅游规划任务"""
     if plan_id in progress_callbacks:
         del progress_callbacks[plan_id]
         return {"success": True}
     raise HTTPException(status_code=404)
 
-@app.get("/api/travel-plan/list")
+@app.get("/api/travel-plan/list", summary="规划列表")
 async def list_plans():
+    """获取所有旅游规划任务列表"""
     plans = [{"plan_id": k, "status": v.get('status')} for k, v in progress_callbacks.items()]
     return {"success": True, "data": {"total": len(plans), "plans": plans}}
 

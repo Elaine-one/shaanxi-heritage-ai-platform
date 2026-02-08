@@ -10,109 +10,15 @@ class PlanEditor {
         this.chatHistory = [];
         this.isEditing = false;
         this.eventsBound = false;
+        this.isSending = false; // 防止重复发送
         this.init();
     }
 
     async getApiBaseUrl(apiType = 'agent') {
-        let apiUrl = '';
-        
-        // 1. 检查localStorage中的自定义配置
-        const customApiUrl = localStorage.getItem('travel_agent_api_url');
-        if (customApiUrl && customApiUrl.trim()) {
-            try {
-                const url = new URL(customApiUrl.trim());
-                apiUrl = `${url.origin}/api/${apiType}`;
-            } catch (e) {
-                console.warn('自定义API URL格式错误，使用默认配置');
-            }
-        }
-        
-        // 2. 从后端API获取Agent服务地址
-        if (!apiUrl) {
-            try {
-                const response = await fetch('/api/agent-service-url/');
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.status === 'success' && data.url) {
-                        // 确保URL是完整的
-                        let agentUrl = data.url;
-                        if (!agentUrl.startsWith('http://') && !agentUrl.startsWith('https://')) {
-                            // 如果不是完整URL，使用当前页面的协议和主机
-                            const currentOrigin = window.location.origin;
-                            agentUrl = `${currentOrigin}/${agentUrl.replace(/^\//, '')}`;
-                        }
-                        // 确保URL不以斜杠结尾
-                        agentUrl = agentUrl.replace(/\/$/, '');
-                        // 确保URL不包含双斜杠（除了协议部分）
-                        const protocolIndex = agentUrl.indexOf('://');
-                        if (protocolIndex !== -1) {
-                            const protocol = agentUrl.substring(0, protocolIndex + 3);
-                            const rest = agentUrl.substring(protocolIndex + 3).replace(/\/+\//g, '/');
-                            agentUrl = protocol + rest;
-                        }
-                        apiUrl = `${agentUrl}/api/${apiType}`;
-                    }
-                }
-            } catch (e) {
-                console.warn('无法从后端API获取Agent服务地址，使用备选方案');
-            }
-        }
-        
-        // 3. 使用当前页面的主机和端口
-        if (!apiUrl) {
-            try {
-                const currentUrl = new URL(window.location.href);
-                apiUrl = `http://${currentUrl.hostname}:8001/api/${apiType}`;
-            } catch (e) {
-                console.warn('无法解析当前页面URL，使用备选方案');
-            }
-        }
-        
-        // 4. 检查环境变量配置
-        if (!apiUrl) {
-            const envApiUrl = window.TRAVEL_AGENT_API_URL || process.env.TRAVEL_AGENT_API_URL;
-            if (envApiUrl) {
-                try {
-                    const url = new URL(envApiUrl);
-                    apiUrl = `${url.origin}/api/${apiType}`;
-                } catch (envError) {
-                    console.warn('环境变量API URL格式错误');
-                }
-            }
-        }
-        
-        // 5. 尝试使用当前页面的origin
-        if (!apiUrl) {
-            try {
-                const currentOrigin = window.location.origin;
-                if (currentOrigin && currentOrigin !== 'null') {
-                    apiUrl = `${currentOrigin}/api/${apiType}`;
-                }
-            } catch (originError) {
-                console.warn('无法获取当前页面origin');
-            }
-        }
-        
-        // 6. 最终备选方案
-        if (!apiUrl) {
-            apiUrl = `http://localhost:8001/api/${apiType}`;
-        }
-        
-        // 确保URL格式正确
-        // 移除开头的斜杠
-        if (apiUrl.startsWith('/')) {
-            apiUrl = apiUrl.substring(1);
-        }
-        
-        // 确保URL不包含双斜杠（除了协议部分）
-        const protocolIndex = apiUrl.indexOf('://');
-        if (protocolIndex !== -1) {
-            const protocol = apiUrl.substring(0, protocolIndex + 3);
-            const rest = apiUrl.substring(protocolIndex + 3).replace(/\/+\//g, '/');
-            apiUrl = protocol + rest;
-        }
-        
-        console.log(`使用API URL: ${apiUrl}`);
+        // 使用相对路径，指向Django后端的代理接口
+        // 路径映射: /api/agent/api/{apiType} -> Agent Service /api/{apiType}
+        const apiUrl = `/api/agent/api/${apiType}`;
+        console.log(`使用后端代理API URL (${apiType}):`, apiUrl);
         return apiUrl;
     }
 
@@ -296,6 +202,16 @@ class PlanEditor {
         this.currentPlan = planData;
         this.isEditing = true;
         this.chatHistory = [];
+        
+        // 确保编辑器UI已创建
+        this.createEditorUI();
+        
+        // 清空之前的对话记录UI
+        const chatContainer = document.getElementById('chat-history');
+        if (chatContainer) {
+            chatContainer.innerHTML = '';
+        }
+        
         this.showEditor();
         this.enableApplyButton(); 
         
@@ -392,18 +308,29 @@ class PlanEditor {
     }
 
     async sendMessage() {
+        if (this.isSending) return; // 防止重复提交
+
         const input = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-message-btn');
         const message = input.value.trim();
+        
         if (!message) return;
         
-        if (!this.sessionId) await this.initializeChatSession();
-
-        input.value = '';
-        this.addChatMessage('user', message, false);
-        
-        const loadingId = this.showLoading();
+        // 锁定输入状态
+        this.isSending = true;
+        input.disabled = true;
+        sendBtn.disabled = true;
+        const originalBtnText = sendBtn.innerHTML;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         
         try {
+            if (!this.sessionId) await this.initializeChatSession();
+
+            input.value = '';
+            this.addChatMessage('user', message, false);
+            
+            const loadingId = this.showLoading();
+            
             const apiUrl = await this.getApiBaseUrl();
             const response = await fetch(`${apiUrl}/edit_plan`, {
                 method: 'POST',
@@ -431,13 +358,21 @@ class PlanEditor {
                 }
                 
                 // 启用打字机效果
-                this.addChatMessage('ai', cleanResponse, true);
+                await this.addChatMessage('ai', cleanResponse, true);
             } else {
-                this.addChatMessage('ai', '抱歉，系统遇到了一点小问题，请重试。', true);
+                this.addChatMessage('ai', '抱歉，处理您的请求时遇到了一些问题。', false);
             }
         } catch (error) {
-            this.hideLoading(loadingId);
-            this.addChatMessage('ai', '网络连接失败，请检查网络。', true);
+            console.error('发送消息失败:', error);
+            this.addChatMessage('ai', '网络请求失败，请稍后重试。', false);
+        } finally {
+            // 恢复输入状态
+            this.isSending = false;
+            input.disabled = false;
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = originalBtnText;
+            // 重新聚焦输入框
+            input.focus();
         }
     }
 
@@ -597,14 +532,15 @@ class PlanEditor {
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `定制路书_${Date.now()}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => window.URL.revokeObjectURL(url), 100);
-            
-            this.addChatMessage('ai', '✅ 导出成功！', true);
-        } catch (e) {
+                a.href = url;
+                a.download = `定制路书_${Date.now()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => window.URL.revokeObjectURL(url), 100);
+
+                this.addChatMessage('ai', `✅ 导出成功！`, true);
+
+            } catch (e) {
             console.error(e);
             this.addChatMessage('ai', '❌ 导出失败，请重试。', true);
         }

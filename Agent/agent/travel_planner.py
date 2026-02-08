@@ -90,7 +90,6 @@ class TravelPlanner:
             if progress_callback:
                 await progress_callback(plan_id, self.planning_progress[plan_id])
             
-            # 步骤1: 分析非遗项目
             await self._update_progress(plan_id, 10, '分析非遗项目', progress_callback)
             heritage_analysis = await self.heritage_analyzer.analyze_heritage_items(
                 planning_request.get('heritage_ids', [])

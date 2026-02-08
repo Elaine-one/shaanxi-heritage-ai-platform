@@ -3,8 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
-from .models import Heritage, UserHistory
-from .serializers import HeritageSerializer, UserHistorySerializer
+from ..models import Heritage, UserHistory
+from ..serializers.heritage import HeritageSerializer, UserHistorySerializer
 from django.utils import timezone
 
 class UserHistoryViewSet(viewsets.ModelViewSet):

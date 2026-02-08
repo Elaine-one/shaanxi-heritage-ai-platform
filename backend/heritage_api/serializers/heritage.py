@@ -1,11 +1,11 @@
 from rest_framework import serializers
-from .models import Heritage, HeritageImage, UserFavorite, UserHistory, News, Policy
-from .creation_models import (
+from ..models import Heritage, HeritageImage, UserFavorite, UserHistory, News, Policy
+from ..creation_models import (
     UserCreation, CreationLike, CreationComment, CreationTag,
     CreationReport, CreationViewHistory, CreationFavorite, CreationShare
 )
 from django.contrib.auth.models import User
-from .utils import format_datetime
+from ..utils import format_datetime
 
 class HeritageImageSerializer(serializers.ModelSerializer):
     """非遗项目图片序列化器，生成完整的图片URL"""

@@ -32,7 +32,6 @@ class LangChainReActAgent:
         """创建 AgentExecutor"""
         from datetime import datetime
         
-        # 获取当前日期
         current_date = datetime.now().strftime("%Y-%m-%d")
         
         agent = create_react_agent(
@@ -55,19 +54,18 @@ class LangChainReActAgent:
     async def run(self, user_input: str, plan_summary: str = None, conversation_history: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         运行 Agent
-
+        
         Args:
             user_input: 用户输入
             plan_summary: 规划摘要（可选）
             conversation_history: 对话历史（可选）
-
+        
         Returns:
             Dict包含: success(是否成功), answer(最终答案), intermediate_steps(中间步骤)
         """
         try:
             logger.info(f"LangChain Agent: 开始处理用户输入: {user_input[:50]}...")
 
-            # 构建完整的输入，包含对话历史
             full_input = user_input
             
             if conversation_history:
@@ -76,7 +74,7 @@ class LangChainReActAgent:
                 if history_context:
                     full_input = f"{history_context}\n\n当前用户问题: {user_input}"
                     logger.info(f"包含对话历史上下文，历史消息数: {len(conversation_history)}")
-
+            
             if plan_summary:
                 full_input = f"{plan_summary}\n\n{full_input}"
 

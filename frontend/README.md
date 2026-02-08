@@ -240,6 +240,13 @@ frontend/
 const API_BASE_URL = 'http://localhost:8000/api';
 ```
 
+### Agent 服务配置
+
+旅游规划 Agent 服务 (`js/agent/agent-core.js`) 默认通过 Django 后端代理访问，无需额外配置。
+请求路径映射：`/api/agent/...` -> Django -> Agent Service (localhost:8001)
+
+如需修改，请查看 `js/agent/agent-core.js` 中的 `getApiBaseUrl` 方法。
+
 ## API 调用
 
 前端通过 Fetch API 与后端通信，主要 API 调用封装在 `js/common/heritage-api.js` 文件中：

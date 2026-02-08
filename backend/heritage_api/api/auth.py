@@ -18,8 +18,8 @@ import logging
 import base64
 from io import BytesIO
 
-from heritage_api.utils import generate_captcha
-from heritage_api.redis_utils import redis_client
+from ..utils import generate_captcha
+from ..redis_utils import redis_client
 
 logger = logging.getLogger(__name__)
 

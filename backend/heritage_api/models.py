@@ -1,13 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-# 导入用户资料模型
 from .user_models import UserProfile
-
-# 导入论坛相关模型
 from .forum_models import *
 
-# Create your models here.
 class Heritage(models.Model):
     level = models.CharField(max_length=50, default='未知级别', blank=True, null=True, verbose_name="级别")
     name = models.CharField(max_length=100, unique=True, verbose_name="项目名称")

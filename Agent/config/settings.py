@@ -68,6 +68,30 @@ class Config:
     SESSION_COOKIE_NAME = 'sessionid'  # Django session cookie名称
     SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Session存储引擎
     
+    # Redis配置
+    REDIS_HOST = os.getenv('REDIS_HOST', '127.0.0.1')
+    REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+    REDIS_DB = int(os.getenv('REDIS_DB', 0))
+    REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
+    REDIS_SESSION_TTL = int(os.getenv('REDIS_SESSION_TTL', 86400))  # 会话过期时间（秒）
+    
+    # 会话存储模式: 'memory' 或 'redis'
+    SESSION_STORAGE_MODE = os.getenv('SESSION_STORAGE_MODE', 'redis')
+    
+    # MinIO配置
+    MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
+    MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'admin')
+    MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'admin123')
+    MINIO_BUCKET_NAME = os.getenv('MINIO_BUCKET_NAME', 'heritage-agent-storage')
+    MINIO_SECURE = os.getenv('MINIO_SECURE', 'false').lower() == 'true'
+    MINIO_REGION = os.getenv('MINIO_REGION', 'us-east-1')
+    
+    # 归档配置
+    CONVERSATION_ARCHIVE_TTL = int(os.getenv('CONVERSATION_ARCHIVE_TTL', 86400))
+    PDF_RETENTION_DAYS = int(os.getenv('PDF_RETENTION_DAYS', 365))
+    MEDIA_RETENTION_DAYS = int(os.getenv('MEDIA_RETENTION_DAYS', 90))
+    AUTO_ARCHIVE_ENABLED = os.getenv('AUTO_ARCHIVE_ENABLED', 'true').lower() == 'true'
+    
     @classmethod
     def validate_config(cls) -> Dict[str, Any]:
         """

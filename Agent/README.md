@@ -28,6 +28,7 @@
 - **天气服务**: 实时天气API - 天气预报和出行建议
 - **前端**: 原生JavaScript + HTML5 - 响应式Web界面
 - **PDF生成**: ReportLab - 专业PDF文档生成
+- **对象存储**: MinIO - 存储PDF导出文件和媒体资源
 - **异步处理**: Python asyncio - 高效后台任务处理
 
 ### AI代理架构
@@ -42,13 +43,13 @@
 ### 数据流架构
 
 ```
-用户输入 → 前端界面 → API接口 → 业务逻辑层
+用户输入 → 前端界面 → Django后端(反向代理) → FastAPI Agent服务
                                       ↓
                             ┌─────────┴─────────┐
                             ↓                   ↓
                       AI代理层              数据服务层
                             ↓                   ↓
-                      大语言模型调用        天气/地图API
+                      大语言模型调用        天气/地图API/MinIO
                             ↓                   ↓
                             └─────────┬─────────┘
                                       ↓
@@ -90,7 +91,8 @@ Agent/
 │   ├── weather_config.py       # 天气配置
 │   ├── content_integrator.py   # 内容整合
 │   ├── pdf_generator.py        # PDF生成器
-│   └── pdf_content_integrator.py  # PDF内容整合
+│   ├── pdf_content_integrator.py  # PDF内容整合
+│   └── minio_storage.py       # MinIO存储服务
 ├── tools/                  # 工具模块
 │   ├── base.py             # 基础工具类
 │   ├── langchain_wrappers.py  # LangChain工具封装
@@ -114,6 +116,7 @@ Agent/
 
 - Python 3.8+
 - Node.js (可选，用于前端开发)
+- MinIO Server (用于文件存储)
 
 ### 安装依赖
 
@@ -125,6 +128,7 @@ pip install -r requirements.txt
 ### 配置API密钥
 
 编辑 `Agent/.env` 文件，填入你的API密钥：
+
 ```bash
 # 阿里云API配置
 DASHSCOPE_API_KEY=your_dashscope_api_key
@@ -132,8 +136,11 @@ DASHSCOPE_API_KEY=your_dashscope_api_key
 # 百度地图API配置
 BAIDU_MAP_AK=your_baidu_map_ak
 
-# 天气API配置（可选）
-WEATHER_API_KEY=your_weather_api_key
+# MinIO配置
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET_NAME=heritage-agent-storage
 ```
 
 ### 启动服务
@@ -185,11 +192,12 @@ python -m Agent.api.app
 
 #### 前端集成示例
 
-前端需要在请求中包含credentials以发送cookie：
+前端通过Django反向代理访问Agent服务，无需直接连接Agent端口：
 
 ```javascript
-// 发起需要认证的请求到Agent服务
-const response = await fetch('http://localhost:8001/api/travel-plan/create', {
+// 发起需要认证的请求到Agent服务 (通过Django代理)
+// 注意路径前缀 /api/agent/
+const response = await fetch('/api/agent/api/travel-plan/create', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json'
@@ -389,14 +397,14 @@ AI代理维护完整的对话上下文，包括：
 ### 使用示例
 
 ```javascript
-// 前端调用AI对话
+// 前端调用AI对话 (通过Django代理)
 const chatData = {
     plan_id: currentPlanId,
     user_id: currentUserId,
     message: "我的出发地是哪里？"
 };
 
-fetch('/api/agent/chat', {
+fetch('/api/agent/api/agent/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(chatData)
@@ -416,8 +424,8 @@ fetch('/api/agent/chat', {
 #### 基本请求示例
 
 ```javascript
-// 发起需要认证的请求
-const response = await fetch('http://localhost:8000/api/travel-plan/create', {
+// 发起需要认证的请求 (通过代理)
+const response = await fetch('/api/agent/api/travel-plan/create', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json'
@@ -677,6 +685,14 @@ tail -f logs/error.log
 
 ## 更新日志
 
+### v1.3.2（2026-02-08）
+
+#### 🔧 系统架构优化
+- ✅ 优化后端文件结构，采用 `api/`, `serializers/`, `services/` 分层架构
+- ✅ 移除 Agent URL 加密功能，简化服务间通信
+- ✅ 完善 Agent 服务反向代理，前端通过 Django 统一访问 Agent API
+- ✅ 移除前端 MinIO 依赖，所有文件存储通过后端/Agent服务处理
+
 ### v1.3.1（2026-01-11）
 
 #### 🧠 对话历史智能优化
@@ -708,42 +724,3 @@ tail -f logs/error.log
 
 #### 🧠 Agent 架构重构
 - ✅ 大规模重构 Agent 模块，优化整体代码结构与职责划分  
-- ✅ 新增 `plan_editor.py`：独立规划编辑器，负责 AI 交互与行程动态编辑  
-- ✅ 新增 `react_agent.py`：实现 ReAct（Reasoning + Acting）智能代理，支持推理与决策  
-- ✅ 重构 `travel_planner.py`：解耦核心旅游规划逻辑，提升可读性与可维护性  
-- ✅ 统一将 Agent 相关模块迁移至 `agent/` 目录，改善项目组织结构  
-
-#### 📤 功能增强 
-- ✅ 完善 API 接口：扩展编辑操作与天气查询相关接口，提升前后端协作效率  
-
-### v1.2.0 (2025-10-21)
-
-- ✅ **会话管理架构重构**: 将 SessionPool 从 agent/ 移动到 memory/ 目录，统一会话管理
-- ✅ **移除冗余会话存储**: 删除 PlanEditor 中的 active_sessions，统一使用 SessionPool
-- ✅ **优化会话上下文提取**: 改进 _extract_core_info 方法，支持从 plan['basic_info'] 获取用户信息
-- ✅ **修复配置加载路径**: 修复环境变量加载路径问题，确保正确从 Agent/.env 加载配置
-- ✅ **完善会话管理API**: 更新所有会话相关方法的调用，确保使用统一的 SessionPool 接口
-- ✅ **增强代码可维护性**: 统一会话管理入口点，减少代码重复和潜在的一致性问题
-
-### v1.1.1 (2025-06-15)
-
-- ✅ **修复用户信息传递问题**: AI现在能够正确获取用户的出发地、交通方式、人数、预算等完整信息
-- ✅ **修复天气日期计算**: 优化天气服务中的日期计算逻辑，确保天气查询使用正确的日期
-- ✅ **增强AI上下文管理**: 改进session.py中的信息提取机制，支持从plan['basic_info']获取用户信息
-- ✅ **完善PDF导出功能**: 修复PDF导出模块的导入问题，确保导出功能正常工作
-- ✅ **优化ReAct代理提示词**: 在AI提示词中添加当前日期变量，提高天气查询的准确性
-- ✅ **改进规划编辑器**: 增强plan_editor.py的_build_plan_summary方法，更好地整合用户信息到AI上下文中
-
-### v1.0.0 (2025-04-10)
-
-- ✅ 完成基础架构搭建
-- ✅ 集成阿里云大模型
-- ✅ 实现非遗项目分析
-- ✅ 添加天气服务集成
-- ✅ 完成API接口开发
-- ✅ 实现前端进度条和结果展示
-- ✅ 添加完整的测试覆盖
-
----
-
-**感谢使用智能旅游规划Agent！** 🎉

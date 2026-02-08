@@ -6,8 +6,18 @@ Memory 模块
 
 from .session import SessionPool, SessionContext, get_session_pool
 
+# 尝试导入Redis会话池
+try:
+    from .redis_session import RedisSessionPool
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    RedisSessionPool = None
+
 __all__ = [
     'SessionPool',
     'SessionContext',
-    'get_session_pool'
+    'get_session_pool',
+    'RedisSessionPool',
+    'REDIS_AVAILABLE'
 ]

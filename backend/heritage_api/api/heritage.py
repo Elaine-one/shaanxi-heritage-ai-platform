@@ -8,20 +8,20 @@ from django.utils import timezone
 from datetime import timedelta
 import logging
 
-from .models import Heritage, HeritageImage, UserFavorite, News, Policy
-from .creation_models import (
+from ..models import Heritage, HeritageImage, UserFavorite, News, Policy
+from ..creation_models import (
     UserCreation, CreationLike, CreationComment, CreationTag,
     CreationReport, CreationViewHistory, CreationFavorite, CreationShare
 )
-from .serializers import (
+from ..serializers.heritage import (
     HeritageSerializer, HeritageImageSerializer, UserFavoriteSerializer, 
     NewsSerializer, PolicySerializer, UserCreationSerializer, CreationLikeSerializer,
     CreationCommentSerializer, CreationTagSerializer, CreationReportSerializer,
     CreationViewHistorySerializer, CreationFavoriteSerializer, CreationShareSerializer
 )
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .redis_utils import redis_client
-from .search_service import SearchService
+from ..redis_utils import redis_client
+from ..services.search import SearchService
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,16 @@ class HeritageViewSet(viewsets.ModelViewSet):
         if search_term:
             # 只匹配名字，不匹配描述、历史和地区
             queryset = queryset.filter(Q(name__icontains=search_term))
+            
+        # 支持通过ID列表过滤 (格式: ?ids=1,2,3)
+        ids = self.request.query_params.get('ids')
+        if ids:
+            try:
+                id_list = [int(i) for i in ids.split(',') if i.strip()]
+                if id_list:
+                    queryset = queryset.filter(id__in=id_list)
+            except ValueError:
+                pass
             
         return queryset
     

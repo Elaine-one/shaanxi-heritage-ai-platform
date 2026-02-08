@@ -7,10 +7,10 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count, Sum
-from .user_models import UserProfile
-from .user_serializers import UserSerializer, UserProfileSerializer
-from .creation_models import UserCreation, CreationLike, CreationComment, CreationViewHistory
-from .models import UserFavorite, UserHistory
+from ..user_models import UserProfile
+from ..serializers.user import UserSerializer, UserProfileSerializer
+from ..creation_models import UserCreation, CreationLike, CreationComment, CreationViewHistory
+from ..models import UserFavorite, UserHistory
 import zipfile
 import io
 from django.http import HttpResponse

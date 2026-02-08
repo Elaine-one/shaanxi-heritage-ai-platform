@@ -10,168 +10,40 @@ class TravelPlanningAgent {
      * 构造函数
      */
     constructor() {
-        this.apiBaseUrl = null; // 初始化为null，将在init中异步获取
+        // 使用相对路径，指向Django后端的代理接口
+        // 路径映射: /api/agent/api/travel-plan -> Agent Service /api/travel-plan
+        this.apiBaseUrl = '/api/agent/api/travel-plan';
+        
         // 从localStorage恢复currentPlanId，确保页面刷新后仍能访问
         this.currentPlanId = localStorage.getItem('travelCurrentPlanId') || null;
         this.progressInterval = null;
         this.isPlanning = false;
         this.completionHandled = false; // 防止重复处理完成状态
-        this.planResultCache = null; // 缓存规划结果
-        this.isExporting = false; // 导出标志位，确保同一时间只能执行一次导出操作
+        this.planResultCache = null;
+        this.isExporting = false;
         
-        // 绑定事件处理器
         this.bindEvents();
         
-        // 初始化API基础URL
-        this.init();
-        
-        // 初始化进度管理器和结果渲染器
         this.progressManager = new ProgressManager(this);
         this.resultRenderer = new ResultRenderer(this);
-    }
-    
-    /**
-     * 初始化方法，用于异步获取API基础URL
-     */
-    async init() {
-        try {
-            this.apiBaseUrl = await this.getApiBaseUrl();
-            console.log('旅游规划Agent初始化完成，API地址:', this.apiBaseUrl);
-        } catch (error) {
-            console.error('初始化API地址失败:', error);
-            // 使用默认地址，匹配实际启动的Agent服务端口
-            this.apiBaseUrl = 'http://localhost:8001/api/travel-plan';
-        }
-    }
-    
-    /**
-     * 获取API基础URL
-     * 支持多种方式获取：
-     * 1. 从localStorage读取用户配置
-     * 2. 从后端API获取Agent服务地址
-     * 3. 使用当前页面的主机和端口
-     * 4. 默认使用localhost:8001
-     */
-    async getApiBaseUrl() {
-        let apiUrl = '';
         
-        // 1. 检查localStorage中的自定义配置
-        const customApiUrl = localStorage.getItem('travel_agent_api_url');
-        if (customApiUrl && customApiUrl.trim()) {
-            try {
-                const url = new URL(customApiUrl.trim());
-                apiUrl = `${url.origin}/api/travel-plan`;
-            } catch (e) {
-                console.warn('自定义API URL格式错误，使用默认配置');
-            }
-        }
-        
-        // 2. 从后端API获取Agent服务地址
-        if (!apiUrl) {
-            try {
-                const response = await fetch('/api/agent-service-url/');
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.status === 'success' && data.url) {
-                        // 确保URL是完整的
-                        let agentUrl = data.url;
-                        if (!agentUrl.startsWith('http://') && !agentUrl.startsWith('https://')) {
-                            // 如果不是完整URL，使用当前页面的协议和主机
-                            const currentOrigin = window.location.origin;
-                            agentUrl = `${currentOrigin}/${agentUrl.replace(/^\//, '')}`;
-                        }
-                        // 确保URL不以斜杠结尾
-                        agentUrl = agentUrl.replace(/\/$/, '');
-                        // 确保URL不包含双斜杠（除了协议部分）
-                        const protocolIndex = agentUrl.indexOf('://');
-                        if (protocolIndex !== -1) {
-                            const protocol = agentUrl.substring(0, protocolIndex + 3);
-                            const rest = agentUrl.substring(protocolIndex + 3).replace(/\/+\//g, '/');
-                            agentUrl = protocol + rest;
-                        }
-                        apiUrl = `${agentUrl}/api/travel-plan`;
-                    }
-                }
-            } catch (e) {
-                console.warn('无法从后端API获取Agent服务地址，使用备选方案');
-            }
-        }
-        
-        // 3. 使用当前页面的主机和端口
-        if (!apiUrl) {
-            try {
-                const currentUrl = new URL(window.location.href);
-                apiUrl = `http://${currentUrl.hostname}:8001/api/travel-plan`;
-            } catch (e) {
-                console.warn('无法解析当前页面URL，使用备选方案');
-            }
-        }
-        
-        // 4. 检查环境变量配置
-        if (!apiUrl) {
-            const envApiUrl = window.TRAVEL_AGENT_API_URL || process.env.TRAVEL_AGENT_API_URL;
-            if (envApiUrl) {
-                try {
-                    const url = new URL(envApiUrl);
-                    apiUrl = `${url.origin}/api/travel-plan`;
-                } catch (envError) {
-                    console.warn('环境变量API URL格式错误');
-                }
-            }
-        }
-        
-        // 5. 尝试使用当前页面的origin
-        if (!apiUrl) {
-            try {
-                const currentOrigin = window.location.origin;
-                if (currentOrigin && currentOrigin !== 'null') {
-                    apiUrl = `${currentOrigin}/api/travel-plan`;
-                }
-            } catch (originError) {
-                console.warn('无法获取当前页面origin');
-            }
-        }
-        
-        // 6. 最终备选方案
-        if (!apiUrl) {
-            apiUrl = 'http://localhost:8001/api/travel-plan';
-        }
-        
-        // 确保URL格式正确
-        // 移除开头的斜杠
-        if (apiUrl.startsWith('/')) {
-            apiUrl = apiUrl.substring(1);
-        }
-        
-        // 确保URL不包含双斜杠（除了协议部分）
-        const protocolIndex = apiUrl.indexOf('://');
-        if (protocolIndex !== -1) {
-            const protocol = apiUrl.substring(0, protocolIndex + 3);
-            const rest = apiUrl.substring(protocolIndex + 3).replace(/\/+\//g, '/');
-            apiUrl = protocol + rest;
-        }
-        
-        console.log('最终API URL:', apiUrl);
-        return apiUrl;
+        console.log('旅游规划Agent初始化完成，API地址:', this.apiBaseUrl);
     }
     
     /**
      * 绑定事件处理器
      */
     bindEvents() {
-        // 旅游规划按钮事件
         const planButton = document.getElementById('planTravelBtn');
         if (planButton) {
             planButton.addEventListener('click', () => this.startTravelPlanning());
         }
         
-        // 导出规划按钮事件
         const exportButton = document.getElementById('exportPlanBtn');
         if (exportButton) {
             exportButton.addEventListener('click', () => this.exportTravelPlan());
         }
         
-        // 取消规划按钮事件
         const cancelButton = document.getElementById('cancelPlanBtn');
         if (cancelButton) {
             cancelButton.addEventListener('click', () => this.cancelTravelPlanning());
@@ -183,18 +55,11 @@ class TravelPlanningAgent {
      */
     async startTravelPlanning() {
         try {
-            // 确保API地址已加载
-            if (!this.apiBaseUrl) {
-                this.apiBaseUrl = await this.getApiBaseUrl();
-            }
-            
-            // 检查是否已在规划中
             if (this.isPlanning) {
                 this.showMessage('正在规划中，请稍候...', 'warning');
                 return;
             }
             
-            // 获取选中的非遗项目
             const selectedItems = this.getSelectedItems();
             if (selectedItems.length === 0) {
                 this.showMessage('请先选择要游览的非遗项目', 'error');
@@ -496,7 +361,9 @@ class TravelPlanningAgent {
             }
             
             // 保存所有导出按钮的原始状态
-            const exportButtons = document.querySelectorAll('#exportPlanBtn, [onclick*="exportTravelPlan"]');
+            const exportButtons = document.querySelectorAll('#exportPlanBtn, #exportPlanBtnResult, [onclick*="exportTravelPlan"]');
+            // 获取所有AI修改按钮（通过ID、类名和onclick属性）
+            const editButtons = document.querySelectorAll('#ai-edit-btn, .ai-edit-btn-selector, button[onclick*="editTravelPlan"]');
             
             // 更新所有导出按钮状态为"导出中"
             exportButtons.forEach(button => {
@@ -515,6 +382,20 @@ class TravelPlanningAgent {
                         <path d="M7 8a1 1 0 0 1 2 0V5.5a.5.5 0 0 1 1 0V8a2 2 0 1 1-4 0V5.5a.5.5 0 0 1 1 0V8z"/>
                     </svg>导出中...
                 `;
+            });
+
+            // 禁用所有AI修改按钮
+            editButtons.forEach(editButton => {
+                // 避免重复保存
+                if (originalButtonStates.some(state => state.button === editButton)) return;
+
+                originalButtonStates.push({
+                    button: editButton,
+                    originalText: editButton.innerHTML,
+                    originalDisabled: editButton.disabled
+                });
+                editButton.disabled = true;
+                editButton.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i> 导出中...`;
             });
             
             // 显示导出进度
@@ -602,6 +483,8 @@ class TravelPlanningAgent {
                 if (blob.size === 0) {
                     throw new Error('导出的PDF文件为空');
                 }
+
+                this.showMessage('导出成功！', 'success');
                 
                 // 创建下载链接
                 const url = window.URL.createObjectURL(blob);

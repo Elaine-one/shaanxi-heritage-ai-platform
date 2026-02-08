@@ -2,7 +2,7 @@ import re
 from typing import List, Dict, Any, Tuple
 from django.db.models import Q, Case, When, IntegerField, F
 from django.db.models.functions import Length
-from .models import News, Policy
+from ..models import News, Policy
 
 class SearchService:
     """混合搜索服务类"""
