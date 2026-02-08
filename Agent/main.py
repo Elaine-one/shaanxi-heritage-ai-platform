@@ -66,7 +66,6 @@ class TravelPlanningAgent:
         try:
             logger.info(f"处理用户消息: {session_id} - {message[:50]}...")
             
-            # 导入plan_editor来处理聊天
             from Agent.agent import get_plan_editor
             
             # 获取plan_editor实例

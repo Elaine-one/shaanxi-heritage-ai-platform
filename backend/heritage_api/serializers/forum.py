@@ -2,12 +2,12 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
-from .forum_models import (
+from ..forum_models import (
     ForumPost, ForumComment, ForumTag, ForumPostLike, ForumCommentLike,
     ForumPostFavorite, ForumUserFollow, ForumReport, ForumAnnouncement,
     ForumUserStats
 )
-from .user_models import UserProfile
+from ..user_models import UserProfile
 
 
 class UserBasicSerializer(serializers.ModelSerializer):
@@ -35,7 +35,7 @@ class UserBasicSerializer(serializers.ModelSerializer):
     def get_is_followed(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            from .forum_models import ForumUserFollow
+            from ..forum_models import ForumUserFollow
             return ForumUserFollow.objects.filter(
                 follower=request.user,
                 following=obj

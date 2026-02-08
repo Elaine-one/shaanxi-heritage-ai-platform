@@ -15,12 +15,12 @@ from django.views.decorators.http import require_http_methods
 import json
 import uuid
 
-from .forum_models import (
+from ..forum_models import (
     ForumPost, ForumComment, ForumTag, ForumPostLike, ForumCommentLike,
     ForumPostFavorite, ForumUserFollow, ForumReport, ForumAnnouncement,
     ForumUserStats
 )
-from .forum_serializers import (
+from ..serializers.forum import (
     ForumPostListSerializer, ForumPostDetailSerializer, ForumPostCreateSerializer,
     ForumCommentSerializer, ForumTagSerializer, ForumAnnouncementSerializer,
     ForumReportSerializer, ForumUserStatsSerializer, ForumLikeSerializer,

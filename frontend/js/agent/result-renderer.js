@@ -36,8 +36,8 @@ class ResultRenderer {
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('planningResultDialog').remove();">关闭</button>
-                        <button type="button" class="btn btn-success" onclick="travelAgent.editTravelPlan()">AI 对话修改</button>
-                        <button type="button" class="btn btn-primary" onclick="travelAgent.exportTravelPlan()">导出 PDF</button>
+                        <button type="button" id="ai-edit-btn" class="btn btn-success ai-edit-btn-selector" onclick="travelAgent.editTravelPlan()">AI 对话修改</button>
+                        <button type="button" id="exportPlanBtnResult" class="btn btn-primary" onclick="travelAgent.exportTravelPlan()">导出 PDF</button>
                     </div>
                 </div>
             </div>

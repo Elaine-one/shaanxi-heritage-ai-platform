@@ -1,2 +1,5 @@
 # 忽略.env文件
 .env
+*.log
+__pycache__/
+ pdf_cache/

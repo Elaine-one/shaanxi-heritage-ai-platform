@@ -1,5 +1,5 @@
 from django.urls import path, include
-from . import forum_views
+from .api import forum as forum_views
 
 app_name = 'forum'
 

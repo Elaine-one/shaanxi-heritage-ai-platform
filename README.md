@@ -74,16 +74,26 @@
 │   └── main.py        # 主入口文件
 ├── backend/           # 后端API服务（Django）
 │   ├── heritage_api/  # 主要API应用
-│   │   ├── admin.py               # 管理后台配置
-│   │   ├── agent_views.py         # Agent相关视图
-│   │   ├── auth_views.py          # 认证相关视图
-│   │   ├── forum_views.py         # 论坛相关视图
-│   │   ├── plan_views.py          # 规划相关视图
-│   │   ├── user_views.py          # 用户相关视图
-│   │   ├── models.py              # 数据模型
-│   │   ├── serializers.py         # 序列化器
-│   │   ├── urls.py                # URL路由
-│   │   └── management/            # 管理命令
+│   │   ├── api/           # API视图层
+│   │   │   ├── agent.py       # Agent相关视图
+│   │   │   ├── auth.py        # 认证相关视图
+│   │   │   ├── forum.py       # 论坛相关视图
+│   │   │   ├── heritage.py    # 非遗项目视图
+│   │   │   ├── history.py     # 历史记录视图
+│   │   │   ├── map.py         # 地图相关视图
+│   │   │   └── user.py        # 用户相关视图
+│   │   ├── serializers/   # 序列化器层
+│   │   │   ├── forum.py       # 论坛序列化器
+│   │   │   ├── heritage.py    # 非遗项目序列化器
+│   │   │   └── user.py        # 用户序列化器
+│   │   ├── services/      # 业务服务层
+│   │   │   └── search.py      # 搜索服务
+│   │   ├── models.py      # 基础数据模型
+│   │   ├── forum_models.py # 论坛数据模型
+│   │   ├── user_models.py  # 用户数据模型
+│   │   ├── admin.py       # 管理后台配置
+│   │   ├── urls.py        # URL路由
+│   │   └── management/    # 管理命令
 │   │       └── commands/
 │   │           └── import_heritage_data.py  # 数据导入命令
 │   ├── heritage_project/ # Django项目配置
@@ -97,8 +107,7 @@
 │   │   └── heritage.log           # 后端日志
 │   ├── .env           # 环境变量配置
 │   ├── manage.py      # Django管理脚本
-│   ├── complete_database_schema.md  # 完整数据库结构文档
-│   └── Agent_URL_加密使用指南.md  # Agent URL加密使用说明
+│   └── complete_database_schema.md  # 完整数据库结构文档
 ├── frontend/          # 前端界面
 │   ├── css/           # 样式文件
 │   │   ├── common/              # 通用样式

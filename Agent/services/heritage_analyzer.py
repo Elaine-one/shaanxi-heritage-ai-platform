@@ -102,41 +102,31 @@ class HeritageAnalyzer:
                 
             logger.info(f"获取非遗项目信息: {heritage_ids}")
             
-            # 构建API请求URL - 使用GET请求获取所有项目，然后过滤
-            api_url = f"{self.backend_api_url}/items/"
+            # 优化：直接使用 ids 参数查询指定项目，避免全量扫描
+            # 格式: ?ids=1,2,3
+            ids_str = ",".join(map(str, heritage_ids))
+            api_url = f"{self.backend_api_url}/items/?ids={ids_str}"
             
             all_items = []
-            next_url = api_url
             
-            # 使用aiohttp调用后端API，处理分页
+            # 使用aiohttp调用后端API
             async with aiohttp.ClientSession() as session:
-                while next_url:
-                    async with session.get(next_url) as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            
-                            # 检查API返回的数据结构
-                            if isinstance(data, dict) and 'results' in data:
-                                all_items.extend(data['results'])
-                                
-                                # 检查是否有下一页
-                                next_url = data.get('next')
-                                if next_url:
-                                    logger.info(f"获取下一页数据: {next_url}")
-                                else:
-                                    logger.info(f"已获取所有{len(all_items)}个项目数据")
-                                    break
-                            else:
-                                logger.warning(f"API返回数据结构异常: {data}")
-                                return []
+                async with session.get(api_url) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        # 检查API返回的数据结构
+                        if isinstance(data, dict) and 'results' in data:
+                            all_items = data['results']
+                            logger.info(f"成功获取{len(all_items)}个非遗项目信息")
                         else:
-                            logger.error(f"API请求失败，状态码: {response.status}")
+                            logger.warning(f"API返回数据结构异常: {data}")
                             return []
+                    else:
+                        logger.error(f"API请求失败，状态码: {response.status}")
+                        return []
             
-            # 过滤出指定ID的项目
-            filtered_items = [item for item in all_items if item.get('id') in heritage_ids]
-            logger.info(f"成功获取{len(filtered_items)}个非遗项目信息")
-            return filtered_items
+            return all_items
                         
         except aiohttp.ClientError as e:
             logger.error(f"HTTP请求错误: {str(e)}")

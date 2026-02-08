@@ -154,9 +154,10 @@ def generate_captcha(length=4, width=390, height=45):
         import random
         import string
         from io import BytesIO
+        import os
         
         # 生成随机验证码文本
-        chars = string.ascii_uppercase + string.digits  # 只使用大写字母和数字
+        chars = string.ascii_uppercase + string.digits
         captcha_text = ''.join(random.choice(chars) for _ in range(length))
         
         # 创建图片对象
@@ -164,13 +165,11 @@ def generate_captcha(length=4, width=390, height=45):
         draw = ImageDraw.Draw(image)
         
         # 增加干扰元素
-        # 添加大量干扰点
         for _ in range(150):
             x = random.randint(0, width - 1)
             y = random.randint(0, height - 1)
             draw.point((x, y), fill=(random.randint(50, 200), random.randint(50, 200), random.randint(50, 200)))
         
-        # 添加更多干扰线
         for _ in range(5):
             x1 = random.randint(0, width - 1)
             y1 = random.randint(0, height - 1)
@@ -178,12 +177,9 @@ def generate_captcha(length=4, width=390, height=45):
             y2 = random.randint(0, height - 1)
             draw.line((x1, y1, x2, y2), fill=(random.randint(100, 180), random.randint(100, 180), random.randint(100, 180)), width=2)
         
-        # 添加噪点块
         for _ in range(10):
             x = random.randint(0, width - 20)
             y = random.randint(0, height - 20)
-            # 使用半透明颜色值代替fill-opacity参数
-            # RGBA颜色值，最后一位是透明度（0-255）
             fill_color = (random.randint(80, 180), random.randint(80, 180), random.randint(80, 180), random.randint(50, 120))
             draw.rectangle(
                 [(x, y), (x + random.randint(5, 20), y + random.randint(5, 20))],
@@ -191,30 +187,26 @@ def generate_captcha(length=4, width=390, height=45):
                 outline=None
             )
         
-        # 尝试使用系统字体，缩小字体大小
+        # 字体设置
         font = None
-        font_size = 32  # 缩小字体大小
+        font_size = 32
         
-        # 尝试使用Windows系统字体
-        try:
-            import os
-            windows_fonts = [
-                r'C:\Windows\Fonts\arial.ttf',
-                r'C:\Windows\Fonts\cour.ttf',  # Courier字体
-            ]
-            
-            for font_path in windows_fonts:
-                if os.path.exists(font_path):
-                    font = ImageFont.truetype(font_path, font_size)
-                    break
-        except Exception:
-            pass
+        # 优先尝试Windows系统字体
+        windows_fonts = [
+            r'C:\Windows\Fonts\arial.ttf',
+            r'C:\Windows\Fonts\cour.ttf',
+        ]
         
-        # 如果找不到系统字体，使用PIL的默认字体
+        for font_path in windows_fonts:
+            if os.path.exists(font_path):
+                font = ImageFont.truetype(font_path, font_size)
+                break
+        
+        # 回退到默认字体
         if not font:
             font = ImageFont.load_default()
         
-        # 计算文本位置，居中显示
+        # 绘制文本
         try:
             text_bbox = draw.textbbox((0, 0), captcha_text, font=font)
             text_width = text_bbox[2] - text_bbox[0]

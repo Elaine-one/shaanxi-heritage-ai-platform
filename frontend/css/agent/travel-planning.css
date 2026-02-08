@@ -3,6 +3,11 @@
  * 为Agent相关的UI组件提供样式
  */
 
+/* 进度条样式 */
+.progress-bar {
+    transition: width 0.5s ease-in-out;
+}
+
 /* 模态框样式 - 非遗文化配色 */
 .modal-overlay {
     position: fixed;

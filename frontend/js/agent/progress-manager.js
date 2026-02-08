@@ -24,10 +24,10 @@ class ProgressManager {
         // 立即检查一次进度
         this.checkProgress();
         
-        // 每2秒检查一次进度
+        // 每1秒检查一次进度，提升流畅度
         this.progressInterval = setInterval(() => {
             this.checkProgress();
-        }, 2000);
+        }, 1000);
     }
     
     /**
