@@ -1,7 +1,5 @@
 // API基础URL - 使用相对路径，适配生产环境
-const COMMON_API_BASE_URL = '/api'; // 后端API地址
-
-// 获取CSRF token的函数 - 使用全局utils中的getCookie
+const COMMON_API_BASE_URL = '/api';
 
 // 通用API请求函数
 async function apiRequest(endpoint, options = {}) {

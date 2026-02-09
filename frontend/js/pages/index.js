@@ -136,7 +136,6 @@ function initMap(data) {
     if (!mapContainer) return;
     
     // 地图初始化代码...
-    console.log('地图初始化 (未实现)', data.length);
     
     // 添加查看完整地图按钮点击事件
     const viewMapButton = document.getElementById('view-full-map');
@@ -151,10 +150,6 @@ function initMap(data) {
  * 初始化推荐位
  * @param {Array} data 非遗数据
  */
-/**
- * 初始化推荐位
- * @param {Array} data 非遗数据
- */
 async function initFeaturedItems(data) {
     // 获取首页的推荐项目容器
     const featuredItems = document.querySelector('.featured-items');
@@ -165,7 +160,7 @@ async function initFeaturedItems(data) {
     if (!itemElements || itemElements.length === 0) return;
     
     // 指定要显示的项目ID
-    const featuredIds = [1, 8,22];
+    const featuredIds = [1, 8, 22];
     
     try {
         // 确保API对象存在

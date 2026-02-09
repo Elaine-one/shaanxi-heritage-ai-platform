@@ -19,6 +19,15 @@ window.submitPlanningConfig = function() {
 // 等待DOM加载完成后初始化旅游规划Agent
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        // 如果已存在实例，先销毁，防止重复绑定和定时器泄露
+        if (window.travelAgent) {
+            console.log('检测到旧的Agent实例，正在销毁...');
+            if (typeof window.travelAgent.destroy === 'function') {
+                window.travelAgent.destroy();
+            }
+            window.travelAgent = null;
+        }
+        
         // 初始化旅游规划Agent
         window.travelAgent = new TravelPlanningAgent();
         console.log('旅游规划Agent实例化成功');

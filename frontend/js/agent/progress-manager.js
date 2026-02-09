@@ -24,10 +24,10 @@ class ProgressManager {
         // 立即检查一次进度
         this.checkProgress();
         
-        // 每1秒检查一次进度，提升流畅度
+        // 每2000毫秒检查一次进度，降低请求频率，减轻服务器负担
         this.progressInterval = setInterval(() => {
             this.checkProgress();
-        }, 1000);
+        }, 2000);
     }
     
     /**
@@ -57,6 +57,11 @@ class ProgressManager {
             }
             
             const progressData = await response.json();
+            
+            // 优化：如果进度为0但状态正常，显示5%的初始进度，避免用户以为卡死
+            if (progressData.progress === 0 && progressData.status === 'processing') {
+                progressData.progress = 5;
+            }
             
             // 更新进度显示
             this.updateProgressDisplay(progressData);

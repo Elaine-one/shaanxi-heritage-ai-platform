@@ -18,13 +18,12 @@ AGENT_SERVICE_URL = os.environ.get('AGENT_SERVICE_URL')
 # 强制要求必须配置 AGENT_SERVICE_URL
 if not AGENT_SERVICE_URL:
     logger.error("AGENT_SERVICE_URL environment variable is not set!")
-    logger.warning("Using fallback URL: http://localhost:8001. Please configure AGENT_SERVICE_URL in .env file.")
-    AGENT_SERVICE_URL = 'http://localhost:8001'
+    raise ValueError("AGENT_SERVICE_URL environment variable is not set!")
 
 # 最终检查
-if not AGENT_SERVICE_URL or not AGENT_SERVICE_URL.startswith('http'):
-    logger.error(f"Invalid AGENT_SERVICE_URL: {AGENT_SERVICE_URL}. Falling back to default: http://localhost:8001")
-    AGENT_SERVICE_URL = 'http://localhost:8001'
+if not AGENT_SERVICE_URL.startswith('http'):
+    logger.error(f"Invalid AGENT_SERVICE_URL: {AGENT_SERVICE_URL}")
+    raise ValueError(f"Invalid AGENT_SERVICE_URL: {AGENT_SERVICE_URL}")
 
 
 # 修复 SSL_CERT_FILE 环境变量指向不存在文件导致的问题
@@ -45,9 +44,11 @@ def get_agent_service_url(request):
         # 优先从环境变量获取Agent服务地址
         agent_url = os.environ.get('AGENT_SERVICE_URL')
         
-        # 如果环境变量没有设置，使用默认值
         if not agent_url:
-            agent_url = 'http://localhost:8001'
+             return Response({
+                'error': 'Agent服务地址未配置',
+                'status': 'error'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         return Response({
             'url': agent_url,

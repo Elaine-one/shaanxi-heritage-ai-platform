@@ -242,8 +242,6 @@ window.MapCore = {
      * 用于数据加载失败后的重试
      */
     reloadData: async function() {
-        // console.log('正在重新加载非遗数据...');
-        
         // 移除现有的错误提示
         const mapContainer = document.getElementById('baidu-map');
         if (mapContainer) {
@@ -256,7 +254,6 @@ window.MapCore = {
             const heritageData = await loadHeritageData();
             
             if (heritageData && heritageData.length > 0) {
-                // console.log(`重新加载成功，获取到${heritageData.length}个非遗项目数据`);
                 // 添加标记
                 this.addMarkers(heritageData);
                 
@@ -311,10 +308,6 @@ window.MapCore = {
      * 添加所有标记到地图
      * @param {Array} data 非遗项目数据数组
      */
-    /**
-     * 添加所有标记到地图
-     * @param {Array} data 非遗项目数据数组
-     */
     addMarkers: function(data) {
         // 清除现有标记
         if (markers.length > 0) {
@@ -325,15 +318,11 @@ window.MapCore = {
         }
         
         // 添加新标记
-        let validMarkersCount = 0;
-        
         // 确保data是数组
         if (!Array.isArray(data)) {
             console.error('addMarkers: 传入的数据不是数组', data);
             return;
         }
-        // console.log('添加标记到地图，数据项数：', data.length);
-        
         // 添加项目标记到地图
         
         data.forEach(item => {
@@ -531,7 +520,6 @@ window.MapCore = {
                     map.addOverlay(ply);
                 }
                 
-                // console.log('已添加陕西省边界到地图');
             } catch (error) {
                 console.error('添加陕西省边界失败:', error.message);
             }
@@ -616,7 +604,6 @@ function initSearch(data) {
         }
     });
     
-    // console.log('初始化搜索功能完成');
 }
 
 /**
@@ -628,8 +615,6 @@ async function searchHeritageItems(keyword, data) {
     if (!keyword) {
         return [];
     }
-    
-    // console.log('搜索关键词:', keyword);
     
     try {
         // 使用API进行搜索
@@ -662,7 +647,6 @@ async function searchHeritageItems(keyword, data) {
         console.error('API搜索失败:', error);
         // 如果API搜索失败，回退到本地过滤
         if (data && Array.isArray(data)) {
-            // console.log('回退到本地搜索');
             const results = data.filter(item => {
                 return item.name.includes(keyword) || 
                        (item.description && item.description.includes(keyword)) ||
@@ -696,8 +680,6 @@ function addMarkers(data) {
         return;
     }
     
-    // console.log('添加标记到地图，数据项数：', data.length);
-    
     // 使用MapCore添加标记
     if (MapCore && typeof MapCore.addMarkers === 'function') {
         MapCore.addMarkers(data);
@@ -706,19 +688,6 @@ function addMarkers(data) {
     }
     return true;
 }
-
-/**
- * 从API加载非遗数据
- * @returns {Promise<Array>} 返回一个Promise，解析为非遗数据数组
- */
-/**
- * 从API加载非遗数据
- * @returns {Promise<Array>} 返回包含有效坐标的非遗项目数据的Promise
- */
-// 缓存API请求结果，避免重复请求
-let heritageDataCache = null;
-let heritageDataTimestamp = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 缓存5分钟
 
 /**
  * 从API加载非遗数据
@@ -758,7 +727,6 @@ function initSidebar(data) {
         console.error('updateFilteredProjectList函数未定义');
     }
     
-    // console.log('初始化侧边栏完成');
 }
 
 // 标记地图是否已初始化，避免重复初始化
@@ -766,11 +734,8 @@ let mapInitialized = false;
 
 // 页面加载完成后初始化地图
 document.addEventListener('DOMContentLoaded', function() {
-    // console.log('地图页面加载完成，等待地图API加载...');
-    
     // 如果地图已初始化，则不再重复初始化
     if (mapInitialized) {
-        // console.log('地图已经初始化，跳过重复初始化');
         return;
     }
     
@@ -804,7 +769,6 @@ function initMapWhenReady() {
         // 延迟一点执行初始化，确保DOM和其他资源已完全加载
         setTimeout(() => {
             if (mapInitialized) {
-                // console.log('地图已经初始化，跳过重复初始化');
                 return;
             }
             
@@ -812,7 +776,6 @@ function initMapWhenReady() {
             
             MapCore.init().then(result => {
                 if (result !== false) {
-                    // console.log('地图初始化成功');
                 } else {
                     console.warn('地图初始化返回false，可能存在问题');
                     mapInitialized = false; // 初始化失败，重置标记
@@ -829,11 +792,11 @@ function initMapWhenReady() {
     }
 }
 
-// 将函数和对象暴露给全局作用域
 window.showHeritagePreview = showHeritagePreview;
-window.highlightMarker = highlightMarker; // 暴露highlightMarker到全局
-window.markers = markers; // 暴露markers数组到全局
-window.MapCore = MapCore; // 暴露MapCore到全局
+window.highlightMarker = highlightMarker;
+window.markers = markers;
+window.MapCore = MapCore;
+/** @param {BMap.Point} point @param {string} text @param {Object} [options] */
 function CustomTextOverlay(point, text, options) {
     window.BMap.Overlay.call(this);
     this._point = point;
@@ -843,7 +806,7 @@ function CustomTextOverlay(point, text, options) {
     this._div = null;
 }
 
-// 初始化覆盖物
+/** @param {BMap.Map} mapInstance @returns {HTMLDivElement} */
 CustomTextOverlay.prototype.initialize = function(mapInstance) {
     this._map = mapInstance;
     this._div = document.createElement('div');
@@ -858,14 +821,14 @@ CustomTextOverlay.prototype.initialize = function(mapInstance) {
     return this._div;
 }
 
-// 绘制覆盖物
+/** @returns {void} */
 CustomTextOverlay.prototype.draw = function() {
     const pixel = this._map.pointToOverlayPixel(this._point);
     this._div.style.left = pixel.x + 'px';
     this._div.style.top = pixel.y + 'px';
 };
 
-// 移除覆盖物
+/** @returns {void} */
 CustomTextOverlay.prototype.remove = function() {
     if (this._div && this._div.parentNode) {
         this._div.parentNode.removeChild(this._div);

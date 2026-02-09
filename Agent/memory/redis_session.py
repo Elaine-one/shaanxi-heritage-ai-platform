@@ -15,15 +15,8 @@ from loguru import logger
 from .session import SessionContext, SessionPool
 from Agent.config.settings import Config
 
-# 尝试导入redis，如果不存在则给出提示
-try:
-    import redis
-    from redis import Redis
-    REDIS_AVAILABLE = True
-except ImportError:
-    REDIS_AVAILABLE = False
-    logger.warning("redis库未安装，将使用内存存储模式。请运行: pip install redis")
-
+import redis
+from redis import Redis
 
 class RedisSessionPool(SessionPool):
     """
@@ -83,9 +76,6 @@ class RedisSessionPool(SessionPool):
     
     def _init_redis(self):
         """初始化Redis连接"""
-        if not REDIS_AVAILABLE:
-            raise RuntimeError("redis库未安装，无法使用Redis会话存储")
-        
         try:
             self.redis_client = redis.Redis(
                 host=Config.REDIS_HOST,

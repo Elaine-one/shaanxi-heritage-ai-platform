@@ -17,7 +17,8 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 加载.env文件
+# 加载环境变量
+# 使用dotenv库加载.env文件，确保配置与代码分离
 env_path = BASE_DIR / '.env'
 if env_path.exists():
     load_dotenv(env_path)
@@ -29,38 +30,28 @@ else:
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-import os
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+# Django密钥
+# 必须在生产环境中保密，泄露可能导致安全问题
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 if not SECRET_KEY:
     raise ValueError("DJANGO_SECRET_KEY 环境变量未设置")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# 调试模式
+# 生产环境必须设为False，避免泄露敏感调试信息
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-# 开发环境允许的主机
-ALLOWED_HOSTS = [
-    'localhost',  # 本地测试
-    '127.0.0.1',  # 本地测试
-    '192.168.183.232',  # 局域网IP地址
-    '*',  # 允许所有主机访问（开发环境）
-]
+# 允许的主机
+# 限制哪些域名可以访问本服务，防止HTTP主机头攻击
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',') if os.getenv('ALLOWED_HOSTS') else []
 
-# CORS设置
-# 开发环境CORS设置
-CORS_ALLOW_ALL_ORIGINS = True  # 开发环境允许所有来源
+# CORS跨域设置
+# 控制浏览器是否允许跨域请求
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').lower() == 'true'
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://192.168.183.232",  # 前端通过Nginx访问（80端口）
-    "http://localhost:8000",  # 直接访问Django开发服务器
-    "http://127.0.0.1:8000",  # 直接访问Django开发服务器
-]
-# 添加CSRF信任的来源
-CSRF_TRUSTED_ORIGINS = [
-    "http://192.168.183.232",  # 前端通过Nginx访问（80端口）
-    "http://localhost:8000",  # 直接访问Django开发服务器
-    "http://127.0.0.1:8000",  # 直接访问Django开发服务器
-]
+# 指定允许跨域的来源域名列表
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS').split(',') if os.getenv('CORS_ALLOWED_ORIGINS') else []
+# CSRF信任的来源列表，用于跨域POST请求
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS').split(',') if os.getenv('CSRF_TRUSTED_ORIGINS') else []
 
 # IP限制配置 - 允许局域网内其他IP访问
 # 如果你只想允许特定IP段访问，可以取消注释并修改下面的配置
@@ -70,10 +61,11 @@ CSRF_TRUSTED_ORIGINS = [
 
 # 百度地图API配置
 # 注意：这是浏览器端AK，用于前端JavaScript API调用
-# 生产环境中应使用环境变量存储，而不是硬编码在配置文件中
-BAIDU_MAP_AK = os.environ.get('BAIDU_MAP_AK')
+# 百度地图API密钥
+BAIDU_MAP_AK = os.getenv('BAIDU_MAP_AK')
 if not BAIDU_MAP_AK:
     raise ValueError("BAIDU_MAP_AK 环境变量未设置")
+
 
 
 # Application definition
@@ -133,11 +125,11 @@ WSGI_APPLICATION = "heritage_project.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": os.environ.get('DB_NAME'),
-        "USER": os.environ.get('DB_USER'),
-        "PASSWORD": os.environ.get('DB_PASSWORD'),
-        "HOST": os.environ.get('DB_HOST', "localhost"),
-        "PORT": os.environ.get('DB_PORT', "3306"),
+        "NAME": os.getenv('DB_NAME'),
+        "USER": os.getenv('DB_USER'),
+        "PASSWORD": os.getenv('DB_PASSWORD'),
+        "HOST": os.getenv('DB_HOST'),
+        "PORT": os.getenv('DB_PORT'),
         "OPTIONS": {
             "charset": "utf8mb4",
         }
@@ -208,21 +200,27 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # 邮件配置
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.qq.com')  # 默认使用QQ邮箱SMTP
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+# 邮件服务器地址
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+# 邮件服务器端口
+EMAIL_PORT = int(os.getenv('EMAIL_PORT')) if os.getenv('EMAIL_PORT') else None
 # 根据端口自动选择加密方式：465端口使用SSL，587端口使用TLS
 if EMAIL_PORT == 465:
     EMAIL_USE_SSL = True
     EMAIL_USE_TLS = False
 else:
     EMAIL_USE_SSL = False
-    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+    EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
+# 邮件服务器用户名
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+# 邮件服务器密码/授权码
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+# 默认发件人邮箱
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 
 # 前端URL配置（用于密码重置链接）
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://192.168.183.232')  # 前端通过Nginx访问（80端口）
+# 前端应用地址
+FRONTEND_URL = os.getenv('FRONTEND_URL')
 
 # 生产环境安全设置
 SECURE_BROWSER_XSS_FILTER = True
@@ -257,10 +255,14 @@ REST_FRAMEWORK = {
 }
 
 # Redis配置
-REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
-REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
-REDIS_DB = int(os.environ.get('REDIS_DB', 0))
-REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', None)  # 如果Redis设置了密码，在这里配置
+# Redis主机地址
+REDIS_HOST = os.getenv('REDIS_HOST')
+# Redis端口
+REDIS_PORT = int(os.getenv('REDIS_PORT')) if os.getenv('REDIS_PORT') else 6379
+# Redis数据库索引
+REDIS_DB = int(os.getenv('REDIS_DB')) if os.getenv('REDIS_DB') else 0
+# Redis密码
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')  # 如果Redis设置了密码，在这里配置
 
 # Celery配置
 CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
