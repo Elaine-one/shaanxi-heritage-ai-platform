@@ -36,6 +36,7 @@ from Agent.main import get_agent
 from Agent.agent.travel_planner import get_travel_planner
 from Agent.utils.logger_config import setup_logger
 from Agent.api.session_dependencies import get_current_user_from_session, TokenData
+from Agent.config.settings import Config
 
 # 导入路由
 from api.edit_endpoints import edit_router
@@ -77,9 +78,17 @@ app = FastAPI(
 )
 
 # 配置CORS
+# 从环境变量加载允许的跨域来源，必须配置
+origins_str = Config.AGENT_CORS_ALLOWED_ORIGINS
+if not origins_str:
+    logger.error("环境变量 AGENT_CORS_ALLOWED_ORIGINS 未配置")
+    raise ValueError("Missing required environment variable: AGENT_CORS_ALLOWED_ORIGINS")
+
+origins = [origin.strip() for origin in origins_str.split(',')]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

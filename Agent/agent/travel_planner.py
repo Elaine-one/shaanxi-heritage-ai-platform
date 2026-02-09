@@ -6,6 +6,8 @@
 
 import asyncio
 import aiohttp
+import json
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from loguru import logger
@@ -33,24 +35,25 @@ class TravelPlanner:
         # 百度地图配置
         self.baidu_ak = config.BAIDU_MAP_AK
         # 确保移除URL末尾可能存在的斜杠
-        base_url = config.BAIDU_MAP_API_URL or 'https://api.map.baidu.com'
-        self.baidu_api_url = base_url.rstrip('/')
+        base_url = config.BAIDU_MAP_API_URL
+        if not base_url:
+             logger.error("BAIDU_MAP_API_URL not configured")
+             # 这里可以选择抛出异常或者让后续调用失败
+        self.baidu_api_url = base_url.rstrip('/') if base_url else ''
         
-        # 本地兜底坐标库 (当API不可用时使用)
-        self.city_coords_fallback = {
-            "西安": (34.3416, 108.9398),
-            "咸阳": (34.3296, 108.7089),
-            "兴平": (34.2998, 108.4904), # 马嵬镇在此附近
-            "宝鸡": (34.3616, 107.2375), # 凤翔在此
-            "渭南": (34.4994, 109.5097), # 华阴、韩城方向
-            "韩城": (35.4793, 110.4435),
-            "延安": (36.5854, 109.4897),
-            "榆林": (38.2858, 109.7347),
-            "汉中": (33.0676, 107.0319),
-            "安康": (32.6849, 109.0292),
-            "商洛": (33.8703, 109.9412),
-            "铜川": (34.8968, 109.0758)
-        }
+        # 本地兜底坐标库 (从JSON文件加载)
+        # 仅在百度API不可用时作为后备方案使用
+        try:
+            json_path = Path(__file__).parent.parent / 'data' / 'city_coords.json'
+            if json_path.exists():
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    self.city_coords_fallback = json.load(f)
+            else:
+                logger.warning(f"坐标数据文件不存在: {json_path}")
+                self.city_coords_fallback = {}
+        except Exception as e:
+            logger.error(f"加载坐标数据失败: {str(e)}")
+            self.city_coords_fallback = {}
         
         logger.info("旅游规划器(节奏分析版)初始化完成")
     

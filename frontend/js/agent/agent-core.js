@@ -10,14 +10,14 @@ class TravelPlanningAgent {
      * 构造函数
      */
     constructor() {
-        // 使用相对路径，指向Django后端的代理接口
-        // 路径映射: /api/agent/api/travel-plan -> Agent Service /api/travel-plan
+        // Agent 服务基础路径
         this.apiBaseUrl = '/api/agent/api/travel-plan';
         
         // 从localStorage恢复currentPlanId，确保页面刷新后仍能访问
         this.currentPlanId = localStorage.getItem('travelCurrentPlanId') || null;
         this.progressInterval = null;
         this.isPlanning = false;
+        this.isStarting = false; // 防止重复点击开始
         this.completionHandled = false; // 防止重复处理完成状态
         this.planResultCache = null;
         this.isExporting = false;
@@ -30,6 +30,21 @@ class TravelPlanningAgent {
         console.log('旅游规划Agent初始化完成，API地址:', this.apiBaseUrl);
     }
     
+    /**
+     * 销毁Agent实例，清理资源
+     */
+    destroy() {
+        // 停止进度监控
+        if (this.progressManager) {
+            this.progressManager.stopProgressMonitoring();
+        }
+        
+        // 移除事件监听器（如果需要，但通常DOM元素销毁会自动解绑）
+        // 这里主要确保定时器被清理
+        this.isPlanning = false;
+        console.log('旅游规划Agent已销毁');
+    }
+
     /**
      * 绑定事件处理器
      */
@@ -60,22 +75,40 @@ class TravelPlanningAgent {
                 return;
             }
             
+            // 防止重复点击启动
+            if (this.isStarting) {
+                return;
+            }
+            this.isStarting = true;
+            
             const selectedItems = this.getSelectedItems();
             if (selectedItems.length === 0) {
                 this.showMessage('请先选择要游览的非遗项目', 'error');
+                this.isStarting = false;
                 return;
             }
             
             if (selectedItems.length > 20) {
                 this.showMessage('选择的项目过多，最多支持20个项目', 'error');
+                this.isStarting = false;
                 return;
             }
             
             // 显示规划配置对话框
-            const planningConfig = await DialogManager.showPlanningConfigDialog();
+            let planningConfig;
+            try {
+                planningConfig = await DialogManager.showPlanningConfigDialog();
+            } catch (e) {
+                this.isStarting = false;
+                return;
+            }
+            
             if (!planningConfig) {
+                this.isStarting = false;
                 return; // 用户取消
             }
+            
+            this.isStarting = false; // 配置完成，准备开始规划
             
             // 开始规划，重置所有相关状态标志
             this.isPlanning = true;
@@ -85,6 +118,15 @@ class TravelPlanningAgent {
             this.currentPlanId = null;
             localStorage.removeItem('travelCurrentPlanId');
             this.updateUIForPlanning(true);
+            
+            // 立即设置初始进度，避免"准备规划"阶段进度条空白
+            if (this.progressManager) {
+                this.progressManager.updateProgressDisplay({
+                    progress: 2,
+                    current_step: '正在初始化规划环境...',
+                    steps: ['初始化环境', '分析需求', '检索景点', '生成行程', '优化路线']
+                });
+            }
             
             // 构建请求参数
             const requestData = {
@@ -99,6 +141,9 @@ class TravelPlanningAgent {
             };
             
             console.log('发送旅游规划请求:', requestData);
+            
+            // 立即显示启动消息，提升用户感知
+            this.showMessage('正在启动规划任务，请稍候...', 'info');
             
             // 发送规划请求
             const requestUrl = `${this.apiBaseUrl.replace(/\/$/, '')}/create`;

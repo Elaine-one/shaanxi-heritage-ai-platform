@@ -8,24 +8,14 @@ import hashlib
 import ssl
 import os
 import sys
+from Agent.config.settings import Config
 
 # 导入配置
-try:
-    from .weather_config import (
-        NETWORK_TIMEOUT, MAX_RETRIES, RETRY_DELAY, 
-        SSL_VERIFY, CACHE_ENABLED, CACHE_TTL, CACHE_MAX_SIZE,
-        ENVIRONMENT_CONFIG
-    )
-except ImportError:
-    # 如果配置文件不存在，使用默认值
-    NETWORK_TIMEOUT = 10
-    MAX_RETRIES = 3
-    RETRY_DELAY = 1
-    SSL_VERIFY = True
-    CACHE_ENABLED = True
-    CACHE_TTL = 3600
-    CACHE_MAX_SIZE = 100
-    ENVIRONMENT_CONFIG = {}
+from .weather_config import (
+    NETWORK_TIMEOUT, MAX_RETRIES, RETRY_DELAY, 
+    SSL_VERIFY, CACHE_ENABLED, CACHE_TTL, CACHE_MAX_SIZE,
+    ENVIRONMENT_CONFIG
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +25,9 @@ class WeatherService:
     """
     
     def __init__(self, environment=None):
-        self.base_url = "https://api.open-meteo.com/v1/forecast"
-        self.current_weather_url = "https://api.open-meteo.com/v1/forecast"
+        # 使用配置中的API地址
+        self.base_url = Config.WEATHER_API_URL
+        self.current_weather_url = Config.WEATHER_API_URL
         self.session = None
         
         # 从配置文件加载设置，或使用默认值
@@ -75,7 +66,10 @@ class WeatherService:
         return 'development'
     
     def _load_config(self):
-        """根据环境加载配置"""
+        """
+        根据当前环境加载配置
+        优先级: 环境变量 > 配置文件 > 默认值
+        """
         # 获取环境特定配置
         env_config = ENVIRONMENT_CONFIG.get(self.environment, {})
         
@@ -83,10 +77,12 @@ class WeatherService:
         self.max_retries = env_config.get('MAX_RETRIES', MAX_RETRIES)
         self.retry_delay = env_config.get('RETRY_DELAY', RETRY_DELAY)
         self.ssl_verify = env_config.get('SSL_VERIFY', SSL_VERIFY)
-        self.cache_enabled = env_config.get('CACHE_ENABLED', CACHE_ENABLED)
+        
+        # 使用settings.py中的全局缓存配置
+        self.cache_enabled = Config.CACHE_CONFIG['enabled']
         # 缩短缓存时间为10分钟，确保获取最新天气数据
         self.cache_ttl = 600  # 10分钟
-        self.cache_max_size = env_config.get('CACHE_MAX_SIZE', CACHE_MAX_SIZE)
+        self.cache_max_size = Config.CACHE_CONFIG['max_size']
         
         # 设置超时
         self.timeout = aiohttp.ClientTimeout(total=NETWORK_TIMEOUT)

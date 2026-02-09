@@ -369,8 +369,6 @@
     margin-bottom: 1rem;
 }
 
-/* 返回按钮容器样式已移除，按钮直接使用外层样式 */
-
 .back-to-forum-btn {
     display: inline-flex;
     align-items: center;

@@ -6,11 +6,11 @@ let lastAuthCheck = 0;
 const AUTH_CACHE_DURATION = 30000; // 30秒缓存
 
 /**
- * 检查后端session是否有效
+ * 检查用户会话状态
  */
 async function checkBackendAuth(forceRefresh = false) {
     try {
-        // 不再使用localStorage，改为直接调用后端API
+        // 验证会话有效性
         
         // 如果已有进行中的请求，等待该请求完成
         if (authCheckPromise) {
@@ -37,7 +37,7 @@ async function checkBackendAuth(forceRefresh = false) {
         
         return await authCheckPromise;
     } catch (error) {
-        console.error('[auth.js] Error checking backend auth:', error);
+        console.error('[auth.js] Error checking auth:', error);
         authCheckPromise = null;
         return null;
     }
@@ -56,9 +56,9 @@ async function updateUserIcon() {
     }
     console.log('[auth.js] User icon element found:', userIcon);
     
-    // 检查后端认证状态
+    // 检查认证状态
     const user = await checkBackendAuth();
-    console.log('[auth.js] Backend auth check result:', user);
+    console.log('[auth.js] Auth check result:', user);
     
     if (user && user.username) {
         console.log('[auth.js] User is logged in:', user);
@@ -66,7 +66,7 @@ async function updateUserIcon() {
         // 尝试从API获取用户头像
         let hasAvatar = false;
         try {
-            // 直接调用后端API获取用户详细信息，不依赖外部API对象
+            // 获取用户详细信息
             const response = await fetch('/api/profile/me/', {
                 method: 'GET',
                 credentials: 'include'

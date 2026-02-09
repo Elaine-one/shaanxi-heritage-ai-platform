@@ -8,6 +8,7 @@ PDF生成器核心模块 (修复重复参数错误版)
 
 import os
 import re
+import tempfile
 from typing import Dict, Any, Optional
 from datetime import datetime
 from loguru import logger
@@ -26,10 +27,16 @@ class PDFGenerator:
     """
     
     def __init__(self, pdf_cache_dir: Optional[str] = None):
-        self.pdf_cache_dir = pdf_cache_dir or os.path.join(os.getcwd(), 'pdf_cache')
+        # 默认使用系统临时目录，避免污染项目代码库
+        self.pdf_cache_dir = pdf_cache_dir or os.path.join(tempfile.gettempdir(), 'shaanxi_heritage_pdf_cache')
         if not os.path.exists(self.pdf_cache_dir):
-            os.makedirs(self.pdf_cache_dir)
-        logger.info("PDF生成器初始化完成")
+            try:
+                os.makedirs(self.pdf_cache_dir)
+            except Exception as e:
+                logger.warning(f"创建PDF缓存目录失败: {e}, 将使用临时目录根路径")
+                self.pdf_cache_dir = tempfile.gettempdir()
+        
+        logger.info(f"PDF生成器初始化完成，缓存目录: {self.pdf_cache_dir}")
     
     async def generate_pdf_document(self, content: Dict[str, Any], output_filename: Optional[str] = None) -> Dict[str, Any]:
         """

@@ -43,7 +43,7 @@ const FAVORITES_API_BASE_URL = '/api/favorites/';
  */
 async function isUserLoggedIn() {
     try {
-        // 直接调用后端API检查登录状态，不再使用localStorage
+        // 检查用户登录状态
         const response = await fetch('/api/auth/user/', {
             method: 'GET',
             credentials: 'include' // 使用session认证
@@ -51,10 +51,10 @@ async function isUserLoggedIn() {
         
         if (response.ok) {
             const userData = await response.json();
-            console.log('后端用户检查结果:', true, '用户数据:', userData);
-            return true; // 后端确认用户已登录
+            console.log('用户检查结果:', true, '用户数据:', userData);
+            return true; // 用户已登录
         } else {
-            console.log('后端用户检查结果:', false);
+            console.log('用户检查结果:', false);
             return false;
         }
     } catch (error) {
@@ -69,7 +69,7 @@ async function isUserLoggedIn() {
  */
 async function getCurrentUserId() {
     try {
-        // 直接调用后端API获取用户信息，不再使用localStorage
+        // 获取当前用户信息
         const response = await fetch('/api/auth/user/', {
             method: 'GET',
             credentials: 'include' // 使用session认证
@@ -631,7 +631,6 @@ function loadHeritageData(filters = {}) { // Removed callback, returns Promise
 }
 
 // 将主要函数挂载到全局作用域
-// window.loadHeritageData = loadHeritageData; // No longer global if API object is used
 window.loadMapStatistics = loadMapStatistics;
 window.heritageImages = heritageImages;
 

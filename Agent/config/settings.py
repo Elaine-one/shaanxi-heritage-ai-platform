@@ -20,77 +20,96 @@ class Config:
     """
     
     # 阿里云DashScope配置
+    # 阿里云API密钥
     DASHSCOPE_API_KEY = os.getenv('DASHSCOPE_API_KEY')
+    # 阿里云模型名称
     DASHSCOPE_MODEL = os.getenv('DASHSCOPE_MODEL')
     
     # 天气API配置 - Open-Meteo免费服务
-    WEATHER_API_KEY = os.getenv('WEATHER_API_KEY', '')  # Open-Meteo不需要API密钥
-    WEATHER_API_URL = os.getenv('WEATHER_API_URL', 'https://api.open-meteo.com/v1')
+    # 天气API密钥（可选，使用Open-Meteo时为空）
+    WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
+    # 天气API地址
+    WEATHER_API_URL = os.getenv('WEATHER_API_URL')
     
     # 百度地图API配置
-    BAIDU_MAP_AK = os.getenv('BAIDU_MAP_AK', '')
-    BAIDU_MAP_API_URL = 'https://api.map.baidu.com'
+    # 百度地图API密钥
+    BAIDU_MAP_AK = os.getenv('BAIDU_MAP_AK')
+    # 百度地图API地址
+    BAIDU_MAP_API_URL = os.getenv('BAIDU_MAP_API_URL')
     
     # 数据库配置
     DATABASE_CONFIG = {
         'host': os.getenv('DB_HOST'),
-        'port': int(os.getenv('DB_PORT', 3306)),
+        'port': int(os.getenv('DB_PORT')),
         'user': os.getenv('DB_USER'),
         'password': os.getenv('DB_PASSWORD'),
         'database': os.getenv('DB_NAME')
     }
     
     # Django后端API配置
-    BACKEND_API_URL = os.getenv('BACKEND_API_URL', 'http://localhost:8000/api')
+    # 用于Session验证和用户数据获取
+    BACKEND_API_URL = os.getenv('BACKEND_API_URL')
     
     # 日志配置
-    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-    LOG_FILE = os.getenv('LOG_FILE', 'logs/agent.log')
+    # 控制日志输出级别和文件路径
+    LOG_LEVEL = os.getenv('LOG_LEVEL')
+    LOG_FILE = os.getenv('LOG_FILE')
+
+    # Agent API CORS配置
+    # 允许的跨域来源，逗号分隔
+    AGENT_CORS_ALLOWED_ORIGINS = os.getenv('AGENT_CORS_ALLOWED_ORIGINS')
     
     # 旅游规划配置
     TRAVEL_CONFIG = {
-        'max_daily_attractions': 4,  # 每日最多景点数
-        'travel_speed_kmh': 90,      # 平均行驶速度(公里/小时)
-        'visit_duration_hours': 6,   # 每个景点平均游览时间(小时)
-        'daily_start_time': '09:00', # 每日开始时间
-        'daily_end_time': '21:00',   # 每日结束时间
-        'max_travel_distance': 1000,  # 最大旅行距离(公里)
+        'max_daily_attractions': int(os.getenv('TRAVEL_MAX_DAILY_ATTRACTIONS')),
+        'travel_speed_kmh': int(os.getenv('TRAVEL_SPEED_KMH')),
+        'visit_duration_hours': int(os.getenv('TRAVEL_VISIT_DURATION_HOURS')),
+        'daily_start_time': os.getenv('TRAVEL_DAILY_START_TIME'),
+        'daily_end_time': os.getenv('TRAVEL_DAILY_END_TIME'),
+        'max_travel_distance': int(os.getenv('TRAVEL_MAX_DISTANCE_KM')),
     }
     
     # 缓存配置
     CACHE_CONFIG = {
-        'enabled': True,
-        'ttl': 3600,  # 缓存时间(秒)
-        'max_size': 1000  # 最大缓存条目数
+        'enabled': os.getenv('CACHE_ENABLED', 'true').lower() == 'true',
+        'ttl': int(os.getenv('CACHE_TTL')),
+        'max_size': int(os.getenv('CACHE_MAX_SIZE'))
     }
     
     # Session认证配置
-    SESSION_COOKIE_NAME = 'sessionid'  # Django session cookie名称
+    # Session Cookie名称
+    SESSION_COOKIE_NAME = os.getenv('SESSION_COOKIE_NAME')
     SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Session存储引擎
     
     # Redis配置
-    REDIS_HOST = os.getenv('REDIS_HOST', '127.0.0.1')
-    REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-    REDIS_DB = int(os.getenv('REDIS_DB', 0))
-    REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', '')
-    REDIS_SESSION_TTL = int(os.getenv('REDIS_SESSION_TTL', 86400))  # 会话过期时间（秒）
+    # Redis主机地址
+    REDIS_HOST = os.getenv('REDIS_HOST')
+    # Redis端口
+    REDIS_PORT = int(os.getenv('REDIS_PORT'))
+    # Redis数据库索引
+    REDIS_DB = int(os.getenv('REDIS_DB'))
+    # Redis密码
+    REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
+    # Redis会话过期时间
+    REDIS_SESSION_TTL = int(os.getenv('REDIS_SESSION_TTL'))
+
     
     # 会话存储模式: 'memory' 或 'redis'
-    SESSION_STORAGE_MODE = os.getenv('SESSION_STORAGE_MODE', 'redis')
+    SESSION_STORAGE_MODE = os.getenv('SESSION_STORAGE_MODE')
     
     # MinIO配置
-    MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
-    MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'admin')
-    MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'admin123')
-    MINIO_BUCKET_NAME = os.getenv('MINIO_BUCKET_NAME', 'heritage-agent-storage')
-    MINIO_SECURE = os.getenv('MINIO_SECURE', 'false').lower() == 'true'
-    MINIO_REGION = os.getenv('MINIO_REGION', 'us-east-1')
+    MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT')
+    MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY')
+    MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY')
+    MINIO_BUCKET_NAME = os.getenv('MINIO_BUCKET_NAME')
+    MINIO_SECURE = os.getenv('MINIO_SECURE').lower() == 'true'
+    MINIO_REGION = os.getenv('MINIO_REGION')
     
     # 归档配置
-    CONVERSATION_ARCHIVE_TTL = int(os.getenv('CONVERSATION_ARCHIVE_TTL', 86400))
-    PDF_RETENTION_DAYS = int(os.getenv('PDF_RETENTION_DAYS', 365))
-    MEDIA_RETENTION_DAYS = int(os.getenv('MEDIA_RETENTION_DAYS', 90))
-    AUTO_ARCHIVE_ENABLED = os.getenv('AUTO_ARCHIVE_ENABLED', 'true').lower() == 'true'
+    CONVERSATION_ARCHIVE_TTL = int(os.getenv('CONVERSATION_ARCHIVE_TTL'))
+    PDF_RETENTION_DAYS = int(os.getenv('PDF_RETENTION_DAYS'))
+    MEDIA_RETENTION_DAYS = int(os.getenv('MEDIA_RETENTION_DAYS'))
+    AUTO_ARCHIVE_ENABLED = os.getenv('AUTO_ARCHIVE_ENABLED').lower() == 'true'
     
     @classmethod
     def validate_config(cls) -> Dict[str, Any]:

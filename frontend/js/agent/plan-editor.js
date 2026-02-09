@@ -15,10 +15,9 @@ class PlanEditor {
     }
 
     async getApiBaseUrl(apiType = 'agent') {
-        // 使用相对路径，指向Django后端的代理接口
-        // 路径映射: /api/agent/api/{apiType} -> Agent Service /api/{apiType}
+        // 获取 API 服务地址
         const apiUrl = `/api/agent/api/${apiType}`;
-        console.log(`使用后端代理API URL (${apiType}):`, apiUrl);
+        console.log(`使用代理API URL (${apiType}):`, apiUrl);
         return apiUrl;
     }
 
@@ -190,7 +189,10 @@ class PlanEditor {
         });
 
         document.addEventListener('keydown', (e) => {
-            if (e.target.id === 'chat-input' && e.key === 'Enter') this.sendMessage();
+            if (e.target.id === 'chat-input' && e.key === 'Enter') {
+                e.preventDefault(); // 防止默认行为，确保立即响应
+                this.sendMessage();
+            }
             if (e.key === 'Escape') {
                 const modal = document.getElementById('plan-editor-modal');
                 if (modal && modal.style.display !== 'none') this.hideEditor();
@@ -316,7 +318,11 @@ class PlanEditor {
         
         if (!message) return;
         
-        // 锁定输入状态
+        // 1. 立即显示用户消息（UI反馈优先，解决回车发送延迟感）
+        input.value = '';
+        this.addChatMessage('user', message, false);
+        
+        // 2. 锁定状态
         this.isSending = true;
         input.disabled = true;
         sendBtn.disabled = true;
@@ -326,9 +332,6 @@ class PlanEditor {
         try {
             if (!this.sessionId) await this.initializeChatSession();
 
-            input.value = '';
-            this.addChatMessage('user', message, false);
-            
             const loadingId = this.showLoading();
             
             const apiUrl = await this.getApiBaseUrl();
@@ -386,8 +389,10 @@ class PlanEditor {
         const isUser = type === 'user';
         const icon = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
         
+        // 如果是用户消息，直接显示；如果是AI消息且开启打字机，先显示空容器
         let displayContent = isUser ? content : this.renderMarkdown(content);
-        if (typingEffect) displayContent = '<span class="typing-cursor"></span>';
+        // 如果开启打字机效果，初始内容为空（光标后续动态添加）
+        if (typingEffect) displayContent = '';
 
         const html = `
             <div class="chat-message ${isUser ? 'user-message' : 'ai-message'}">
@@ -401,26 +406,91 @@ class PlanEditor {
 
         if (typingEffect && !isUser) {
             const container = document.getElementById(messageId);
-            const rawText = content;
-            let i = 0;
+            const fullHtml = this.renderMarkdown(content);
+            
+            // 创建光标元素
+            const cursor = document.createElement('span');
+            cursor.className = 'typing-cursor';
+            container.appendChild(cursor);
+            
+            // 使用临时 DIV 解析 HTML 结构
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = fullHtml;
+            
+            // 构建操作步骤队列
+            const steps = [];
+            
+            function buildSteps(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    steps.push({ type: 'text', content: node.textContent });
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    steps.push({ type: 'elementStart', tagName: node.tagName, attributes: node.attributes });
+                    node.childNodes.forEach(child => buildSteps(child));
+                    steps.push({ type: 'elementEnd' });
+                }
+            }
+            
+            tempDiv.childNodes.forEach(child => buildSteps(child));
+            
+            // 执行打字动画
+            let stepIndex = 0;
+            let charIndex = 0;
+            let currentStep = null;
+            const parentStack = [container];
             const speed = 15; // 打字速度
             
             return new Promise(resolve => {
                 const timer = setInterval(() => {
-                    if (i < rawText.length) {
-                        const char = rawText.charAt(i);
-                        const displayChar = char === '\n' ? '<br>' : char;
+                    // 暂时移除光标，避免影响内容插入位置
+                    if (cursor.parentNode) cursor.parentNode.removeChild(cursor);
+                    
+                    // 获取下一个步骤
+                    if (!currentStep && stepIndex < steps.length) {
+                        currentStep = steps[stepIndex];
+                        stepIndex++;
+                        charIndex = 0;
+                    }
+                    
+                    if (currentStep) {
+                        const parent = parentStack[parentStack.length - 1];
                         
-                        const cursor = container.querySelector('.typing-cursor');
-                        if (cursor) cursor.insertAdjacentHTML('beforebegin', displayChar);
-                        
-                        // 关键优化：打字时强制滚动到底部
-                        this.scrollToBottom();
-                        
-                        i++;
-                    } else {
+                        if (currentStep.type === 'elementStart') {
+                            const el = document.createElement(currentStep.tagName);
+                            Array.from(currentStep.attributes).forEach(attr => {
+                                el.setAttribute(attr.name, attr.value);
+                            });
+                            parent.appendChild(el);
+                            parentStack.push(el);
+                            currentStep = null; // 元素创建是瞬间的，不消耗时间
+                            // 如果是空标签（如 br, img），虽然 logic 上有 elementEnd，但视觉上应立即完成
+                            // 这里不做特殊处理，依赖 elementEnd 步骤弹出栈
+                        } else if (currentStep.type === 'elementEnd') {
+                            parentStack.pop();
+                            currentStep = null;
+                        } else if (currentStep.type === 'text') {
+                            if (charIndex < currentStep.content.length) {
+                                const char = currentStep.content[charIndex];
+                                // 追加文本节点或合并到现有文本节点
+                                parent.appendChild(document.createTextNode(char));
+                                charIndex++;
+                            } else {
+                                currentStep = null; // 文本打字完成
+                            }
+                        }
+                    }
+                    
+                    // 将光标追加到当前活动元素的末尾
+                    const activeParent = parentStack[parentStack.length - 1];
+                    activeParent.appendChild(cursor);
+                    
+                    this.scrollToBottom();
+                    
+                    // 检查是否完成
+                    if (stepIndex >= steps.length && !currentStep) {
                         clearInterval(timer);
-                        container.innerHTML = this.renderMarkdown(rawText);
+                        cursor.remove();
+                        // 最终校准：确保内容与原始 HTML 完全一致
+                        container.innerHTML = fullHtml;
                         this.scrollToBottom();
                         resolve();
                     }

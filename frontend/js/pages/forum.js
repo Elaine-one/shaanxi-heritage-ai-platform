@@ -150,26 +150,79 @@ class ForumManager {
     
     initializeEditor() {
         // 初始化Quill富文本编辑器
-        if (typeof Quill !== 'undefined') {
-            this.postEditor = new Quill('#postEditor', {
-                theme: 'snow',
-                placeholder: '请输入帖子内容...',
-                modules: {
-                    toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['blockquote', 'code-block'],
-                        ['link', 'image'],
-                        ['clean']
-                    ]
+        const initQuill = () => {
+            if (typeof Quill !== 'undefined') {
+                try {
+                    this.postEditor = new Quill('#postEditor', {
+                        theme: 'snow',
+                        placeholder: '请输入帖子内容...',
+                        modules: {
+                            toolbar: [
+                                [{ 'header': [1, 2, 3, false] }],
+                                ['bold', 'italic', 'underline', 'strike'],
+                                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                                ['blockquote', 'code-block'],
+                                ['link', 'image'],
+                                ['clean']
+                            ]
+                        }
+                    });
+                    
+                    // 监听内容变化
+                    this.postEditor.on('text-change', () => {
+                        const length = this.postEditor.getLength() - 1; // 减去末尾的换行符
+                        this.updateCharCount('contentCount', length);
+                    });
+                    console.log('Quill editor initialized successfully');
+                } catch (e) {
+                    console.error('Quill initialization failed:', e);
+                    this.fallbackToTextarea();
                 }
-            });
+            } else {
+                console.warn('Quill not loaded yet, retrying...');
+                // 如果Quill未加载，尝试延迟初始化
+                if (!this.quillRetryCount) this.quillRetryCount = 0;
+                if (this.quillRetryCount < 10) { // 最多重试10次
+                    this.quillRetryCount++;
+                    setTimeout(initQuill, 500);
+                } else {
+                    console.error('Quill failed to load after retries');
+                    this.fallbackToTextarea();
+                }
+            }
+        };
+        
+        initQuill();
+    }
+
+    fallbackToTextarea() {
+        const editorDiv = document.getElementById('postEditor');
+        if (editorDiv && !editorDiv.querySelector('textarea')) {
+            editorDiv.innerHTML = '<textarea id="fallback-textarea" style="width:100%;height:100%;border:none;resize:none;outline:none;" placeholder="请输入帖子内容..."></textarea>';
+            const textarea = editorDiv.querySelector('textarea');
             
-            // 监听内容变化
-            this.postEditor.on('text-change', () => {
-                const length = this.postEditor.getLength() - 1; // 减去末尾的换行符
-                this.updateCharCount('contentCount', length);
+            // 模拟Quill对象
+            this.postEditor = {
+                root: { innerHTML: '' },
+                getLength: () => textarea.value.length + 1,
+                getText: () => textarea.value,
+                setContents: (delta) => {
+                    // 简单的清空处理，不支持复杂的delta
+                    textarea.value = '';
+                    this.postEditor.root.innerHTML = '';
+                    this.updateCharCount('contentCount', 0);
+                },
+                on: (event, handler) => {
+                    // 仅支持 text-change
+                    if (event === 'text-change') {
+                        textarea.addEventListener('input', handler);
+                    }
+                }
+            };
+            
+            textarea.addEventListener('input', (e) => {
+                this.updateCharCount('contentCount', e.target.value.length);
+                this.postEditor.root.innerHTML = e.target.value;
             });
         }
     }

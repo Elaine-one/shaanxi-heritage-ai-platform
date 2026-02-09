@@ -1487,13 +1487,6 @@ class UserCreation {
         console.log('自动统计更新已禁用，避免大量重复请求');
     }
     
-    async updateStats() {
-        // 禁用自动统计更新，避免大量重复请求导致服务器崩溃
-        console.log('updateStats方法已禁用，避免大量重复请求');
-        // 直接返回，不发送任何API请求
-        return;
-    }
-    
     initViewportMonitoring() {
         // 初始化视口监控，使用IntersectionObserver API
         this.observer = new IntersectionObserver((entries) => {

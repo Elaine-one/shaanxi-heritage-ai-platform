@@ -5,45 +5,22 @@ from .settings import *
 # 生产环境安全设置
 DEBUG = False
 
-# 生产环境允许的主机 - 请根据实际域名修改
-ALLOWED_HOSTS = [
-    'your-domain.com',  # 替换为您的实际域名
-    'www.your-domain.com',  # 替换为您的实际域名
-    'localhost',  # 保留用于本地测试
-    '127.0.0.1',  # 保留用于本地测试
-]
+# 允许的主机列表 - 继承自 settings.py，请通过环境变量 ALLOWED_HOSTS 配置
+# ALLOWED_HOSTS = [...]
 
 # 生产环境密钥 - 请使用环境变量或生成新的密钥
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', SECRET_KEY)
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError("DJANGO_SECRET_KEY environment variable is not set!")
 
-# 数据库配置 - 建议使用环境变量
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_NAME', 'heritage_db'),
-        'USER': os.environ.get('DB_USER', 'root'),
-        'PASSWORD': os.environ.get('DB_PASSWORD'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-        }
-    }
-}
+# 数据库配置 - 继承自 settings.py，请通过环境变量配置
+# DATABASES = ...
 
-# 生产环境CORS设置
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    'https://your-domain.com',  # 替换为您的实际域名
-    'https://www.your-domain.com',  # 替换为您的实际域名
-]
+# 生产环境CORS设置 - 继承自 settings.py，请通过环境变量配置
+# CORS_ALLOWED_ORIGINS = ...
 
-# CSRF信任的来源
-CSRF_TRUSTED_ORIGINS = [
-    'https://your-domain.com',  # 替换为您的实际域名
-    'https://www.your-domain.com',  # 替换为您的实际域名
-]
+# CSRF信任的来源 - 继承自 settings.py，请通过环境变量配置
+# CSRF_TRUSTED_ORIGINS = ...
 
 # 静态文件配置
 STATIC_ROOT = BASE_DIR / 'staticfiles'

@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 import requests
 import asyncio
+from Agent.config.settings import Config
 
 class TokenData:
     """用户token数据"""
@@ -49,7 +50,9 @@ async def get_current_user_from_session(
             raise credentials_exception
         
         # 通过Django后端API验证session
-        django_api_url = "http://localhost:8000/api/profile/me/"
+        # 使用配置中的后端API地址
+        base_url = Config.BACKEND_API_URL.rstrip('/')
+        django_api_url = f"{base_url}/profile/me/"
         
         try:
             # 在异步函数中调用同步的requests
