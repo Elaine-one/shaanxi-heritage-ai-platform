@@ -15,6 +15,10 @@
 - 📊 **进度跟踪**: 实时规划进度监控
 - 📱 **前端界面**: 现代化Web界面，支持进度条和结果展示
 - 💬 **智能对话**: AI助手支持用户信息查询和规划调整
+- 📝 **对话系统**: 完整的对话历史管理和智能摘要功能
+- 🔄 **Redis缓存**: 会话管理和缓存优化，提升响应速度
+- 🗄️ **MinIO存储**: PDF导出文件和媒体资源的对象存储
+- 📊 **用户历史**: 完整的用户历史记录和行为分析
 - 📄 **多格式导出**: 支持PDF、CSV、JSON等多种格式导出规划方案
 
 ## 技术架构
@@ -29,7 +33,10 @@
 - **前端**: 原生JavaScript + HTML5 - 响应式Web界面
 - **PDF生成**: ReportLab - 专业PDF文档生成
 - **对象存储**: MinIO - 存储PDF导出文件和媒体资源
+- **缓存系统**: Redis - 会话管理和缓存优化
 - **异步处理**: Python asyncio - 高效后台任务处理
+- **数据验证**: Pydantic - 数据模型验证
+- **提示词管理**: 自定义提示词模板系统
 
 ### AI代理架构
 
@@ -70,7 +77,8 @@ Agent/
 │   ├── app.py              # 主应用入口
 │   ├── session_dependencies.py  # Django Session认证模块
 │   ├── edit_endpoints.py   # 编辑相关接口
-│   └── weather_endpoints.py   # 天气相关接口
+│   ├── weather_endpoints.py   # 天气相关接口
+│   └── conversation_endpoints.py  # 对话相关接口
 ├── agent/                  # AI代理核心模块
 │   ├── react_agent.py      # ReAct代理实现
 │   ├── plan_editor.py      # 规划编辑器和AI交互
@@ -78,13 +86,15 @@ Agent/
 ├── config/                 # 配置管理
 │   └── settings.py         # 配置文件
 ├── memory/                 # 内存管理和会话管理
-│   └── session.py          # 会话池和上下文管理
+│   ├── session.py          # 会话池和上下文管理
+│   └── redis_session.py     # Redis会话管理
 ├── models/                 # AI模型集成
 │   ├── langchain/          # LangChain模型封装
 │   │   └── llm.py          # 大语言模型接口
 │   └── dashscope.py        # DashScope模型
 ├── prompts/                # AI提示词管理
-│   └── react.py            # ReAct代理提示词模板
+│   ├── react.py            # ReAct代理提示词模板
+│   └── conversation_summary.py  # 对话摘要提示词模板
 ├── services/               # 业务服务层
 │   ├── heritage_analyzer.py   # 非遗项目分析
 │   ├── weather.py              # 天气服务
@@ -92,7 +102,9 @@ Agent/
 │   ├── content_integrator.py   # 内容整合
 │   ├── pdf_generator.py        # PDF生成器
 │   ├── pdf_content_integrator.py  # PDF内容整合
-│   └── minio_storage.py       # MinIO存储服务
+│   ├── minio_storage.py       # MinIO存储服务
+│   ├── conversation_service.py    # 对话服务
+│   └── user_history_service.py     # 用户历史记录服务
 ├── tools/                  # 工具模块
 │   ├── base.py             # 基础工具类
 │   ├── langchain_wrappers.py  # LangChain工具封装
