@@ -11,6 +11,7 @@
 - **详情页面**：展示非遗项目的详细信息、图片和相关资料
 - **地图页面**：通过百度地图直观展示非遗项目的地理分布
 - **多媒体展示**：支持图片轮播、视频播放等多媒体内容展示
+- **统计页面**：非遗项目数据统计和可视化展示
 
 ### 用户交互功能
 - **收藏功能**：支持用户收藏感兴趣的非遗项目，并在个人中心管理收藏
@@ -18,17 +19,27 @@
 - **分类筛选**：按类别、级别、地区等多维度筛选非遗项目
 - **搜索功能**：支持关键词搜索，快速定位感兴趣的非遗项目
 - **论坛系统**：用户可以发表帖子、评论，分享非遗相关内容
+- **创作功能**：用户可以发布非遗相关创作内容，支持评论、点赞、分享
 
 ### 内容管理功能
 - **新闻资讯**：展示非遗相关新闻资讯，支持分类浏览和搜索
 - **政策法规**：展示非遗相关政策法规，支持类型筛选和搜索
 - **动态更新**：实时更新最新的非遗项目信息和相关资讯
+- **创作管理**：用户创作内容的管理和展示
+
+### AI智能功能
+- **智能旅游规划**：基于AI的个性化旅游路线规划
+- **AI对话助手**：智能聊天机器人提供实时咨询服务
+- **对话历史管理**：完整的对话历史记录和智能摘要
+- **AI创作辅助**：智能内容生成和优化建议
 
 ### 技术特性
 - **响应式设计**：适配不同尺寸的设备，提供良好的移动端体验
 - **用户系统**：支持用户注册、登录，管理个人收藏和浏览历史
 - **智能聊天助手**：集成AI聊天功能，为用户提供非遗知识问答服务
 - **性能优化**：采用懒加载、图片压缩等技术提升页面加载速度
+- **模块化设计**：代码结构清晰，易于维护和扩展
+- **安全性**：完整的用户认证和授权机制
 
 ## 技术栈
 
@@ -45,48 +56,92 @@
 ```
 frontend/
 ├── css/                # 样式文件
+│   ├── agent/               # Agent相关样式
+│   │   ├── plan-editor.css     # 规划编辑器样式
+│   │   └── travel-planning.css  # 旅游规划样式
 │   ├── common/           # 通用样式
 │   │   ├── base.css        # 基础样式
 │   │   ├── header.css      # 头部样式
 │   │   └── footer.css      # 底部样式
+│   ├── forum.css             # 论坛样式
+│   ├── forum-post.css        # 论坛帖子样式
+│   ├── forum-post-header.css # 论坛帖子头部样式
 │   ├── news.css            # 新闻页样式
 │   ├── policy.css          # 政策页样式
+│   ├── post-detail.css     # 帖子详情样式
 │   └── pages/           # 页面特定样式
-│       ├── heritage-detail.css    # 详情页样式
-│       ├── heritage-map.css       # 地图页样式
+│       ├── creation-center.css  # 创作中心样式
+│       ├── heritage-detail.css  # 详情页样式
+│       ├── heritage-map.css     # 地图页样式
+│       ├── heritage-map-overlay.css  # 地图覆盖层样式
+│       ├── heritage-statistics.css  # 统计页面样式
 │       ├── non-heritage-list.css  # 列表页样式
-│       └── profile.css            # 个人中心样式
+│       ├── profile.css            # 个人中心样式
+│       └── user-creation.css     # 用户创作样式
 ├── js/                 # JavaScript 文件
 │   ├── agent/             # AI智能体相关脚本
-│   │   └── plan-editor.js     # AI规划编辑器
+│   │   ├── agent-core.js        # 规划核心功能
+│   │   ├── dialog-manager.js    # 对话管理器
+│   │   ├── plan-editor.js       # AI规划编辑器
+│   │   ├── progress-manager.js  # 进度管理器
+│   │   ├── result-renderer.js   # 结果渲染器
+│   │   └── travel-planning.js   # 旅游规划主脚本
+│   ├── api/                 # API相关脚本
+│   │   ├── forum-api.js         # 论坛API
+│   │   └── user-profile-api.js  # 用户资料API
 │   ├── common/           # 通用脚本
-│   │   ├── heritage-api.js   # API 封装
-│   │   ├── date-utils.js     # 日期时间工具
-│   │   └── auth.js           # 认证相关
+│   │   ├── api-utils.js         # API工具
+│   │   ├── auth.js              # 认证相关
+│   │   ├── browsing-history.js  # 浏览历史
+│   │   ├── heritage-api.js      # 非遗API
+│   │   ├── heritage-ui.js       # UI工具函数
+│   │   └── utils.js             # 工具函数
+│   ├── modules/          # 模块脚本
+│   │   ├── profile-favorites.js  # 个人中心收藏模块
+│   │   ├── profile-history.js    # 个人中心历史模块
+│   │   └── profile-settings.js   # 个人中心设置模块
 │   ├── news.js             # 新闻页脚本
 │   ├── policy.js           # 政策页脚本
 │   └── pages/           # 页面特定脚本
-│       ├── heritage-detail.js    # 详情页脚本
-│       ├── heritage-map.js       # 地图页脚本
+│       ├── creation-center.js   # 创作中心脚本
+│       ├── forum.js             # 论坛脚本
+│       ├── forum-post.js        # 论坛帖子脚本
+│       ├── heritage-detail.js   # 详情页脚本
+│       ├── heritage-filters.js  # 筛选功能脚本
+│       ├── heritage-map.js      # 地图页脚本
 │       ├── heritage-map-sidebar.js # 地图侧边栏脚本
-│       ├── non-heritage-list.js  # 列表页脚本
-│       └── profile.js            # 个人中心脚本
+│       ├── index.js             # 首页脚本
+│       ├── login.js             # 登录脚本
+│       ├── non-heritage-list.js # 列表页脚本
+│       ├── post-detail.js       # 帖子详情脚本
+│       ├── profile.js           # 个人中心脚本
+│       ├── register.js          # 注册脚本
+│       ├── reset-password.js     # 密码重置脚本
+│       └── user-creation.js     # 用户创作脚本
 ├── lib/                # 第三方库
 │   ├── dify_chatbot_embed.js  # AI聊天助手嵌入脚本
 │   ├── maxkb_embed.js         # 知识库嵌入脚本
 │   └── third-party-embed.js   # 其他第三方嵌入脚本
 ├── pages/              # HTML 页面
+│   ├── creation-center.html    # 创作中心
+│   ├── forgot-password.html    # 忘记密码
+│   ├── forum.html              # 论坛首页
+│   ├── forum-post.html         # 论坛帖子
 │   ├── heritage-detail.html    # 详情页
 │   ├── heritage-map.html       # 地图页
 │   ├── login.html              # 登录页
 │   ├── news.html               # 新闻页
 │   ├── non-heritage-list.html  # 列表页
 │   ├── policy.html             # 政策页
+│   ├── post-detail.html        # 帖子详情
 │   ├── profile.html            # 个人中心
-│   └── register.html           # 注册页
+│   ├── register.html           # 注册页
+│   ├── reset-password.html      # 密码重置
+│   └── user-creation.html      # 用户创作
 ├── static/             # 静态资源
 │   └── images/           # 图片资源
-└── index.html          # 首页
+├── index.html          # 首页
+└── README.md           # 前端项目文档
 ```
 
 ## 页面说明
