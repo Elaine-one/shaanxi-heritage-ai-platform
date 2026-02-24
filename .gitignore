@@ -1,5 +1,54 @@
 # 忽略.env文件
 .env
+.env.local
+.env.*.local
+
+# 日志文件
 *.log
+logs/
+logs/*
+
+# 缓存文件
 __pycache__/
- pdf_cache/
+*.pyc
+*.pyo
+*.pyd
+
+# 测试缓存
+.pytest_cache/
+.coverage
+coverage.xml
+
+# 导出和缓存目录
+pdf_cache/
+font_cache/
+
+# 媒体文件
+media/
+media/*
+
+# IDE和编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+Thumbs.db
+.DS_Store
+
+# 构建文件
+build/
+dist/
+*.egg-info/
+
+# 环境文件
+venv/
+env/
+ENV/
+
+# 其他临时文件
+*.tmp
+*.temp
+.temp/
