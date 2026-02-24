@@ -35,7 +35,8 @@
 │   │   ├── app.py         # 主应用入口
 │   │   ├── session_dependencies.py  # Django Session认证模块
 │   │   ├── edit_endpoints.py   # 编辑相关接口
-│   │   └── weather_endpoints.py   # 天气相关接口
+│   │   ├── weather_endpoints.py   # 天气相关接口
+│   │   └── conversation_endpoints.py  # 对话相关接口
 │   ├── agent/         # AI代理核心模块
 │   │   ├── react_agent.py      # ReAct代理实现
 │   │   ├── plan_editor.py      # 规划编辑器和AI交互
@@ -43,20 +44,25 @@
 │   ├── config/        # 配置管理
 │   │   └── settings.py         # 配置文件
 │   ├── memory/        # 内存管理和会话管理
-│   │   └── session.py          # 会话池和上下文管理
+│   │   ├── session.py          # 会话池和上下文管理
+│   │   └── redis_session.py     # Redis会话管理
 │   ├── models/        # AI模型集成
 │   │   ├── langchain/          # LangChain模型封装
 │   │   │   └── llm.py          # 大语言模型接口
 │   │   └── dashscope.py        # DashScope模型
 │   ├── prompts/       # AI提示词管理
-│   │   └── react.py            # ReAct代理提示词模板
+│   │   ├── react.py            # ReAct代理提示词模板
+│   │   └── conversation_summary.py  # 对话摘要提示词模板
 │   ├── services/      # 业务服务层
 │   │   ├── heritage_analyzer.py   # 非遗项目分析
 │   │   ├── weather.py              # 天气服务
 │   │   ├── weather_config.py       # 天气配置
 │   │   ├── content_integrator.py   # 内容整合
 │   │   ├── pdf_generator.py        # PDF生成器
-│   │   └── pdf_content_integrator.py  # PDF内容整合
+│   │   ├── pdf_content_integrator.py  # PDF内容整合
+│   │   ├── conversation_service.py    # 对话服务
+│   │   ├── minio_storage.py           # MinIO对象存储服务
+│   │   └── user_history_service.py     # 用户历史记录服务
 │   ├── tools/         # 工具模块
 │   │   ├── base.py             # 基础工具类
 │   │   ├── langchain_wrappers.py  # LangChain工具封装
@@ -91,6 +97,7 @@
 │   │   ├── models.py      # 基础数据模型
 │   │   ├── forum_models.py # 论坛数据模型
 │   │   ├── user_models.py  # 用户数据模型
+│   │   ├── creation_models.py  # 创作内容模型
 │   │   ├── admin.py       # 管理后台配置
 │   │   ├── urls.py        # URL路由
 │   │   └── management/    # 管理命令
@@ -98,9 +105,11 @@
 │   │           └── import_heritage_data.py  # 数据导入命令
 │   ├── heritage_project/ # Django项目配置
 │   │   ├── settings.py            # 项目设置
+│   │   ├── settings_production.py  # 生产环境设置
 │   │   ├── urls.py                # 主URL路由
 │   │   ├── wsgi.py                # WSGI配置
-│   │   └── celery.py              # Celery配置
+│   │   ├── celery.py              # Celery配置
+│   │   └── middleware.py          # 中间件配置
 │   ├── media/         # 媒体文件目录
 │   │   └── heritage_images/       # 非遗项目图片
 │   ├── logs/          # 日志目录
@@ -110,16 +119,47 @@
 │   └── complete_database_schema.md  # 完整数据库结构文档
 ├── frontend/          # 前端界面
 │   ├── css/           # 样式文件
+│   │   ├── agent/               # Agent相关样式
+│   │   │   ├── plan-editor.css     # 规划编辑器样式
+│   │   │   └── travel-planning.css  # 旅游规划样式
 │   │   ├── common/              # 通用样式
 │   │   ├── pages/               # 页面特定样式
-│   │   ├── news.css             # 新闻页样式
-│   │   └── policy.css           # 政策页样式
+│   │   │   ├── creation-center.css  # 创作中心样式
+│   │   │   ├── heritage-detail.css  # 详情页样式
+│   │   │   ├── heritage-map.css     # 地图页样式
+│   │   │   ├── non-heritage-list.css  # 列表页样式
+│   │   │   ├── profile.css          # 个人中心样式
+│   │   │   └── user-creation.css     # 用户创作样式
+│   │   ├── forum.css             # 论坛样式
+│   │   ├── forum-post.css        # 论坛帖子样式
+│   │   ├── news.css              # 新闻页样式
+│   │   └── policy.css            # 政策页样式
 │   ├── js/            # JavaScript文件
 │   │   ├── agent/               # AI智能规划相关脚本
-│   │   │   ├── agent-core.js    # 规划核心功能
-│   │   │   └── plan-editor.js   # AI对话式规划编辑器
+│   │   │   ├── agent-core.js        # 规划核心功能
+│   │   │   ├── dialog-manager.js    # 对话管理器
+│   │   │   ├── plan-editor.js       # AI对话式规划编辑器
+│   │   │   ├── progress-manager.js  # 进度管理器
+│   │   │   ├── result-renderer.js   # 结果渲染器
+│   │   │   └── travel-planning.js   # 旅游规划主脚本
+│   │   ├── api/                 # API相关脚本
+│   │   │   ├── forum-api.js         # 论坛API
+│   │   │   └── user-profile-api.js  # 用户资料API
 │   │   ├── common/              # 通用脚本
+│   │   │   ├── api-utils.js         # API工具
+│   │   │   ├── auth.js              # 认证相关
+│   │   │   ├── browsing-history.js  # 浏览历史
+│   │   │   ├── heritage-api.js      # 非遗API
+│   │   │   └── utils.js             # 工具函数
 │   │   ├── pages/               # 页面特定脚本
+│   │   │   ├── creation-center.js   # 创作中心脚本
+│   │   │   ├── forum.js             # 论坛脚本
+│   │   │   ├── forum-post.js        # 论坛帖子脚本
+│   │   │   ├── heritage-detail.js   # 详情页脚本
+│   │   │   ├── heritage-map.js      # 地图页脚本
+│   │   │   ├── non-heritage-list.js # 列表页脚本
+│   │   │   ├── profile.js           # 个人中心脚本
+│   │   │   └── user-creation.js     # 用户创作脚本
 │   │   ├── news.js              # 新闻页脚本
 │   │   └── policy.js            # 政策页脚本
 │   ├── lib/           # 第三方库
@@ -127,6 +167,9 @@
 │   │   ├── maxkb_embed.js           # 知识库嵌入脚本
 │   │   └── third-party-embed.js    # 其他第三方嵌入脚本
 │   ├── pages/         # HTML页面
+│   │   ├── creation-center.html    # 创作中心
+│   │   ├── forum.html              # 论坛首页
+│   │   ├── forum-post.html         # 论坛帖子
 │   │   ├── heritage-detail.html    # 详情页
 │   │   ├── heritage-map.html       # 地图页
 │   │   ├── login.html              # 登录页
@@ -134,12 +177,12 @@
 │   │   ├── non-heritage-list.html  # 列表页
 │   │   ├── policy.html             # 政策页
 │   │   ├── profile.html            # 个人中心
-│   │   └── register.html           # 注册页
+│   │   ├── register.html           # 注册页
+│   │   └── user-creation.html      # 用户创作
 │   ├── static/        # 静态资源
 │   │   └── images/                # 图片资源
 │   ├── index.html     # 首页
 │   └── README.md      # 前端项目文档
-├── FONT_MANAGER_UPDATE.md  # 字体管理器更新说明
 ├── .gitignore         # Git忽略文件配置
 └── README.md          # 项目说明文档
 ```
@@ -185,6 +228,7 @@
   - PDF报告：生成精美的旅游计划PDF文档
   - JSON数据：结构化数据导出，便于程序处理
   - CSV表格：表格化数据，方便数据分析
+  - **MinIO存储**：PDF导出文件和媒体资源的对象存储
 
 ### 3. 用户互动系统
 **核心功能**：完整的用户管理和社区交流平台
@@ -205,6 +249,11 @@
   - 经验分享：用户旅游经验分享
   - 问答社区：非遗相关问题的问答系统
 
+- **创作功能**：
+  - 用户创作：支持用户发布非遗相关创作内容
+  - 评论点赞：对创作内容进行评论和点赞
+  - 分享功能：分享创作内容到社交媒体
+
 ### 4. AI智能助手系统
 **核心功能**：基于大模型的智能咨询和内容生成
 
@@ -219,6 +268,12 @@
   - 文化介绍：生成非遗项目的详细介绍内容
   - 报告生成：智能生成各类报告和文档
 
+- **对话系统**：
+  - 智能对话：AI助手支持用户信息查询和规划调整
+  - 对话历史：完整的对话历史记录和管理
+  - 对话摘要：智能生成对话历史摘要，便于用户回顾
+  - **Redis缓存**：会话管理和缓存优化，提升响应速度
+
 ### 5. 管理后台系统
 **核心功能**：全面的后台管理和数据分析
 
@@ -227,16 +282,38 @@
   - 非遗项目管理：增删改查非遗项目信息
   - 用户管理：用户信息管理和权限设置
   - 内容审核：用户生成内容的审核管理
+  - 创作管理：管理用户创作内容、评论和点赞
 
 - **统计分析**：
   - 访问统计：用户访问行为数据分析
   - 热门分析：热门非遗项目和旅游路线分析
   - 用户画像：用户偏好和行为特征分析
+  - **用户历史服务**：用户浏览历史和行为分析
 
 - **系统配置**：
   - 参数设置：系统运行参数配置
   - 缓存管理：Redis缓存数据管理
   - 日志管理：系统运行日志查看和分析
+  - **生产环境配置**：专业的生产环境设置和中间件配置
+
+### 6. 技术基础设施
+**核心功能**：为整个平台提供稳定可靠的技术支持
+
+**具体功能**：
+- **Redis缓存系统**：
+  - 会话管理：用户会话的高效管理
+  - 缓存优化：API响应和热点数据缓存
+  - 性能提升：显著提升系统响应速度
+
+- **MinIO对象存储**：
+  - 文件存储：PDF导出文件和媒体资源的存储
+  - 高可靠性：数据冗余和故障恢复
+  - 可扩展性：支持大规模存储需求
+
+- **生产环境支持**：
+  - 专业配置：生产环境特定的配置管理
+  - 中间件：安全和性能优化中间件
+  - 监控告警：系统运行状态监控和告警
 
 ## 技术架构
 
@@ -244,32 +321,49 @@
 - **Django 5.0+**: Web框架
 - **Django REST Framework**: API框架
 - **MySQL**: 数据库
-- **Redis**: 缓存和任务队列
+- **Redis**: 缓存和任务队列，会话管理
 - **Gunicorn**: WSGI服务器
+- **Celery**: 异步任务队列
+- **MinIO**: 对象存储服务
 
 ### 前端技术栈
 - **HTML5/CSS3/JavaScript**: 前端基础技术
 - **百度地图API**: 地理信息服务
 - **Fetch API**: 前后端通信
+- **LocalStorage**: 本地数据存储
+- **AI聊天组件**: 集成第三方AI聊天服务
 
 ### Agent系统技术栈
-- **FastAPI**: 高性能API框架
-- **阿里云大模型**: AI智能规划
+- **FastAPI**: 高性能异步Web框架
+- **阿里云大模型**: AI智能规划（DashScope API）
 - **Pydantic**: 数据验证
-- **PDF生成**: 自定义PDF报告生成
+- **PDF生成**: 专业PDF文档生成（ReportLab）
+- **MinIO**: 对象存储服务
+- **Redis**: 会话管理和缓存优化
+- **ReAct代理架构**: 智能决策代理
+- **百度地图API**: 地理位置和路线规划
+- **实时天气API**: 天气预报和出行建议
+
+### 技术基础设施
+- **Redis缓存系统**: 会话管理、缓存优化、性能提升
+- **MinIO对象存储**: 文件存储、高可靠性、可扩展性
+- **生产环境配置**: 专业的生产环境设置和中间件配置
 
 ### 部署架构
 - **Nginx**: 反向代理和静态文件服务
 - **Gunicorn**: Django应用服务器
 - **前后端分离**: 现代化部署架构
+- **多服务架构**: Django后端 + FastAPI Agent服务
+- **会话共享**: 跨服务的用户会话管理
 
 ## 快速开始
 
 ### 环境要求
 - Python 3.9+
 - MySQL 8.0+
-- Node.js (可选)
-- Redis (可选)
+- Redis 7.0+ (必需，用于会话管理和缓存)
+- MinIO (必需，用于对象存储)
+- Node.js (可选，用于前端开发)
 
 ### 安装依赖
 ```bash
@@ -291,6 +385,76 @@ cd backend
 python manage.py migrate
 ```
 
+### Redis设置
+1. 安装并启动Redis服务
+2. 配置 `backend/.env` 和 `Agent/.env` 文件中的Redis连接信息
+
+### MinIO设置
+1. 安装并启动MinIO服务
+2. 创建存储桶（bucket）用于PDF导出和媒体资源
+3. 配置 `Agent/.env` 文件中的MinIO连接信息
+
+### 环境变量配置
+#### 后端环境配置 (backend/.env)
+```bash
+# Django配置
+DJANGO_SECRET_KEY=django-insecure-[自动生成的密钥]
+DJANGO_SETTINGS_MODULE=heritage_project.settings
+
+# 数据库配置
+DB_NAME=heritage_db
+DB_USER=root
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=3306
+
+# Redis配置
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=your_redis_password
+
+# 百度地图API密钥
+BAIDU_MAP_AK=your_baidu_map_ak
+
+# 邮件服务配置
+EMAIL_HOST=smtp.163.com
+EMAIL_PORT=465
+EMAIL_HOST_USER=your_email@163.com
+EMAIL_HOST_PASSWORD=your_auth_code
+DEFAULT_FROM_EMAIL=your_email@163.com
+FRONTEND_URL=http://localhost:8000
+
+# Agent服务配置
+AGENT_SERVICE_URL=http://localhost:8001
+```
+
+#### Agent环境配置 (Agent/.env)
+```bash
+# 阿里云DashScope API
+DASHSCOPE_API_KEY=your_dashscope_api_key
+
+# 百度地图API
+BAIDU_MAP_AK=your_baidu_map_ak
+
+# Redis配置
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=your_redis_password
+
+# MinIO配置
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET_NAME=heritage-agent-storage
+MINIO_SECURE=false
+
+# 服务配置
+SERVICE_HOST=0.0.0.0
+SERVICE_PORT=8001
+```
+
 ### 启动服务
 ```bash
 # 启动后端服务
@@ -307,6 +471,12 @@ uvicorn api.app:app --host 0.0.0.0 --port 8001 --reload
 
 # 启动前端界面
 # 直接打开 frontend/index.html
+
+# 启动Redis服务（如果未启动）
+# redis-server
+
+# 启动MinIO服务（如果未启动）
+# minio server /path/to/data
 ```
 
 ## 文档目录
@@ -410,11 +580,7 @@ DEFAULT_FROM_EMAIL=your_email@163.com  # 默认发件人邮箱
 FRONTEND_URL=http://192.168.183.232  # 前端应用地址
 ```
 
-##### Agent服务配置
-```bash
-# Agent服务URL（已加密，用于旅游规划功能）
-AGENT_SERVICE_URL=encrypted_agent_service_url  # 生产环境需要配置
-```
+
 
 #### 安全注意事项
 1. **生产环境必须修改的配置**：
