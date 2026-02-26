@@ -1,10 +1,21 @@
-Django==4.2.7
-djangorestframework==3.14.0
-django-cors-headers==4.3.1
-PyMySQL==1.1.1
-mysqlclient==2.2.4
-redis==5.0.1
-celery==5.3.4
-django-celery-beat==2.5.0
-jieba==0.42.1
-Pillow==10.4.0
+# Django框架
+Django>=4.2.0,<5.0.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.0
+
+# 数据库
+PyMySQL>=1.1.0
+mysqlclient>=2.2.0
+
+# Redis
+redis>=5.0.0
+
+# Celery异步任务
+celery>=5.3.0
+django-celery-beat>=2.5.0
+
+# 其他依赖
+jieba>=0.42.0
+Pillow>=10.0.0
+httpx>=0.25.0
+python-dotenv>=1.0.0

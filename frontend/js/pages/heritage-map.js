@@ -323,6 +323,10 @@ window.MapCore = {
             console.error('addMarkers: 传入的数据不是数组', data);
             return;
         }
+        
+        // 初始化有效标记计数器
+        let validMarkersCount = 0;
+        
         // 添加项目标记到地图
         
         data.forEach(item => {
