@@ -1,5 +1,5 @@
 /**
- * 旅游规划编辑器 - AI对话式编辑功能 (交互体验优化版)
+ * 旅游规划编辑器 - AI对话式编辑功能
  * 优化：AI打字时自动跟随滚动、丝滑缩放动画、Markdown实时渲染、对话历史透传
  */
 
@@ -310,7 +310,7 @@ class PlanEditor {
     }
 
     async sendMessage() {
-        if (this.isSending) return; // 防止重复提交
+        if (this.isSending) return;
 
         const input = document.getElementById('chat-input');
         const sendBtn = document.getElementById('send-message-btn');
@@ -318,13 +318,10 @@ class PlanEditor {
         
         if (!message) return;
         
-        // 1. 立即显示用户消息（UI反馈优先，解决回车发送延迟感）
         input.value = '';
         this.addChatMessage('user', message, false);
         
-        // 2. 锁定状态
         this.isSending = true;
-        input.disabled = true;
         sendBtn.disabled = true;
         const originalBtnText = sendBtn.innerHTML;
         sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -369,12 +366,9 @@ class PlanEditor {
             console.error('发送消息失败:', error);
             this.addChatMessage('ai', '网络请求失败，请稍后重试。', false);
         } finally {
-            // 恢复输入状态
             this.isSending = false;
-            input.disabled = false;
             sendBtn.disabled = false;
             sendBtn.innerHTML = originalBtnText;
-            // 重新聚焦输入框
             input.focus();
         }
     }
@@ -408,16 +402,13 @@ class PlanEditor {
             const container = document.getElementById(messageId);
             const fullHtml = this.renderMarkdown(content);
             
-            // 创建光标元素
             const cursor = document.createElement('span');
             cursor.className = 'typing-cursor';
             container.appendChild(cursor);
             
-            // 使用临时 DIV 解析 HTML 结构
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = fullHtml;
             
-            // 构建操作步骤队列
             const steps = [];
             
             function buildSteps(node) {
@@ -432,69 +423,109 @@ class PlanEditor {
             
             tempDiv.childNodes.forEach(child => buildSteps(child));
             
-            // 执行打字动画
             let stepIndex = 0;
             let charIndex = 0;
             let currentStep = null;
             const parentStack = [container];
-            const speed = 15; // 打字速度
+            const charInterval = 15;
+            let isCompleted = false;
+            let backgroundTimer = null;
             
-            return new Promise(resolve => {
-                const timer = setInterval(() => {
-                    // 暂时移除光标，避免影响内容插入位置
-                    if (cursor.parentNode) cursor.parentNode.removeChild(cursor);
+            const processStep = () => {
+                if (cursor.parentNode) cursor.parentNode.removeChild(cursor);
+                
+                if (!currentStep && stepIndex < steps.length) {
+                    currentStep = steps[stepIndex];
+                    stepIndex++;
+                    charIndex = 0;
+                }
+                
+                if (currentStep) {
+                    const parent = parentStack[parentStack.length - 1];
                     
-                    // 获取下一个步骤
-                    if (!currentStep && stepIndex < steps.length) {
-                        currentStep = steps[stepIndex];
-                        stepIndex++;
-                        charIndex = 0;
-                    }
-                    
-                    if (currentStep) {
-                        const parent = parentStack[parentStack.length - 1];
-                        
-                        if (currentStep.type === 'elementStart') {
-                            const el = document.createElement(currentStep.tagName);
-                            Array.from(currentStep.attributes).forEach(attr => {
-                                el.setAttribute(attr.name, attr.value);
-                            });
-                            parent.appendChild(el);
-                            parentStack.push(el);
-                            currentStep = null; // 元素创建是瞬间的，不消耗时间
-                            // 如果是空标签（如 br, img），虽然 logic 上有 elementEnd，但视觉上应立即完成
-                            // 这里不做特殊处理，依赖 elementEnd 步骤弹出栈
-                        } else if (currentStep.type === 'elementEnd') {
-                            parentStack.pop();
+                    if (currentStep.type === 'elementStart') {
+                        const el = document.createElement(currentStep.tagName);
+                        Array.from(currentStep.attributes).forEach(attr => {
+                            el.setAttribute(attr.name, attr.value);
+                        });
+                        parent.appendChild(el);
+                        parentStack.push(el);
+                        currentStep = null;
+                    } else if (currentStep.type === 'elementEnd') {
+                        parentStack.pop();
+                        currentStep = null;
+                    } else if (currentStep.type === 'text') {
+                        if (charIndex < currentStep.content.length) {
+                            const char = currentStep.content[charIndex];
+                            parent.appendChild(document.createTextNode(char));
+                            charIndex++;
+                        } else {
                             currentStep = null;
-                        } else if (currentStep.type === 'text') {
-                            if (charIndex < currentStep.content.length) {
-                                const char = currentStep.content[charIndex];
-                                // 追加文本节点或合并到现有文本节点
-                                parent.appendChild(document.createTextNode(char));
-                                charIndex++;
-                            } else {
-                                currentStep = null; // 文本打字完成
-                            }
                         }
                     }
-                    
-                    // 将光标追加到当前活动元素的末尾
-                    const activeParent = parentStack[parentStack.length - 1];
-                    activeParent.appendChild(cursor);
-                    
+                }
+                
+                const activeParent = parentStack[parentStack.length - 1];
+                activeParent.appendChild(cursor);
+                
+                this.scrollToBottom();
+                
+                if (stepIndex >= steps.length && !currentStep) {
+                    isCompleted = true;
+                    cursor.remove();
+                    container.innerHTML = fullHtml;
                     this.scrollToBottom();
-                    
-                    // 检查是否完成
-                    if (stepIndex >= steps.length && !currentStep) {
-                        clearInterval(timer);
-                        cursor.remove();
-                        // 最终校准：确保内容与原始 HTML 完全一致
-                        container.innerHTML = fullHtml;
-                        this.scrollToBottom();
+                    return true;
+                }
+                return false;
+            };
+            
+            const runAnimation = () => {
+                if (isCompleted) return;
+                
+                if (document.hidden) {
+                    backgroundTimer = setInterval(() => {
+                        if (isCompleted || !document.hidden) {
+                            clearInterval(backgroundTimer);
+                            backgroundTimer = null;
+                            if (!isCompleted) {
+                                requestAnimationFrame(runAnimation);
+                            }
+                            return;
+                        }
+                        isCompleted = processStep();
+                    }, charInterval);
+                } else {
+                    const animate = (currentTime) => {
+                        if (isCompleted) return;
+                        
+                        if (document.hidden) {
+                            runAnimation();
+                            return;
+                        }
+                        
+                        processStep();
+                        
+                        if (!isCompleted) {
+                            setTimeout(() => requestAnimationFrame(animate), charInterval);
+                        }
+                    };
+                    requestAnimationFrame(animate);
+                }
+            };
+            
+            return new Promise(resolve => {
+                runAnimation();
+                
+                const checkComplete = setInterval(() => {
+                    if (isCompleted) {
+                        clearInterval(checkComplete);
+                        if (backgroundTimer) {
+                            clearInterval(backgroundTimer);
+                        }
                         resolve();
                     }
-                }, speed);
+                }, 50);
             });
         }
     }

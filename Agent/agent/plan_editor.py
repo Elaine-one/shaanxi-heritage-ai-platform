@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 旅游规划编辑器模块
-简化版本，专注于AI对话和规划展示功能
 集成LangChain ReAct Agent，支持工具调用
 """
 
@@ -71,7 +70,6 @@ class PlanEditor:
             
             logger.info(f"编辑会话 {session_id} 已创建，用户: {user_id}")
             
-            # 简化版本：不显示默认的规划理解提示信息
             return {
                 'success': True,
                 'session_id': session_id,
@@ -188,7 +186,7 @@ class PlanEditor:
             return {
                 'success': True,
                 'response': final_response,
-                'changes_made': False,  # 简化版本不进行实际修改
+                'changes_made': False,
                 'session_id': session_id,
                 'comprehensive_plan_available': comprehensive_result['success']
             }
@@ -519,27 +517,13 @@ class PlanEditor:
             Dict[str, Any]: 天气信息
         """
         try:
-            # 简化处理：使用一些主要城市的坐标
-            city_coordinates = {
-                '北京': (39.9042, 116.4074),
-                '上海': (31.2304, 121.4737),
-                '广州': (23.1291, 113.2644),
-                '深圳': (22.5431, 114.0579),
-                '杭州': (30.2741, 120.1551),
-                '成都': (30.5728, 104.0668),
-                '西安': (34.3416, 108.9398),
-                '南京': (32.0603, 118.7969)
-            }
+            # 使用地理编码服务获取坐标
+            from Agent.services.geocoding import get_geocoding_service
+            geocoding = get_geocoding_service()
+            coords = await geocoding.get_coordinates(destination)
             
-            # 查找坐标
-            coordinates = None
-            for city, coords in city_coordinates.items():
-                if city in destination:
-                    coordinates = coords
-                    break
-            
-            if coordinates:
-                lat, lon = coordinates
+            if coords:
+                lat, lon = coords
                 weather_data = await self.weather_service.get_weather_forecast(lat, lon, 7)
                 return weather_data
             else:

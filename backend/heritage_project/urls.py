@@ -8,7 +8,6 @@ from django.views.generic import TemplateView
 from django.shortcuts import redirect
 
 # API 路由
-# API 路由
 
 # 兼容旧版本的zybTrackerStatisticsAction请求
 from django.http import JsonResponse

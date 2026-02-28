@@ -114,7 +114,6 @@ class TravelPlanningAgent {
             this.isPlanning = true;
             this.completionHandled = false;
             this.planResultCache = null;
-            // 清除当前planId，确保使用新生成的planId
             this.currentPlanId = null;
             localStorage.removeItem('travelCurrentPlanId');
             this.updateUIForPlanning(true);
@@ -124,14 +123,17 @@ class TravelPlanningAgent {
                 this.progressManager.updateProgressDisplay({
                     progress: 2,
                     current_step: '正在初始化规划环境...',
-                    steps: ['初始化环境', '分析需求', '检索景点', '生成行程', '优化路线']
+                    steps: ['分析非遗项目', '获取天气信息', '生成AI建议', '路径规划计算', '生成路书', '完成']
                 });
+                
+                // 开始模拟进度
+                this.progressManager.startSimulation();
             }
             
             // 构建请求参数
             const requestData = {
                 heritage_ids: selectedItems.map(item => parseInt(item.id)),
-                user_id: this.getCurrentUserId().toString(), // 转换为字符串类型，API期望字符串格式
+                user_id: this.getCurrentUserId().toString(),
                 travel_days: planningConfig.travelDays,
                 departure_location: planningConfig.departureLocation,
                 travel_mode: planningConfig.travelMode,
@@ -151,19 +153,6 @@ class TravelPlanningAgent {
             console.log('请求数据:', requestData);
             
             try {
-                // 增加浏览器网络请求的详细日志
-                console.log('准备发送请求，检查URL是否可达:', requestUrl);
-                
-                // 尝试使用简单的GET请求测试连接
-                const healthUrl = requestUrl.replace('/api/travel-plan/create', '/health');
-                const testResponse = await fetch(healthUrl, {
-                    method: 'GET',
-                    mode: 'cors',
-                    credentials: 'include'
-                });
-                
-                console.log('健康检查请求成功，状态码:', testResponse.status);
-                
                 // 构建请求头
                 const headers = {
                     'Content-Type': 'application/json'
@@ -180,6 +169,12 @@ class TravelPlanningAgent {
                 
                 console.log('收到响应，状态码:', response.status);
                 
+                // 检查是否已被取消
+                if (!this.isPlanning) {
+                    console.log('[响应处理] 规划已被取消，忽略响应');
+                    return;
+                }
+                
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('请求失败，响应内容:', errorText);
@@ -189,17 +184,23 @@ class TravelPlanningAgent {
                 const result = await response.json();
                 console.log('响应数据:', result);
                 
+                // 再次检查是否已被取消（防止在等待响应时被取消）
+                if (!this.isPlanning) {
+                    console.log('[响应处理] 规划已被取消，忽略响应结果');
+                    return;
+                }
+                
                 if (result.success) {
                     this.currentPlanId = result.plan_id;
-                    // 将planId保存到localStorage，确保页面刷新后仍能访问
                     localStorage.setItem('travelCurrentPlanId', this.currentPlanId);
                     
-                    // 【修复点】提供默认时间，防止 undefined
                     const estTime = (result.data && result.data.estimated_time) ? result.data.estimated_time : "2-5分钟";
                     this.showMessage(`规划任务已启动，预计需要${estTime}`, 'success');
                     
-                    // 开始监控进度
-                    this.progressManager.startProgressMonitoring();
+                    // 收到响应后建立SSE连接
+                    if (this.progressManager) {
+                        this.progressManager.startProgressMonitoring(this.currentPlanId);
+                    }
                 } else {
                     console.error('创建规划失败，错误信息:', result.message);
                     throw new Error(result.message || '创建规划失败');
@@ -351,24 +352,28 @@ class TravelPlanningAgent {
      * @param {boolean} isPlanning 是否正在规划
      */
     updateUIForPlanning(isPlanning) {
-        // 实现UI更新逻辑，比如显示/隐藏进度条，禁用/启用按钮等
         console.log('更新UI状态:', isPlanning ? '规划中' : '未规划');
         
-        // 显示/隐藏整个规划进度区域
+        const planButton = document.getElementById('planTravelBtn');
+        const cancelButton = document.getElementById('cancelPlanBtn');
+        
+        if (planButton) {
+            planButton.disabled = isPlanning;
+            planButton.style.display = isPlanning ? 'none' : 'inline-block';
+        }
+        
+        if (cancelButton) {
+            cancelButton.style.display = isPlanning ? 'inline-block' : 'none';
+        }
+        
         const planningProgress = document.getElementById('planning-progress');
         if (planningProgress) {
             planningProgress.style.display = isPlanning ? 'block' : 'none';
         }
         
-        // 显示/隐藏进度条容器
         const progressBarContainer = document.querySelector('.progress-bar-container');
         if (progressBarContainer) {
             progressBarContainer.style.display = isPlanning ? 'block' : 'none';
-        }
-        
-        const planButton = document.getElementById('planTravelBtn');
-        if (planButton) {
-            planButton.disabled = isPlanning;
         }
     }
     
@@ -623,38 +628,67 @@ class TravelPlanningAgent {
      * 取消旅游规划
      */
     async cancelTravelPlanning() {
+        console.log('[取消规划] 开始取消规划，currentPlanId:', this.currentPlanId, 'isPlanning:', this.isPlanning);
         try {
-            if (!this.currentPlanId || !this.isPlanning) {
+            if (!this.isPlanning) {
+                console.log('[取消规划] 没有正在进行的规划任务');
                 return;
             }
             
-            // 确保API地址已加载
-            if (!this.apiBaseUrl) {
-                this.apiBaseUrl = await this.getApiBaseUrl();
+            // 显示确认对话框
+            const confirmed = confirm('确定要取消当前的旅游规划吗？');
+            if (!confirmed) {
+                console.log('[取消规划] 用户取消操作');
+                return;
             }
             
-            // 调用取消API
-            const cancelUrl = `${this.apiBaseUrl.replace(/\/$/, '')}/cancel/${this.currentPlanId}`;
-            const response = await fetch(cancelUrl, {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'include'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`取消失败: ${response.status} ${response.statusText}`);
+            // 如果有 currentPlanId，调用后端取消API
+            if (this.currentPlanId) {
+                // 确保API地址已加载
+                if (!this.apiBaseUrl) {
+                    this.apiBaseUrl = await this.getApiBaseUrl();
+                }
+                
+                // 调用取消API
+                const cancelUrl = `${this.apiBaseUrl.replace(/\/$/, '')}/cancel/${this.currentPlanId}`;
+                console.log('[取消规划] 调用取消API:', cancelUrl);
+                const response = await fetch(cancelUrl, {
+                    method: 'POST',
+                    mode: 'cors',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    console.warn('[取消规划] 取消API调用失败，但继续前端取消:', response.status);
+                } else {
+                    console.log('[取消规划] 取消API调用成功');
+                }
+            } else {
+                console.log('[取消规划] 没有 currentPlanId，仅取消前端状态');
             }
             
-            // 停止进度监控
-            this.progressManager.stopProgressMonitoring();
+            // 停止进度监控和模拟
+            console.log('[取消规划] 停止进度监控，progressManager:', this.progressManager);
+            if (this.progressManager) {
+                this.progressManager.stopProgressMonitoring();
+            }
             
             // 重置状态
             this.isPlanning = false;
             this.completionHandled = true;
             this.updateUIForPlanning(false);
             
+            console.log('[取消规划] 规划已取消');
             this.showMessage('规划已取消', 'success');
         } catch (error) {
+            console.error('[取消规划] 取消失败:', error);
+            // 即使出错，也要停止模拟和重置状态
+            if (this.progressManager) {
+                this.progressManager.stopProgressMonitoring();
+            }
+            this.isPlanning = false;
+            this.completionHandled = true;
+            this.updateUIForPlanning(false);
             this.handleError(error, '取消旅游规划时发生错误');
         }
     }

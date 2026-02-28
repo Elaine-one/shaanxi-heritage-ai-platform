@@ -44,8 +44,9 @@ class LangChainReActAgent:
             agent=agent,
             tools=self.tools,
             verbose=True,
-            handle_parsing_errors=True,
-            max_iterations=5,
+            handle_parsing_errors="检查你的输出格式！确保使用正确的格式：Thought: ... \\nAction: 工具名\\nAction Input: JSON格式参数",
+            max_iterations=10,
+            max_execution_time=120,
             early_stopping_method="force"
         )
 
@@ -91,10 +92,17 @@ class LangChainReActAgent:
         except Exception as e:
             logger.error(f"LangChain Agent 执行失败: {str(e)}")
             logger.exception("完整错误堆栈:")
+            
+            error_msg = str(e)
+            if "Invalid Format" in error_msg or "Missing 'Action:'" in error_msg:
+                error_msg = "模型响应格式错误，请稍后重试"
+            elif "max_iterations" in error_msg.lower():
+                error_msg = "处理超时，请简化您的问题后重试"
+            
             return {
                 'success': False,
-                'error': str(e),
-                'answer': f"抱歉，处理您的请求时遇到了问题: {str(e)}"
+                'error': error_msg,
+                'answer': f"抱歉，处理您的请求时遇到了问题: {error_msg}"
             }
 
     async def _build_conversation_context(self, conversation_history: List[Dict[str, Any]]) -> str:

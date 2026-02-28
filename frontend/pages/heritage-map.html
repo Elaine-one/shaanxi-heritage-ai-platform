@@ -181,7 +181,6 @@
             const script = document.createElement('script');
             script.type = 'text/javascript';
             const protocol = window.location.protocol;
-            // 使用v3.0版本的百度地图API
             script.src = `${protocol}//api.map.baidu.com/api?v=3.0&ak=${ak}&callback=initializeMapAndCore`;
             script.onerror = function(e) {
                 const errorMsg = '百度地图API主脚本加载失败。请检查网络和AK。';
