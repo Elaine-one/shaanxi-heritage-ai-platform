@@ -303,7 +303,7 @@ class HeritageAnalyzer:
                 'description': '单个景点游览'
             }]
         
-        # 找到最优路线（简化版TSP）
+        # 优化路线
         optimized_route = self._optimize_route(locations)
         
         return [{

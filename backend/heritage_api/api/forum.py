@@ -743,7 +743,7 @@ def user_favorites(request):
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def user_notifications(request):
-    """获取用户通知（简化版）"""
+    """获取用户通知"""
     # 这里可以实现更复杂的通知系统
     # 目前返回用户帖子的新评论
     user_posts = ForumPost.objects.filter(author=request.user)

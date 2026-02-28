@@ -57,6 +57,7 @@ aiofiles>=23.2.0
 # 时间处理
 python-dateutil>=2.8.2
 pytz>=2024.1
+zhdate>=0.1
 
 # 日志
 loguru>=0.7.0

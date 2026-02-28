@@ -42,7 +42,7 @@ window.HeritageFilters.initFilters = function(data) {
     // 重置重试计数器
     filterInitRetryCount = 0;
     
-    // 填充筛选选项（简化版本，移除regionFilter参数）
+    // 填充筛选选项
     window.HeritageFilters.populateFilterOptions(data, levelFilter, categoryFilter);
     
     // 为筛选控件添加变更事件（选择后立即筛选）

@@ -2,7 +2,7 @@
 
 # -*- coding: utf-8 -*-
 """
-AI内容集成器 (性能优化与逻辑增强完整版)
+AI内容集成器
 功能：负责使用AI模型整合旅游规划数据
 优化：
 1. 智能素材过滤：仅匹配行程中涉及的非遗项目，Prompt 长度减少 60%。
@@ -95,7 +95,6 @@ class AIContentIntegrator:
         # 获取最近 3 条历史并转为字符串
         history_str = json.dumps(conversation_history[-3:] if conversation_history else [], ensure_ascii=False)
         
-        # 【修正后的代码】
         content_hash = hashlib.md5(history_str.encode()).hexdigest()[:10]
         
         # 调试期间依然返回时间戳，确保每次请求都触发 AI 生成
@@ -129,17 +128,17 @@ class AIContentIntegrator:
         
         lines = []
         if 'travel_tips' in recommendations and recommendations['travel_tips']:
-            lines.append("【实用贴士】：")
+            lines.append("实用贴士：")
             for tip in recommendations['travel_tips']:
                 lines.append(f"- {tip}")
         
         if 'packing_list' in recommendations and recommendations['packing_list']:
-            lines.append("\n【打包清单】：")
+            lines.append("\n打包清单：")
             for item in recommendations['packing_list']:
                 lines.append(f"- {item}")
         
         if 'budget_estimate' in recommendations:
-             lines.append("\n【预算建议】：请根据实际情况参考系统估算。")
+             lines.append("\n预算建议：请根据实际情况参考系统估算。")
              
         return "\n".join(lines)
     
@@ -163,10 +162,10 @@ class AIContentIntegrator:
             sys_recs = self._format_recommendations(actual_data.get('recommendations', {}))
             start_location = actual_data.get('basic_info', {}).get('departure', '未指定')
             
-            # 2. 【智能摘要：对话历史处理】使用 LLM 智能摘要提取关键信息
+            # 2. 使用 LLM 智能摘要提取关键信息
             formatted_history = await self._build_conversation_summary(conversation_history, actual_data)
 
-            # 3. 【性能优化：素材库精准匹配】只提取行程中出现的非遗项目描述
+            # 3. 只提取行程中出现的非遗项目描述
             itinerary_raw = actual_data.get('itinerary', [])
             planned_item_names = set()
             for day in itinerary_raw:
@@ -187,7 +186,7 @@ class AIContentIntegrator:
             
             heritage_context_str = "\n".join(heritage_context_list) or "请基于目的地通用文化背景进行扩写。"
             
-            # 4. 【性能优化：行程骨架脱脂】移除坐标等AI不需要的字段
+            # 4. 移除坐标等AI不需要的字段
             slim_itinerary = []
             for day in itinerary_raw:
                 day_slim = {
@@ -207,7 +206,7 @@ class AIContentIntegrator:
 - **目的地/出发地**：{destination} / {start_location}
 - **天数/日期**：{travel_days}天 / {travel_dates}
 - **🌤️ 天气约束（核心因子）**：{weather_summary}
-  *【指令】：如果天气包含雨/雪/极温，你必须在行程中主动调整户外活动，并在锦囊中给出预案。*
+  *如果天气包含雨/雪/极温，你必须在行程中主动调整户外活动，并在锦囊中给出预案。*
 
 # 🚨 INTELLIGENT MODIFICATION LOGIC (最高优先级)
 **你必须根据以下对话历史，在“每日深度行程”的正文中落实用户的修改意图（如加景点、改偏好等）！**
@@ -244,7 +243,7 @@ class AIContentIntegrator:
 - **穿衣指数**：[具体到衣物类型]
 - **行前期待**：[一句话勾起文化兴趣]
 
-## 📜 每日深度路书 (精构版)
+## 📜 每日深度路书
 
 ### 第[X]天：[富有韵律的主题]
 #### 📍 [时间段] | [项目名称]

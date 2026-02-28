@@ -1,7 +1,7 @@
 
 
 /**
- * 旅游规划结果渲染器 (完整无删减版)
+ * 旅游规划结果渲染器
  * 负责生成和渲染旅游规划结果的HTML内容
  * 包含：天气集成、行程节奏分析、未定义值处理
  */
@@ -252,7 +252,7 @@ class ResultRenderer {
     }
     
     /**
-     * 生成打包清单分类 (简化版，不再做复杂分类)
+     * 生成打包清单分类
      */
     generatePackingCategories(packingList) {
         return '';
@@ -298,7 +298,7 @@ class ResultRenderer {
     }
     
     /**
-     * 生成预算建议 (简化版)
+     * 生成预算建议
      */
     generateBudgetTips(planData) {
         // 如果后端没有返回详细的预算 breakdown，这里就不显示额外的了
@@ -306,7 +306,7 @@ class ResultRenderer {
     }
     
     /**
-     * 生成安全须知 (简化版，已整合到其他部分或不显示)
+     * 生成安全须知
      */
     generateSafetyTips(planData) {
         return '';

@@ -11,6 +11,7 @@ from .base import (
     TravelRouteTool,
     KnowledgeBaseTool,
     PlanEditTool,
+    GeocodingTool,
     ToolRegistry,
     get_tool_registry
 )
@@ -23,7 +24,8 @@ from .schemas import (
     WeatherQueryInput,
     TravelRouteInput,
     KnowledgeBaseInput,
-    PlanEditInput
+    PlanEditInput,
+    GeocodingInput
 )
 
 __all__ = [
@@ -34,6 +36,7 @@ __all__ = [
     'TravelRouteTool',
     'KnowledgeBaseTool',
     'PlanEditTool',
+    'GeocodingTool',
     'ToolRegistry',
     'get_tool_registry',
     # LangChain wrappers
@@ -44,5 +47,6 @@ __all__ = [
     'WeatherQueryInput',
     'TravelRouteInput',
     'KnowledgeBaseInput',
-    'PlanEditInput'
+    'PlanEditInput',
+    'GeocodingInput'
 ]

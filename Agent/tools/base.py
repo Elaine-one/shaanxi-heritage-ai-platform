@@ -77,7 +77,7 @@ class HeritageSearchTool(BaseTool):
                       region: str = None, keywords: str = None) -> Dict[str, Any]:
         """执行非遗项目查询"""
         try:
-            from .heritage_analyzer import HeritageAnalyzer
+            from ..services.heritage_analyzer import HeritageAnalyzer
             analyzer = HeritageAnalyzer()
 
             if heritage_id:
@@ -175,7 +175,7 @@ class WeatherQueryTool(BaseTool):
 
     async def _get_city_coordinates(self, city: str) -> Optional[tuple]:
         """
-        获取城市坐标
+        获取城市坐标（通过统一地理编码服务）
         
         Args:
             city (str): 城市名称
@@ -183,70 +183,18 @@ class WeatherQueryTool(BaseTool):
         Returns:
             Optional[tuple]: (latitude, longitude) 或 None
         """
-        # 主要城市坐标映射
-        city_coordinates = {
-            '西安': (34.3416, 108.9398),
-            '北京': (39.9042, 116.4074),
-            '上海': (31.2304, 121.4737),
-            '广州': (23.1291, 113.2644),
-            '深圳': (22.5431, 114.0579),
-            '成都': (30.5728, 104.0668),
-            '杭州': (30.2741, 120.1551),
-            '武汉': (30.5928, 114.3055),
-            '重庆': (29.4316, 106.9123),
-            '南京': (32.0603, 118.7969),
-            '天津': (39.3434, 117.3616),
-            '苏州': (31.2990, 120.5853),
-            '长沙': (28.2282, 112.9388),
-            '郑州': (34.7466, 113.6254),
-            '西安': (34.3416, 108.9398),
-            '咸阳': (34.3296, 108.7089),
-            '宝鸡': (34.3616, 107.2365),
-            '渭南': (34.5023, 109.5099),
-            '延安': (36.5853, 109.4897),
-            '汉中': (33.0677, 107.0286),
-            '榆林': (38.2852, 109.7343),
-            '安康': (32.6849, 109.0293),
-            '商洛': (33.8697, 109.9404),
-            '铜川': (34.8960, 108.9459),
-            '兴平': (34.2976, 108.4901),
-            '韩城': (35.4791, 110.4424),
-            '华阴': (34.5661, 110.0894),
-            '华县': (34.5124, 109.7323),
-            '合阳': (35.2389, 110.1492),
-            '蒲城': (34.9565, 109.5903),
-            '富平': (34.7519, 109.1801),
-            '三原': (34.6159, 108.9315),
-            '泾阳': (34.5325, 108.8435),
-            '乾县': (34.5294, 108.2426),
-            '礼泉': (34.4846, 108.4262),
-            '永寿': (34.6909, 108.1445),
-            '彬县': (35.0342, 108.0849),
-            '长武': (35.2061, 107.7955),
-            '旬邑': (35.1137, 108.3391),
-            '淳化': (34.7955, 108.5801),
-            '武功': (34.2594, 108.2033)
-        }
+        from ..services.geocoding import get_geocoding_service
         
-        # 查找城市坐标
-        for city_name, coords in city_coordinates.items():
-            if city in city_name or city_name in city:
-                logger.info(f"找到城市坐标: {city} -> {coords}")
-                return coords
+        geocoding = get_geocoding_service()
+        coords = await geocoding.get_coordinates(city)
         
-        # 如果找不到，尝试使用百度地图API
-        try:
-            from ..agent.travel_planner import get_travel_planner
-            planner = get_travel_planner()
-            coords = await planner._get_coordinates(city)
-            if coords:
-                logger.info(f"通过百度API获取城市坐标: {city} -> {coords}")
-                return coords
-        except Exception as e:
-            logger.warning(f"使用百度API获取坐标失败: {str(e)}")
+        if coords:
+            logger.info(f"获取城市坐标成功: {city} -> {coords}")
+            return coords
         
-        logger.warning(f"未找到城市'{city}'的坐标信息")
-        return None
+        default = geocoding.get_default_coordinates()
+        logger.warning(f"未找到城市'{city}'的坐标，使用默认坐标: {default}")
+        return default
 
 
 class TravelRouteTool(BaseTool):
@@ -467,6 +415,53 @@ class PlanEditTool(BaseTool):
 请只返回JSON数据，不要其他解释："""
 
 
+class GeocodingTool(BaseTool):
+    """地理位置查询工具"""
+
+    @property
+    def name(self) -> str:
+        return "geocoding_query"
+
+    @property
+    def description(self) -> str:
+        return "查询指定地名或景点的地理坐标信息，返回经纬度。适用于需要获取位置坐标的场景，如天气查询、路线规划等。"
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "location_name": {
+                    "type": "string",
+                    "description": "地名、城市名或景点名称，如：西安、兵马俑、大雁塔等"
+                }
+            },
+            "required": ["location_name"]
+        }
+
+    async def execute(self, location_name: str) -> Dict[str, Any]:
+        """执行地理坐标查询"""
+        from ..services.geocoding import get_geocoding_service
+        
+        geocoding = get_geocoding_service()
+        coords = await geocoding.get_coordinates(location_name)
+        
+        if coords:
+            return {
+                'success': True,
+                'location': location_name,
+                'latitude': coords[0],
+                'longitude': coords[1],
+                'coordinates': {'latitude': coords[0], 'longitude': coords[1]}
+            }
+        
+        return {
+            'success': False,
+            'error': f"未找到'{location_name}'的坐标信息",
+            'default_coordinates': geocoding.get_default_coordinates()
+        }
+
+
 class ToolRegistry:
     """工具注册中心"""
 
@@ -481,7 +476,8 @@ class ToolRegistry:
             WeatherQueryTool(),
             TravelRouteTool(),
             KnowledgeBaseTool(),
-            PlanEditTool()
+            PlanEditTool(),
+            GeocodingTool()
         ]
 
         for tool in default_tools:

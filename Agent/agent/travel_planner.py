@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-旅游规划核心模块 (逻辑重构完整版)
+旅游规划核心模块
 负责整合各种信息，生成符合地理逻辑的旅游规划，移除生硬时间计算，增加行程节奏分析
 """
 
 import asyncio
-import aiohttp
 import json
-from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from loguru import logger
@@ -15,7 +13,6 @@ from geopy.distance import geodesic
 from Agent.services.heritage_analyzer import HeritageAnalyzer
 from Agent.services.weather import get_weather_service
 from Agent.models.dashscope import get_ali_model
-from Agent.config import config
 
 class TravelPlanner:
     """
@@ -32,30 +29,7 @@ class TravelPlanner:
         self.ali_model = get_ali_model()
         self.planning_progress = {}
         
-        # 百度地图配置
-        self.baidu_ak = config.BAIDU_MAP_AK
-        # 确保移除URL末尾可能存在的斜杠
-        base_url = config.BAIDU_MAP_API_URL
-        if not base_url:
-             logger.error("BAIDU_MAP_API_URL not configured")
-             # 这里可以选择抛出异常或者让后续调用失败
-        self.baidu_api_url = base_url.rstrip('/') if base_url else ''
-        
-        # 本地兜底坐标库 (从JSON文件加载)
-        # 仅在百度API不可用时作为后备方案使用
-        try:
-            json_path = Path(__file__).parent.parent / 'data' / 'city_coords.json'
-            if json_path.exists():
-                with open(json_path, 'r', encoding='utf-8') as f:
-                    self.city_coords_fallback = json.load(f)
-            else:
-                logger.warning(f"坐标数据文件不存在: {json_path}")
-                self.city_coords_fallback = {}
-        except Exception as e:
-            logger.error(f"加载坐标数据失败: {str(e)}")
-            self.city_coords_fallback = {}
-        
-        logger.info("旅游规划器(节奏分析版)初始化完成")
+        logger.info("旅游规划器初始化完成")
     
     async def create_travel_plan(self, 
                                planning_request: Dict[str, Any],
@@ -171,7 +145,6 @@ class TravelPlanner:
         更新规划进度
         """
         if plan_id in self.planning_progress:
-            # 确保进度单调递增
             current_progress = self.planning_progress[plan_id].get('progress', 0)
             new_progress = max(current_progress, min(95, step))
             
@@ -180,7 +153,10 @@ class TravelPlanner:
                 'current_step': step_name
             })
             
+            logger.info(f"进度更新: {plan_id} -> {new_progress}% - {step_name}")
+            
             if progress_callback:
+                logger.debug(f"调用进度回调: {plan_id}")
                 await progress_callback(plan_id, self.planning_progress[plan_id])
     
     async def _get_weather_for_locations(self, 
@@ -279,68 +255,15 @@ class TravelPlanner:
 
     # ------------------ 百度地图 API 集成 ------------------
 
-    async def _get_coordinates_from_baidu(self, address: str) -> Optional[tuple]:
-        """
-        调用百度地图 Geocoding API 获取坐标
-        文档: https://lbsyun.baidu.com/index.php?title=webapi/guide/webservice-geocoding
-        """
-        if not self.baidu_ak or not address:
-            logger.warning("跳过百度API调用：未配置AK或地址为空")
-            return None
-            
-        # 去除地址中的干扰词，提高命中率
-        clean_address = address.replace('中国', '').replace('陕西省', '')
-        
-        url = f"{self.baidu_api_url}/geocoding/v3/"
-        params = {
-            'address': clean_address,
-            'output': 'json',
-            'ak': self.baidu_ak,
-            'city': '陕西省' # 限制在陕西省内搜索，提高准确率
-        }
-        
-        try:
-            async with aiohttp.ClientSession() as session:
-                # 增加超时时间到10秒
-                async with session.get(url, params=params, timeout=10) as response:
-                    if response.status == 200:
-                        # 强制 content_type=None，忽略 text/javascript 类型
-                        data = await response.json(content_type=None)
-                        
-                        if data.get('status') == 0:
-                            location = data['result']['location']
-                            # 百度返回的是 (lng, lat)，我们需要返回 (lat, lng)
-                            logger.info(f"百度地图定位成功: {clean_address} -> ({location['lat']}, {location['lng']})")
-                            return (location['lat'], location['lng'])
-                        else:
-                            logger.warning(f"百度地图API业务错误: {data.get('msg') or data.get('message')} (Status: {data.get('status')})")
-                    else:
-                        logger.warning(f"百度地图HTTP错误: {response.status}")
-                        
-        except Exception as e:
-            logger.error(f"调用百度地图API失败: {str(e)}")
-            
-        return None
-
     async def _get_coordinates(self, location_name: str) -> tuple:
         """
-        智能获取坐标：优先百度API，失败则回退到本地库
+        获取地理位置坐标（通过统一地理编码服务）
         """
-        if not location_name:
-            return (34.3416, 108.9398) # 默认西安
-            
-        # 1. 尝试调用百度 API
-        coords = await self._get_coordinates_from_baidu(location_name)
-        if coords:
-            return coords
-            
-        # 2. 回退到本地字典
-        logger.info(f"使用本地坐标缓存查找: {location_name}")
-        for city, coords in self.city_coords_fallback.items():
-            if city in location_name:
-                return coords
-                
-        return (34.3416, 108.9398) # 默认西安
+        from ..services.geocoding import get_geocoding_service
+        
+        geocoding = get_geocoding_service()
+        coords = await geocoding.get_coordinates(location_name)
+        return coords if coords else geocoding.get_default_coordinates()
 
     async def _optimize_travel_route_v2(self, 
                                       items: List[Dict[str, Any]], 

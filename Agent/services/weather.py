@@ -334,7 +334,9 @@ class WeatherService:
                         logger.info(f"尝试备用端点 {endpoint_index + 1}/{len(backup_endpoints)}")
                         # 这里可以修改func的端点，但需要更复杂的实现
                 
-                return await func(*args, **kwargs)
+                # 在任务中执行函数，确保async context manager在正确的上下文中
+                task = asyncio.create_task(func(*args, **kwargs))
+                return await task
             except aiohttp.ClientConnectorError as e:
                 # 连接错误，可能是网络问题
                 last_exception = e
@@ -468,7 +470,8 @@ class WeatherService:
             logger.info(f"使用缓存的天气数据: {cache_key}")
             return cached_data
         
-        async def _fetch():
+        try:
+            # 直接在这里实现请求逻辑，不使用嵌套函数
             session = await self._get_session()
             
             # 构建请求参数
@@ -482,26 +485,9 @@ class WeatherService:
             
             logger.info(f"获取天气预报: 纬度{latitude}, 经度{longitude}, {days}天")
             
-            # 发送请求
-            async with session.get(self.base_url, params=params) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    result = self._process_forecast_data(data, latitude, longitude)
-                    # 保存到缓存（缓存时间缩短为10分钟）
-                    self._save_to_cache(session_id, cache_key, result)
-                    return result
-                else:
-                    logger.error(f"天气API请求失败，状态码: {response.status}")
-                    raise aiohttp.ClientResponseError(
-                        request_info=response.request_info,
-                        history=response.history,
-                        status=response.status,
-                        message=f"天气API请求失败，状态码: {response.status}"
-                    )
-        
-        try:
             # 使用重试机制获取数据
-            result = await self._retry_request(_fetch)
+            result = await self._fetch_with_retry(session, self.base_url, params, session_id, cache_key, latitude, longitude, days)
+            
             # 定期清理过期缓存
             if len(self.cache) > self.cache_max_size:
                 self._clean_expired_cache()
@@ -518,6 +504,74 @@ class WeatherService:
                 },
                 'forecast': []
             }
+    
+    async def _fetch_with_retry(self, session, url, params, session_id, cache_key, latitude, longitude, days):
+        """带重试机制的获取数据方法"""
+        last_exception = None
+        
+        # 定义Windows和Ubuntu环境的User-Agent
+        user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        ]
+        
+        for attempt in range(self.max_retries + 1):
+            try:
+                # 每次尝试使用不同的User-Agent
+                user_agent_index = attempt % len(user_agents)
+                await self._update_session_headers({"User-Agent": user_agents[user_agent_index]})
+                
+                # 发送请求
+                async with session.request('GET', url, params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        result = self._process_forecast_data(data, latitude, longitude)
+                        # 保存到缓存（缓存时间缩短为10分钟）
+                        self._save_to_cache(session_id, cache_key, result)
+                        return result
+                    else:
+                        logger.error(f"天气API请求失败，状态码: {response.status}")
+                        raise aiohttp.ClientResponseError(
+                            request_info=response.request_info,
+                            history=response.history,
+                            status=response.status,
+                            message=f"天气API请求失败，状态码: {response.status}"
+                        )
+            except aiohttp.ClientConnectorError as e:
+                last_exception = e
+                if attempt < self.max_retries:
+                    delay = self._calculate_retry_delay(attempt, 'network')
+                    logger.warning(f"连接错误，{delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {str(e)}")
+                    await asyncio.sleep(delay)
+                    await self._recreate_session()
+                    session = await self._get_session()
+                else:
+                    logger.error(f"连接错误，已达到最大重试次数: {str(e)}")
+                    raise
+            except aiohttp.ClientSSLError as e:
+                last_exception = e
+                if attempt < self.max_retries:
+                    delay = self._calculate_retry_delay(attempt, 'ssl')
+                    logger.warning(f"SSL错误，{delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {str(e)}")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"SSL错误，已达到最大重试次数: {str(e)}")
+                    raise
+            except asyncio.TimeoutError as e:
+                last_exception = e
+                if attempt < self.max_retries:
+                    delay = self._calculate_retry_delay(attempt, 'timeout')
+                    logger.warning(f"请求超时，{delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {str(e)}")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"请求超时，已达到最大重试次数: {str(e)}")
+                    raise
+            except Exception as e:
+                last_exception = e
+                logger.error(f"未知错误: {str(e)}")
+                raise
+        
+        raise last_exception
     
     async def get_current_weather(self, latitude: float, longitude: float) -> Dict[str, Any]:
         """
@@ -538,7 +592,8 @@ class WeatherService:
         if cached_data:
             return cached_data
         
-        async def _fetch():
+        try:
+            # 直接在这里实现请求逻辑，不使用嵌套函数
             session = await self._get_session()
             
             # 构建请求参数
@@ -551,26 +606,9 @@ class WeatherService:
             
             logger.info(f"获取当前天气: 纬度{latitude}, 经度{longitude}")
             
-            # 发送请求
-            async with session.get(self.current_weather_url, params=params) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    result = self._process_current_weather(data, latitude, longitude)
-                    # 保存到缓存
-                    self._save_to_cache(cache_key, result)
-                    return result
-                else:
-                    logger.error(f"当前天气API请求失败，状态码: {response.status}")
-                    raise aiohttp.ClientResponseError(
-                        request_info=response.request_info,
-                        history=response.history,
-                        status=response.status,
-                        message=f"当前天气API请求失败，状态码: {response.status}"
-                    )
-        
-        try:
             # 使用重试机制获取数据
-            result = await self._retry_request(_fetch)
+            result = await self._fetch_current_with_retry(session, self.current_weather_url, params, cache_key, latitude, longitude)
+            
             # 定期清理过期缓存
             if len(self.cache) > self.cache_max_size:
                 self._clean_expired_cache()
@@ -587,6 +625,74 @@ class WeatherService:
                 },
                 'current': {}
             }
+    
+    async def _fetch_current_with_retry(self, session, url, params, cache_key, latitude, longitude):
+        """带重试机制的获取当前天气方法"""
+        last_exception = None
+        
+        # 定义Windows和Ubuntu环境的User-Agent
+        user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        ]
+        
+        for attempt in range(self.max_retries + 1):
+            try:
+                # 每次尝试使用不同的User-Agent
+                user_agent_index = attempt % len(user_agents)
+                await self._update_session_headers({"User-Agent": user_agents[user_agent_index]})
+                
+                # 发送请求
+                async with session.request('GET', url, params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        result = self._process_current_weather(data, latitude, longitude)
+                        # 保存到缓存
+                        self._save_to_cache(cache_key, result)
+                        return result
+                    else:
+                        logger.error(f"当前天气API请求失败，状态码: {response.status}")
+                        raise aiohttp.ClientResponseError(
+                            request_info=response.request_info,
+                            history=response.history,
+                            status=response.status,
+                            message=f"当前天气API请求失败，状态码: {response.status}"
+                        )
+            except aiohttp.ClientConnectorError as e:
+                last_exception = e
+                if attempt < self.max_retries:
+                    delay = self._calculate_retry_delay(attempt, 'network')
+                    logger.warning(f"连接错误，{delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {str(e)}")
+                    await asyncio.sleep(delay)
+                    await self._recreate_session()
+                    session = await self._get_session()
+                else:
+                    logger.error(f"连接错误，已达到最大重试次数: {str(e)}")
+                    raise
+            except aiohttp.ClientSSLError as e:
+                last_exception = e
+                if attempt < self.max_retries:
+                    delay = self._calculate_retry_delay(attempt, 'ssl')
+                    logger.warning(f"SSL错误，{delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {str(e)}")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"SSL错误，已达到最大重试次数: {str(e)}")
+                    raise
+            except asyncio.TimeoutError as e:
+                last_exception = e
+                if attempt < self.max_retries:
+                    delay = self._calculate_retry_delay(attempt, 'timeout')
+                    logger.warning(f"请求超时，{delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {str(e)}")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"请求超时，已达到最大重试次数: {str(e)}")
+                    raise
+            except Exception as e:
+                last_exception = e
+                logger.error(f"未知错误: {str(e)}")
+                raise
+        
+        raise last_exception
     
     def _process_forecast_data(self, data: Dict[str, Any], latitude: float, longitude: float) -> Dict[str, Any]:
         """
@@ -633,14 +739,9 @@ class WeatherService:
                         "weather_code": weather_code,
                         "weather_description": self._get_weather_description(weather_code),
                         "precipitation": precip,
-                        "wind_speed": wind_speed,
-                        "humidity": 65,  # Open-Meteo免费版不提供湿度，使用默认值
-                        "uv_index": 5,   # 使用默认UV指数
-                        "travel_suitability": {}
+                        "wind_speed": wind_speed
                     }
                     
-                    # 评估旅游适宜性
-                    day_data["travel_suitability"] = self._assess_travel_suitability(day_data)
                     forecast.append(day_data)
             
             return {
@@ -689,15 +790,10 @@ class WeatherService:
                 "temperature": temperature,
                 "weather_code": weather_code,
                 "weather_description": self._get_weather_description(weather_code),
-                "precipitation": 0,  # 当前API不提供实时降水
+                "precipitation": 0,
                 "wind_speed": wind_speed,
-                "humidity": humidity,
-                "uv_index": 5,  # 使用默认UV指数
-                "travel_suitability": {}
+                "humidity": humidity
             }
-            
-            # 评估旅游适宜性
-            current["travel_suitability"] = self._assess_current_travel_suitability(current)
             
             return {
                 "success": True,
@@ -719,147 +815,6 @@ class WeatherService:
                     "longitude": longitude
                 },
                 "current": {}
-            }
-    
-    def _assess_travel_suitability(self, day_info: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        评估天气对旅游的适宜性
-        
-        Args:
-            day_info (Dict[str, Any]): 日天气信息
-        
-        Returns:
-            Dict[str, Any]: 适宜性评估结果
-        """
-        try:
-            score = 100  # 基础分数
-            recommendations = []
-            warnings = []
-            
-            # 温度评估
-            avg_temp = day_info.get('avg_temp', 20)
-            if avg_temp < 0:
-                score -= 30
-                warnings.append('气温较低，注意保暖')
-                recommendations.append('携带厚外套和保暖用品')
-            elif avg_temp < 10:
-                score -= 15
-                recommendations.append('携带外套')
-            elif avg_temp > 35:
-                score -= 20
-                warnings.append('气温较高，注意防暑')
-                recommendations.append('携带防晒用品和充足饮水')
-            elif avg_temp > 30:
-                score -= 10
-                recommendations.append('注意防晒和补水')
-            
-            # 降水评估
-            precipitation = day_info.get('precipitation', 0)
-            if precipitation > 20:
-                score -= 25
-                warnings.append('有较强降水，可能影响出行')
-                recommendations.append('携带雨具，考虑室内活动')
-            elif precipitation > 5:
-                score -= 10
-                recommendations.append('携带雨具')
-            
-            # 风速评估
-            wind_speed = day_info.get('wind_speed', 0)
-            if wind_speed > 40:
-                score -= 20
-                warnings.append('风力较大，注意安全')
-            elif wind_speed > 25:
-                score -= 10
-                recommendations.append('注意防风')
-            
-            # 湿度评估
-            humidity = 65  # Open-Meteo免费版不提供湿度，使用默认值
-            if humidity > 80:
-                score -= 10
-                recommendations.append('湿度较高，注意通风')
-            elif humidity < 30:
-                score -= 5
-                recommendations.append('空气干燥，注意补水')
-            
-            # UV指数评估
-            uv_index = 5  # 使用默认UV指数
-            if uv_index > 8:
-                score -= 10
-                recommendations.append('紫外线强烈，做好防晒')
-            elif uv_index > 6:
-                recommendations.append('注意防晒')
-            
-            # 确定适宜性等级
-            if score >= 80:
-                suitability = '非常适宜'
-            elif score >= 60:
-                suitability = '适宜'
-            elif score >= 40:
-                suitability = '一般'
-            elif score >= 20:
-                suitability = '不太适宜'
-            else:
-                suitability = '不适宜'
-            
-            return {
-                'score': max(0, score),
-                'level': suitability,
-                'recommendations': recommendations,
-                'warnings': warnings
-            }
-        except Exception as e:
-            logger.error(f"评估旅游适宜性时发生错误: {str(e)}")
-            return {
-                'score': 50,
-                'level': '一般',
-                'recommendations': ['天气评估异常，请查看详细天气信息'],
-                'warnings': []
-            }
-    
-    def _assess_current_travel_suitability(self, current: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        评估当前天气对旅游的适宜性
-        
-        Args:
-            current (Dict[str, Any]): 当前天气信息
-        
-        Returns:
-            Dict[str, Any]: 适宜性评估结果
-        """
-        try:
-            # 简化版本，基于当前天气数据
-            temp = current.get('temperature', 20)
-            humidity = current.get('humidity', 50)
-            wind_speed = current.get('wind_speed', 0)
-            
-            score = 100
-            recommendations = []
-            
-            if temp < 5 or temp > 35:
-                score -= 20
-            if humidity > 80:
-                score -= 10
-            if wind_speed > 30:
-                score -= 15
-            
-            if score >= 80:
-                level = '非常适宜'
-            elif score >= 60:
-                level = '适宜'
-            else:
-                level = '一般'
-            
-            return {
-                'score': max(0, score),
-                'level': level,
-                'recommendations': recommendations
-            }
-        except Exception as e:
-            logger.error(f"评估当前旅游适宜性时发生错误: {str(e)}")
-            return {
-                'score': 50,
-                'level': '一般',
-                'recommendations': ['天气评估异常，请查看详细天气信息']
             }
     
     async def get_multi_location_weather(self, locations: List[Dict[str, Any]], days: int = 7) -> Dict[str, Any]:
@@ -911,33 +866,21 @@ class WeatherService:
         """
         try:
             total_locations = len(weather_data)
-            suitable_days = 0
             total_days = 0
             
             for location_name, data in weather_data.items():
                 if data.get('success') and 'forecast' in data:
-                    for day in data['forecast']:
-                        total_days += 1
-                        if day.get('travel_suitability', {}).get('score', 0) >= 60:
-                            suitable_days += 1
-            
-            suitability_rate = (suitable_days / total_days * 100) if total_days > 0 else 0
+                    total_days += len(data['forecast'])
             
             return {
                 'total_locations': total_locations,
-                'total_forecast_days': total_days,
-                'suitable_days': suitable_days,
-                'suitability_rate': round(suitability_rate, 1),
-                'overall_recommendation': '适宜出行' if suitability_rate >= 70 else ('谨慎出行' if suitability_rate >= 50 else '不建议出行')
+                'total_forecast_days': total_days
             }
         except Exception as e:
             logger.error(f"生成天气摘要时发生错误: {str(e)}")
             return {
                 'total_locations': 0,
-                'total_forecast_days': 0,
-                'suitable_days': 0,
-                'suitability_rate': 0,
-                'overall_recommendation': '无法评估'
+                'total_forecast_days': 0
             }
     
     def _determine_data_source(self, weather_data: Dict[str, Any]) -> str:
@@ -950,23 +893,10 @@ class WeatherService:
         Returns:
             str: 数据来源标识
         """
-        has_mock = False
-        has_real = False
-        
         for location_name, data in weather_data.items():
-            if data.get('data_source') == 'mock_data':
-                has_mock = True
-            elif data.get('data_source') == 'real_api':
-                has_real = True
-        
-        if has_mock and not has_real:
-            return 'mock_data'
-        elif has_real and not has_mock:
-            return 'real_api'
-        elif has_mock and has_real:
-            return 'mixed'
-        else:
-            return 'unknown'
+            if data.get('success'):
+                return 'real_api'
+        return 'unknown'
     
     def _get_source_description(self, weather_data: Dict[str, Any]) -> str:
         """
@@ -981,10 +911,8 @@ class WeatherService:
         data_source = self._determine_data_source(weather_data)
         
         descriptions = {
-            'real_api': '全部使用真实天气数据（Open-Meteo API）',
-            'mock_data': '全部使用模拟天气数据（基于季节生成）',
-            'mixed': '混合使用真实和模拟天气数据',
-            'unknown': '数据来源未知'
+            'real_api': '真实天气数据（Open-Meteo API）',
+            'unknown': '数据获取失败'
         }
         
         return descriptions.get(data_source, '数据来源未知')

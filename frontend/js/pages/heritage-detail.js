@@ -526,7 +526,7 @@ function openLightbox(imageSrc, imageAlt) {
         // 更新背景
         blurBg.style.backgroundImage = `url(${newImage.src})`;
         
-        // 尝试加载高清版本
+        // 尝试加载高清图片
         const highResPath = newImage.src.replace(/(\.\w+)$/, '-hd$1');
         const highResImage = new Image();
         highResImage.onload = function() {
