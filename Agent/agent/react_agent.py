@@ -1,56 +1,82 @@
 # -*- coding: utf-8 -*-
 """
 ReAct Agent 实现
-使用 LangChain 框架实现 ReAct 推理代理
+使用自定义 ReAct 循环，支持多厂商 LLM 切换
 """
 
+import json
+import re
 from typing import Dict, Any, List, Optional
-from langchain.agents import AgentExecutor, create_react_agent
 from loguru import logger
 
-from Agent.models.langchain import get_dashscope_llm
-from Agent.tools import get_langchain_tools
-from Agent.prompts import REACT_AGENT_PROMPT, CONVERSATION_SUMMARY_PROMPT
+from Agent.models.llm_factory import get_llm
+from Agent.tools.base import get_tool_registry
+from Agent.prompts import REACT_SYSTEM_PROMPT
 
 
 class LangChainReActAgent:
-    """LangChain ReAct Agent 实现"""
+    """自定义 ReAct Agent，支持多厂商 LLM"""
 
-    def __init__(self, ali_model=None):
+    def __init__(self):
         """
-        初始化 LangChain ReAct Agent
-
-        Args:
-            ali_model: 阿里云模型实例（可选）
+        初始化 ReAct Agent
+        自动从配置加载 LLM（支持多厂商切换）
         """
-        self.llm = get_dashscope_llm(ali_model)
-        self.tools = get_langchain_tools()
-        self.agent_executor = self._create_agent_executor()
-        logger.info(f"LangChain ReAct Agent 初始化完成，工具数量: {len(self.tools)}")
+        self.llm = get_llm()
+        self.tool_registry = get_tool_registry()
+        self.tools = self.tool_registry.get_tool_names()
+        self.max_iterations = 10
+        logger.info(f"ReAct Agent 初始化完成，工具数量: {len(self.tools)}")
 
-    def _create_agent_executor(self) -> AgentExecutor:
-        """创建 AgentExecutor"""
-        from datetime import datetime
+    def _build_tool_descriptions(self) -> str:
+        """构建工具描述"""
+        descriptions = []
+        for tool_name in self.tools:
+            tool = self.tool_registry.get_tool(tool_name)
+            if tool:
+                desc = f"- {tool_name}: {tool.description}"
+                descriptions.append(desc)
+        return "\n".join(descriptions)
+
+    def _build_react_prompt(self, user_input: str, context: str = "") -> str:
+        """构建 ReAct 提示词"""
+        tool_desc = self._build_tool_descriptions()
+        tool_names = ", ".join(self.tools)
         
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        
-        agent = create_react_agent(
-            llm=self.llm,
-            tools=self.tools,
-            prompt=REACT_AGENT_PROMPT.partial(current_date=current_date)
-        )
+        prompt = f"""{REACT_SYSTEM_PROMPT}
 
-        agent_executor = AgentExecutor(
-            agent=agent,
-            tools=self.tools,
-            verbose=True,
-            handle_parsing_errors="检查你的输出格式！确保使用正确的格式：Thought: ... \\nAction: 工具名\\nAction Input: JSON格式参数",
-            max_iterations=10,
-            max_execution_time=120,
-            early_stopping_method="force"
-        )
+工具详情:
+{tool_desc}
 
-        return agent_executor
+可用工具列表: [{tool_names}]
+
+=== 输出格式（严格遵守）===
+
+Thought: 分析问题，决定是否需要调用工具
+Action: 工具名称（如需调用）
+Action Input: {{"参数名": "参数值"}}
+
+或者直接回答:
+
+Thought: 分析问题，已知信息足够
+Final Answer: 你的完整回答
+
+=== 规则 ===
+
+1. 简单问题（打招呼、常识问题）直接 Final Answer
+2. 需要查询数据时，调用工具
+3. 每次只调用一个工具
+4. 收到 Observation 后，必须给出 Final Answer 或调用下一个工具
+5. 不要重复调用同一工具
+6. 【重要】Final Answer 必须包含完整的回答内容，不要把详细信息放在 Thought 中
+
+{context}
+
+=== 开始 ===
+
+Question: {user_input}
+Thought: """
+        return prompt
 
     async def run(self, user_input: str, plan_summary: str = None, conversation_history: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -65,45 +91,131 @@ class LangChainReActAgent:
             Dict包含: success(是否成功), answer(最终答案), intermediate_steps(中间步骤)
         """
         try:
-            logger.info(f"LangChain Agent: 开始处理用户输入: {user_input[:50]}...")
+            logger.info(f"ReAct Agent: 开始处理用户输入: {user_input[:50]}...")
 
-            full_input = user_input
-            
-            if conversation_history:
-                # 添加对话历史上下文（基于 LLM 智能摘要）
-                history_context = await self._build_conversation_context(conversation_history)
-                if history_context:
-                    full_input = f"{history_context}\n\n当前用户问题: {user_input}"
-                    logger.info(f"包含对话历史上下文，历史消息数: {len(conversation_history)}")
+            context = ""
             
             if plan_summary:
-                full_input = f"{plan_summary}\n\n{full_input}"
+                context = f"""【当前用户规划信息 - 请务必参考】
+{plan_summary}
 
-            result = await self.agent_executor.ainvoke({"input": full_input})
+"""
+            
+            if conversation_history:
+                history_context = await self._build_conversation_context(conversation_history)
+                if history_context:
+                    context += f"【对话历史】\n{history_context}\n"
+                    logger.info(f"包含对话历史上下文，历史消息数: {len(conversation_history)}")
 
-            logger.info(f"LangChain Agent: 处理完成，输出长度: {len(result.get('output', ''))}")
+            intermediate_steps = []
+            current_input = user_input
+            iteration = 0
+
+            while iteration < self.max_iterations:
+                iteration += 1
+                logger.debug(f"ReAct 迭代 {iteration}/{self.max_iterations}")
+
+                prompt = self._build_react_prompt(current_input, context)
+                
+                response = await self.llm.ainvoke(prompt)
+                response_text = response.content if hasattr(response, 'content') else str(response)
+                
+                parsed = self._parse_react_response(response_text)
+                
+                if parsed.get('final_answer'):
+                    logger.info(f"ReAct Agent: 处理完成，输出长度: {len(parsed['final_answer'])}")
+                    return {
+                        'success': True,
+                        'answer': parsed['final_answer'],
+                        'intermediate_steps': intermediate_steps
+                    }
+                
+                if parsed.get('action') and parsed.get('action_input'):
+                    tool_name = parsed['action']
+                    tool_input = parsed['action_input']
+                    
+                    if tool_name not in self.tools:
+                        observation = f"错误: 未知工具 '{tool_name}'，可用工具: {list(self.tools)}"
+                    else:
+                        try:
+                            logger.info(f"调用工具: {tool_name}, 参数: {tool_input}")
+                            tool = self.tool_registry.get_tool(tool_name)
+                            observation = await tool.execute(**tool_input)
+                            observation = json.dumps(observation, ensure_ascii=False)
+                            logger.info(f"工具返回: {observation[:200]}...")
+                        except Exception as e:
+                            observation = f"工具执行错误: {str(e)}"
+                    
+                    intermediate_steps.append({
+                        'thought': parsed.get('thought', ''),
+                        'action': tool_name,
+                        'action_input': tool_input,
+                        'observation': observation
+                    })
+                    
+                    context += f"\nThought: {parsed.get('thought', '')}\nAction: {tool_name}\nAction Input: {json.dumps(tool_input, ensure_ascii=False)}\nObservation: {observation}\n"
+                    current_input = "继续处理，根据观察结果给出回答或调用下一个工具。"
+                else:
+                    final_answer = parsed.get('thought', response_text)
+                    logger.info(f"ReAct Agent: 处理完成（无工具调用），输出长度: {len(final_answer)}")
+                    return {
+                        'success': True,
+                        'answer': final_answer,
+                        'intermediate_steps': intermediate_steps
+                    }
 
             return {
-                'success': True,
-                'answer': result.get('output', ''),
-                'intermediate_steps': result.get('intermediate_steps', [])
+                'success': False,
+                'error': '达到最大迭代次数',
+                'answer': '抱歉，处理您的请求时超出了最大步骤限制，请简化您的问题后重试。'
             }
 
         except Exception as e:
-            logger.error(f"LangChain Agent 执行失败: {str(e)}")
+            logger.error(f"ReAct Agent 执行失败: {str(e)}")
             logger.exception("完整错误堆栈:")
             
             error_msg = str(e)
-            if "Invalid Format" in error_msg or "Missing 'Action:'" in error_msg:
-                error_msg = "模型响应格式错误，请稍后重试"
-            elif "max_iterations" in error_msg.lower():
-                error_msg = "处理超时，请简化您的问题后重试"
-            
             return {
                 'success': False,
                 'error': error_msg,
                 'answer': f"抱歉，处理您的请求时遇到了问题: {error_msg}"
             }
+
+    def _parse_react_response(self, response: str) -> Dict[str, Any]:
+        """解析 ReAct 响应"""
+        result = {
+            'thought': '',
+            'action': '',
+            'action_input': {},
+            'final_answer': ''
+        }
+        
+        try:
+            if 'Final Answer:' in response:
+                parts = response.split('Final Answer:', 1)
+                if len(parts) > 1:
+                    result['final_answer'] = parts[1].strip()
+                return result
+            
+            thought_match = re.search(r'Thought:\s*(.+?)(?=\nAction:|$)', response, re.DOTALL)
+            if thought_match:
+                result['thought'] = thought_match.group(1).strip()
+            
+            action_match = re.search(r'Action:\s*(\w+)', response)
+            if action_match:
+                result['action'] = action_match.group(1).strip()
+            
+            action_input_match = re.search(r'Action Input:\s*(\{.+?\})', response, re.DOTALL)
+            if action_input_match:
+                try:
+                    result['action_input'] = json.loads(action_input_match.group(1))
+                except json.JSONDecodeError:
+                    result['action_input'] = {}
+                    
+        except Exception as e:
+            logger.warning(f"解析 ReAct 响应失败: {str(e)}")
+        
+        return result
 
     async def _build_conversation_context(self, conversation_history: List[Dict[str, Any]]) -> str:
         """
@@ -119,17 +231,15 @@ class LangChainReActAgent:
             return ""
         
         try:
-            # 将对话历史转换为文本格式
             conversation_text = self._format_conversation_to_text(conversation_history)
             
             logger.info(f"开始对 {len(conversation_history)} 条对话历史进行智能摘要...")
             
-            # 使用 LLM 进行智能摘要
+            from Agent.prompts import CONVERSATION_SUMMARY_PROMPT
             summary_prompt = CONVERSATION_SUMMARY_PROMPT.format(
                 conversation_history=conversation_text
             )
             
-            # 调用 LLM 生成摘要
             summary_result = await self.llm.ainvoke(summary_prompt)
             summary = summary_result.content if hasattr(summary_result, 'content') else str(summary_result)
             
@@ -139,7 +249,6 @@ class LangChainReActAgent:
             
         except Exception as e:
             logger.error(f"对话历史摘要生成失败，降级为简单截取: {str(e)}")
-            # 降级方案：使用简单截取
             return self._build_conversation_context_fallback(conversation_history)
     
     def _format_conversation_to_text(self, conversation_history: List[Dict[str, Any]]) -> str:
@@ -176,7 +285,6 @@ class LangChainReActAgent:
         """
         context_parts = ["【对话历史】"]
         
-        # 只取最近5条历史，避免上下文过长
         recent_history = conversation_history[-5:]
         
         for msg in recent_history:
@@ -191,15 +299,14 @@ class LangChainReActAgent:
         return "\n".join(context_parts)
 
 
-# 全局 Agent 实例
 _agent_instance = None
 
 
-def get_react_agent(ali_model=None) -> LangChainReActAgent:
-    """获取 LangChain ReAct Agent 单例"""
+def get_react_agent() -> LangChainReActAgent:
+    """获取 ReAct Agent 单例"""
     global _agent_instance
 
     if _agent_instance is None:
-        _agent_instance = LangChainReActAgent(ali_model)
+        _agent_instance = LangChainReActAgent()
 
     return _agent_instance

@@ -20,18 +20,15 @@ import sys
 import os
 from pathlib import Path
 
-# --- 关键路径修复开始 ---
-# 1. 添加项目根目录到Python路径 (用于引用 core, utils, main 等)
-# 需要指向 shaanxi-heritage-ai-platform 目录，以便可以使用 from Agent.xxx import xxx
+# 添加项目根目录到Python路径
 project_root = Path(__file__).resolve().parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# 2. 添加当前 api 目录到Python路径 (用于引用 edit_endpoints, weather_endpoints 等同级模块)
+# 添加当前 api 目录到Python路径
 current_dir = Path(__file__).resolve().parent
 if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
-# --- 关键路径修复结束 ---
 
 from Agent.main import get_agent
 from Agent.agent.travel_planner import get_travel_planner
@@ -100,7 +97,7 @@ app.include_router(edit_router)
 app.include_router(weather_router)
 app.include_router(conversation_router)
 
-# --- 数据模型定义 ---
+# 数据模型定义
 
 class TravelPlanRequest(BaseModel):
     heritage_ids: List[int] = Field(..., description="选中的非遗项目ID列表")
@@ -123,7 +120,7 @@ class PDFExportRequest(BaseModel):
     duration: Optional[str] = None
     weather_info: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = None
-    # 关键字段：接收前端传来的完整数据（包含对话历史）
+    # 接收前端传来的完整数据（包含对话历史）
     complete_plan_data: Optional[Dict[str, Any]] = None
     ai_descriptions: Optional[List[str]] = None
 
@@ -143,7 +140,7 @@ class ProgressResponse(BaseModel):
     end_time: Optional[str] = None
     error_message: Optional[str] = None
 
-# --- API 接口实现 ---
+# API 接口实现
 
 @app.get("/")
 async def root():
@@ -192,7 +189,7 @@ async def create_travel_plan(request: TravelPlanRequest, background_tasks: Backg
         plan_id = f"plan_{uuid.uuid4().hex[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         logger.info(f"收到旅游规划请求: {plan_id}, 用户: {current_user.user_id}, 非遗项目: {request.heritage_ids}")
         
-        planning_request = request.dict()
+        planning_request = request.model_dump()
         planning_request['plan_id'] = plan_id
         
         # 立即初始化进度，避免前端首次轮询出现 404
@@ -355,7 +352,7 @@ async def export_plan_pdf(request: PDFExportRequest, background_tasks: Backgroun
         # 2. 提取前端注入的对话历史
         conversation_history = plan_data.get('conversation_history', [])
         
-        # 如果 plan_data 里没有，尝试从 ai_descriptions 恢复（兼容旧逻辑）
+        # 如果 plan_data 里没有，尝试从 ai_descriptions 恢复
         if not conversation_history and request.ai_descriptions:
             conversation_history = [
                 {'role': 'user', 'content': '导出历史摘要'}, 
@@ -370,9 +367,9 @@ async def export_plan_pdf(request: PDFExportRequest, background_tasks: Backgroun
         from Agent.services.minio_storage import get_minio_service
         
         planner = get_travel_planner()
-        integrator = PDFContentIntegrator(ali_model=planner.ali_model)
+        integrator = PDFContentIntegrator(llm_model=planner.llm_model)
         
-        # 关键：调用 integrate_and_export
+        # 调用 integrate_and_export
         file_response = await integrator.integrate_and_export(
             plan_data=plan_data,
             conversation_history=conversation_history,
@@ -484,7 +481,7 @@ async def export_travel_plan(plan_id: str, export_request: ExportRequest, backgr
             from Agent.services.minio_storage import get_minio_service
 
             planner = get_travel_planner()
-            integrator = PDFContentIntegrator(ali_model=planner.ali_model)
+            integrator = PDFContentIntegrator(llm_model=planner.llm_model)
             
             file_response = await integrator.integrate_and_export(
                 plan_data=final_plan_data,
@@ -587,4 +584,4 @@ if __name__ == "__main__":
     import uvicorn
     os.makedirs("logs", exist_ok=True)
     os.makedirs("pdf_cache", exist_ok=True)
-    uvicorn.run("app:app", host="0.0.0.0", port=8001, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

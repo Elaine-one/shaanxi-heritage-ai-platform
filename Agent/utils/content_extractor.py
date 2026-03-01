@@ -1,5 +1,3 @@
-#--- START OF FILE content_extractor.py ---
-
 # -*- coding: utf-8 -*-
 """
 内容提取器模块
@@ -97,7 +95,7 @@ class ContentExtractor:
     
     def format_weather_info(self, weather_info: Dict[str, Any]) -> str:
         """
-        【关键修复】格式化天气信息，提取详细预报数据
+        格式化天气信息，提取详细预报数据
         """
         try:
             if not weather_info:
@@ -134,7 +132,7 @@ class ContentExtractor:
                             short_name = loc_name.split(',')[0] if ',' in loc_name else loc_name
                             details.append(f"【{short_name}】: " + "；".join(daily_weather))
             
-            # 场景B: 直接包含 forecast 列表 (兼容旧结构)
+            # 场景B: 直接包含 forecast 列表
             elif 'forecast' in weather_info and isinstance(weather_info['forecast'], list):
                  daily_weather = []
                  for day in weather_info['forecast'][:5]:

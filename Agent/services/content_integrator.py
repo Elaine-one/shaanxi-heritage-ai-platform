@@ -1,5 +1,3 @@
-#--- START OF FILE core/ai_content_integrator.py ---
-
 # -*- coding: utf-8 -*-
 """
 AI内容集成器
@@ -24,16 +22,16 @@ class AIContentIntegrator:
     AI内容集成器，负责使用AI模型整合旅游规划数据
     """
     
-    def __init__(self, ali_model=None):
+    def __init__(self, llm_model=None):
         """
         初始化AI内容集成器
         
         Args:
-            ali_model: 阿里云AI模型实例
+            llm_model: LLM 模型实例
         """
-        self.ali_model = ali_model
-        self._content_cache = {}  # 内容缓存
-        self._cache_timeout = 300  # 缓存超时时间（秒）
+        self.llm_model = llm_model
+        self._content_cache = {}
+        self._cache_timeout = 300
         self.content_extractor = ContentExtractor()
         logger.info("AI内容集成器初始化完成")
     
@@ -54,7 +52,7 @@ class AIContentIntegrator:
                 conversation_history = actual_data.get('conversation_history', [])
             
             # 如果没有AI模型，直接返回备用内容
-            if not self.ali_model:
+            if not self.llm_model:
                 logger.warning("未提供AI模型，使用基础整合")
                 return self._create_fallback_content(actual_data)
             
@@ -260,7 +258,7 @@ class AIContentIntegrator:
             
             logger.info(f"发送 AI 请求。原始数据长度: {len(str(actual_data))} -> 优化后 Prompt 长度: {len(prompt)}")
             
-            response = await self.ali_model._call_model(prompt)
+            response = await self.llm_model._call_model(prompt)
             if not response or not response.get('success'):
                 return self._create_fallback_content(actual_data)
             
@@ -305,7 +303,7 @@ class AIContentIntegrator:
             )
             
             # 调用 LLM 生成摘要
-            response = await self.ali_model._call_model(summary_prompt)
+            response = await self.llm_model._call_model(summary_prompt)
             
             if response and response.get('success'):
                 summary = response.get('content', '').strip()

@@ -16,8 +16,8 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from Agent.config import config
-from Agent.agent.travel_planner import TravelPlanner
-from Agent.services.heritage_analyzer import HeritageAnalyzer
+from Agent.agent.travel_planner import get_travel_planner
+from Agent.services.heritage_analyzer import get_heritage_analyzer
 from Agent.utils.logger_config import setup_logger
 
 class TravelPlanningAgent:
@@ -44,11 +44,9 @@ class TravelPlanningAgent:
             logger.warning(f"配置警告: {validation_result['warnings']}")
         
         # 初始化核心组件
-        self.heritage_analyzer = HeritageAnalyzer()
-        self.travel_planner = TravelPlanner()
-        
-        # 暴露ali_model属性以供PDF导出使用
-        self.ali_model = self.travel_planner.ali_model
+        self.travel_planner = get_travel_planner()
+        self.heritage_analyzer = get_heritage_analyzer()
+        self.llm_model = self.travel_planner.llm_model
         
         logger.info("Agent初始化完成")
     

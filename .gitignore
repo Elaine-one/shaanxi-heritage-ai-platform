@@ -13,7 +13,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
+docs/
 # 测试缓存
 .pytest_cache/
 .coverage

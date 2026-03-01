@@ -20,17 +20,16 @@ class PDFContentIntegrator:
     PDF内容整合器，负责协调各个模块，整合旅游规划数据并生成PDF文档
     """
     
-    def __init__(self, ali_model=None):
+    def __init__(self, llm_model=None):
         """
         初始化PDF内容整合器
         
         Args:
-            ali_model: 阿里云AI模型实例
+            llm_model: LLM 模型实例
         """
-        self.ali_model = ali_model
+        self.llm_model = llm_model
         
-        # 初始化各个模块
-        self.ai_integrator = AIContentIntegrator(ali_model)
+        self.ai_integrator = AIContentIntegrator(llm_model)
         self.pdf_generator = PDFGenerator()
         self.content_extractor = ContentExtractor()
         

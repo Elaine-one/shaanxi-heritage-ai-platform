@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 对话历史摘要提示模板
-定义用于智能摘要对话历史的提示词，包含明确的角色定义
 """
 
-from langchain_core.prompts import PromptTemplate
-
-# 对话历史摘要提示词模板
-CONVERSATION_SUMMARY_PROMPT = PromptTemplate.from_template(
-    """你是一位专业的**对话历史分析专家**，擅长从复杂的对话记录中提取关键信息并进行精准摘要。
+CONVERSATION_SUMMARY_PROMPT = """你是一位专业的**对话历史分析专家**，擅长从复杂的对话记录中提取关键信息并进行精准摘要。
 
 【任务目标】
 请对以下对话历史进行智能摘要，提取最重要的信息，以便为后续对话提供上下文支持。
@@ -41,4 +36,8 @@ CONVERSATION_SUMMARY_PROMPT = PromptTemplate.from_template(
 请直接输出摘要内容，不要包含任何解释性文字。
 
 摘要："""
-)
+
+
+def format_conversation_summary_prompt(conversation_history: str) -> str:
+    """格式化对话摘要提示"""
+    return CONVERSATION_SUMMARY_PROMPT.format(conversation_history=conversation_history)
