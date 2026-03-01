@@ -10,7 +10,7 @@ import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from loguru import logger
-from Agent.models.dashscope import get_ali_model
+from Agent.models.llm_model import get_llm_model
 from Agent.services.weather import get_weather_service
 from Agent.tools.base import get_tool_registry
 from Agent.agent.react_agent import get_react_agent
@@ -28,10 +28,10 @@ class PlanEditor:
         """
         初始化规划编辑器
         """
-        self.ali_model = get_ali_model()
+        self.llm_model = get_llm_model()
         self.weather_service = get_weather_service()
         self.tool_registry = get_tool_registry()
-        self.react_agent = get_react_agent(self.ali_model)
+        self.react_agent = get_react_agent()
     
     async def start_edit_session(self, 
                                plan_id: str, 
@@ -284,8 +284,13 @@ class PlanEditor:
         try:
             logger.info(f"LangChain Agent: 开始处理用户输入: {user_message[:50]}...")
             
+            # 调试：打印规划数据结构
+            logger.debug(f"current_plan keys: {list(current_plan.keys()) if current_plan else 'None'}")
+            logger.debug(f"basic_info: {current_plan.get('basic_info', 'missing')}")
+            
             # 构建规划摘要
             plan_summary = self._build_plan_summary(current_plan)
+            logger.debug(f"plan_summary: {plan_summary}")
             
             # 调用LangChain Agent
             agent_result = await self.react_agent.run(

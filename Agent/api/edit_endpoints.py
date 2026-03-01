@@ -120,10 +120,10 @@ async def export_plan_pdf(request: ExportPdfRequest, current_user: TokenData = D
         from Agent.agent import get_travel_planner
         
         travel_planner = get_travel_planner()
-        if not travel_planner.ali_model:
+        if not travel_planner.llm_model:
             raise HTTPException(status_code=500, detail="AI模型未初始化")
         
-        pdf_integrator = PDFContentIntegrator(ali_model=travel_planner.ali_model)
+        pdf_integrator = PDFContentIntegrator(llm_model=travel_planner.llm_model)
         current_plan['conversation_history'] = conversation_history
         
         result = await pdf_integrator.integrate_and_export(

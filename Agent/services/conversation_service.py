@@ -81,7 +81,7 @@ class ConversationService:
             # 设置过期时间（与会话相同）
             redis_client.expire(message_key, Config.REDIS_SESSION_TTL)
             
-            # 更新会话中的对话历史（用于兼容现有逻辑）
+            # 更新会话中的对话历史
             session = self.session_pool.get_session(session_id)
             if session:
                 if session.conversation_history is None:

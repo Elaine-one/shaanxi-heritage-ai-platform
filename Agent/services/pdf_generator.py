@@ -1,5 +1,3 @@
-#--- START OF FILE core/pdf_generator.py ---
-
 # -*- coding: utf-8 -*-
 """
 PDF生成器核心模块
@@ -27,13 +25,16 @@ class PDFGenerator:
     """
     
     def __init__(self, pdf_cache_dir: Optional[str] = None):
-        # 默认使用系统临时目录，避免污染项目代码库
-        self.pdf_cache_dir = pdf_cache_dir or os.path.join(tempfile.gettempdir(), 'shaanxi_heritage_pdf_cache')
+        if pdf_cache_dir is None:
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            pdf_cache_dir = os.path.join(project_root, 'pdf_cache')
+        self.pdf_cache_dir = pdf_cache_dir
         if not os.path.exists(self.pdf_cache_dir):
             try:
                 os.makedirs(self.pdf_cache_dir)
             except Exception as e:
                 logger.warning(f"创建PDF缓存目录失败: {e}, 将使用临时目录根路径")
+                import tempfile
                 self.pdf_cache_dir = tempfile.gettempdir()
         
         logger.info(f"PDF生成器初始化完成，缓存目录: {self.pdf_cache_dir}")
@@ -104,7 +105,7 @@ class PDFGenerator:
                 textColor=COLOR_H2
             )
 
-            # 三级标题 (修复了重复参数错误)
+            # 三级标题
             style_h3 = ParagraphStyle(
                 'CustomH3', parent=styles['Heading4'], 
                 fontName=chinese_font, # 只保留这一个 fontName
@@ -257,7 +258,7 @@ class PDFGenerator:
         return text
 
     def _add_fallback_content(self, story, content, s_title, s_norm):
-        """兼容旧版数据"""
+        """添加备用内容"""
         story.append(Paragraph("旅游规划", s_title))
         story.append(Spacer(1, 20))
         story.append(Paragraph("无法生成富文本内容，请联系管理员。", s_norm))

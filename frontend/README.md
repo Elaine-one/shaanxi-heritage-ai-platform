@@ -59,25 +59,24 @@ frontend/
 │   ├── agent/               # Agent相关样式
 │   │   ├── plan-editor.css     # 规划编辑器样式
 │   │   └── travel-planning.css  # 旅游规划样式
-│   ├── common/           # 通用样式
-│   │   ├── base.css        # 基础样式
-│   │   ├── header.css      # 头部样式
-│   │   └── footer.css      # 底部样式
-│   ├── forum.css             # 论坛样式
-│   ├── forum-post.css        # 论坛帖子样式
+│   ├── pages/               # 页面特定样式
+│   │   ├── creation-center.css  # 创作中心样式
+│   │   ├── heritage-detail.css  # 详情页样式
+│   │   ├── heritage-map.css     # 地图页样式
+│   │   ├── heritage-map-overlay.css  # 地图覆盖层样式
+│   │   ├── heritage-statistics.css  # 统计页面样式
+│   │   ├── index.css            # 首页样式
+│   │   ├── login.css            # 登录页样式
+│   │   ├── non-heritage-list.css  # 列表页样式
+│   │   ├── profile.css            # 个人中心样式
+│   │   └── user-creation.css     # 用户创作样式
+│   ├── common.css           # 通用样式
+│   ├── forum.css            # 论坛样式
+│   ├── forum-post.css       # 论坛帖子样式
 │   ├── forum-post-header.css # 论坛帖子头部样式
-│   ├── news.css            # 新闻页样式
-│   ├── policy.css          # 政策页样式
-│   ├── post-detail.css     # 帖子详情样式
-│   └── pages/           # 页面特定样式
-│       ├── creation-center.css  # 创作中心样式
-│       ├── heritage-detail.css  # 详情页样式
-│       ├── heritage-map.css     # 地图页样式
-│       ├── heritage-map-overlay.css  # 地图覆盖层样式
-│       ├── heritage-statistics.css  # 统计页面样式
-│       ├── non-heritage-list.css  # 列表页样式
-│       ├── profile.css            # 个人中心样式
-│       └── user-creation.css     # 用户创作样式
+│   ├── news.css             # 新闻页样式
+│   ├── policy.css           # 政策页样式
+│   └── post-detail.css      # 帖子详情样式
 ├── js/                 # JavaScript 文件
 │   ├── agent/             # AI智能体相关脚本
 │   │   ├── agent-core.js        # 规划核心功能
@@ -90,34 +89,42 @@ frontend/
 │   │   ├── forum-api.js         # 论坛API
 │   │   └── user-profile-api.js  # 用户资料API
 │   ├── common/           # 通用脚本
-│   │   ├── api-utils.js         # API工具
+│   │   ├── api.js               # 统一API请求封装
+│   │   ├── api-utils.js         # API工具函数
 │   │   ├── auth.js              # 认证相关
+│   │   ├── bg-image-handler.js  # 背景图片处理
 │   │   ├── browsing-history.js  # 浏览历史
+│   │   ├── date-utils.js        # 日期时间工具
 │   │   ├── heritage-api.js      # 非遗API
 │   │   ├── heritage-ui.js       # UI工具函数
+│   │   ├── tracker.js           # 埋点追踪
 │   │   └── utils.js             # 工具函数
+│   ├── lib/               # 工具库
+│   │   └── LunarSolarConverter.js  # 农历阳历转换
 │   ├── modules/          # 模块脚本
 │   │   ├── profile-favorites.js  # 个人中心收藏模块
 │   │   ├── profile-history.js    # 个人中心历史模块
-│   │   └── profile-settings.js   # 个人中心设置模块
+│   │   ├── profile-settings.js   # 个人中心设置模块
+│   │   └── profile-utils.js      # 个人中心工具函数
+│   ├── pages/           # 页面特定脚本
+│   │   ├── creation-center.js   # 创作中心脚本
+│   │   ├── forgot-password.js   # 忘记密码脚本
+│   │   ├── forum.js             # 论坛脚本
+│   │   ├── forum-post.js        # 论坛帖子脚本
+│   │   ├── heritage-detail.js   # 详情页脚本
+│   │   ├── heritage-filters.js  # 筛选功能脚本
+│   │   ├── heritage-map.js      # 地图页脚本
+│   │   ├── heritage-map-sidebar.js # 地图侧边栏脚本
+│   │   ├── index.js             # 首页脚本
+│   │   ├── login.js             # 登录脚本
+│   │   ├── non-heritage-list.js # 列表页脚本
+│   │   ├── post-detail.js       # 帖子详情脚本
+│   │   ├── profile.js           # 个人中心脚本
+│   │   ├── register.js          # 注册脚本
+│   │   ├── reset-password.js    # 密码重置脚本
+│   │   └── user-creation.js     # 用户创作脚本
 │   ├── news.js             # 新闻页脚本
-│   ├── policy.js           # 政策页脚本
-│   └── pages/           # 页面特定脚本
-│       ├── creation-center.js   # 创作中心脚本
-│       ├── forum.js             # 论坛脚本
-│       ├── forum-post.js        # 论坛帖子脚本
-│       ├── heritage-detail.js   # 详情页脚本
-│       ├── heritage-filters.js  # 筛选功能脚本
-│       ├── heritage-map.js      # 地图页脚本
-│       ├── heritage-map-sidebar.js # 地图侧边栏脚本
-│       ├── index.js             # 首页脚本
-│       ├── login.js             # 登录脚本
-│       ├── non-heritage-list.js # 列表页脚本
-│       ├── post-detail.js       # 帖子详情脚本
-│       ├── profile.js           # 个人中心脚本
-│       ├── register.js          # 注册脚本
-│       ├── reset-password.js     # 密码重置脚本
-│       └── user-creation.js     # 用户创作脚本
+│   └── policy.js           # 政策页脚本
 ├── lib/                # 第三方库
 │   ├── dify_chatbot_embed.js  # AI聊天助手嵌入脚本
 │   ├── maxkb_embed.js         # 知识库嵌入脚本
@@ -136,10 +143,8 @@ frontend/
 │   ├── post-detail.html        # 帖子详情
 │   ├── profile.html            # 个人中心
 │   ├── register.html           # 注册页
-│   ├── reset-password.html      # 密码重置
+│   ├── reset-password.html     # 密码重置
 │   └── user-creation.html      # 用户创作
-├── static/             # 静态资源
-│   └── images/           # 图片资源
 ├── index.html          # 首页
 └── README.md           # 前端项目文档
 ```
@@ -224,6 +229,8 @@ frontend/
   - `removeFavorite()`: 移除收藏
   - `checkFavoriteStatus()`: 检查收藏状态
   - `getUserFavorites()`: 获取用户收藏列表
+  - `updateFavoriteButtonsState()`: 更新所有收藏按钮状态
+  - `heritageEvents`: 收藏状态事件总线
 
 - **js/pages/heritage-detail.js**: 详情页收藏功能
   - `toggleFavorite()`: 切换收藏状态
@@ -289,10 +296,14 @@ frontend/
 
 ### 配置后端 API
 
-在 `js/common/heritage-api.js` 文件中配置后端 API 地址：
+前端使用相对路径 `/api` 作为API基础路径，通过Django后端代理访问。无需额外配置API地址。
 
 ```javascript
-const API_BASE_URL = 'http://localhost:8000/api';
+// js/common/api.js
+const COMMON_API_BASE_URL = '/api';  // 使用相对路径，适配生产环境
+
+// js/common/heritage-api.js
+const HERITAGE_SPECIFIC_API_BASE_URL = '/api/';
 ```
 
 ### Agent 服务配置
@@ -304,47 +315,63 @@ const API_BASE_URL = 'http://localhost:8000/api';
 
 ## API 调用
 
-前端通过 Fetch API 与后端通信，主要 API 调用封装在 `js/common/heritage-api.js` 文件中：
+前端通过 Fetch API 与后端通信，API请求统一封装在 `js/common/api.js` 文件中：
+
+```javascript
+// 统一API请求函数
+async function apiRequest(endpoint, options = {}) {
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+    
+    // CSRF Token自动注入
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes((options.method || 'GET').toUpperCase())) {
+        const csrfToken = window.getCookie('csrftoken');
+        if (csrfToken) {
+            headers['X-CSRFToken'] = csrfToken;
+        }
+    }
+    
+    const url = `/api${endpoint}`;
+    
+    const response = await fetch(url, {
+        ...options,
+        headers,
+        credentials: 'include'  // 携带Session Cookie
+    });
+    
+    return response.json();
+}
+```
+
+非遗相关API封装在 `js/common/heritage-api.js` 文件中：
 
 ```javascript
 // 获取非遗项目列表
-async function getHeritageItems(params = {}) {
-    const queryString = new URLSearchParams(params).toString();
-    const response = await fetch(`${API_BASE_URL}/heritage/items/?${queryString}`);
-    return await response.json();
-}
+const heritageAPI = {
+    getAllItems: async (params = {}) => {
+        let allItems = [];
+        let currentPage = params.page || 1;
+        // 分页获取所有数据
+        // ...
+    },
+    
+    getDetail: async (id) => {
+        return apiRequest(`/heritage/items/${id}/`);
+    }
+};
 
-// 获取非遗项目详情
-async function getHeritageDetail(id) {
-    const response = await fetch(`${API_BASE_URL}/heritage/items/${id}/`);
-    return await response.json();
-}
-
-// 添加收藏
-async function addFavorite(heritageId) {
-    const response = await fetch(`${API_BASE_URL}/favorites/toggle/${heritageId}/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        },
-        credentials: 'include'
+// 收藏功能
+async function toggleFavorite(heritageId) {
+    return apiRequest(`/favorites/toggle/${heritageId}/`, {
+        method: 'POST'
     });
-    return await response.json();
 }
 
-// 发送聊天消息
-async function sendChatMessage(message) {
-    const response = await fetch(`${API_BASE_URL}/chat/message/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        },
-        body: JSON.stringify({ message }),
-        credentials: 'include'
-    });
-    return await response.json();
+// 检查收藏状态
+async function checkFavoriteStatus(heritageId) {
+    return apiRequest(`/favorites/status/${heritageId}/`);
 }
 ```
 
@@ -353,24 +380,29 @@ async function sendChatMessage(message) {
 前端包含日期时间工具 `js/common/date-utils.js`，用于处理和格式化日期时间，包括：
 
 - 格式化日期时间
-- 显示农历日期
+- 显示农历日期（使用 `js/lib/LunarSolarConverter.js` 库）
 - 显示节气信息
 
 ```javascript
-// 获取格式化日期时间
-async function getFormattedDate() {
-    const response = await fetch(`${API_BASE_URL}/date/formatted/`);
-    return await response.json();
+// 日期时间格式选项
+const DATE_FORMAT_OPTIONS = {
+    FULL: { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' },
+    DATE_ONLY: { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' },
+    TIME_ONLY: { hour: '2-digit', minute: '2-digit' }
+};
+
+// 获取格式化的日期时间字符串
+function getFormattedDateTime(options = DATE_FORMAT_OPTIONS.FULL) {
+    const now = new Date();
+    return now.toLocaleDateString('zh-CN', options);
 }
 
-// 更新页面上的日期时间显示
-function updateDateTimeDisplay() {
-    getFormattedDate().then(data => {
-        document.getElementById('current-date').textContent = 
-            `${data.year}年${data.month}月${data.day}日 ${data.weekday}`;
-        document.getElementById('lunar-date').textContent = 
-            `农历 ${data.lunar_date} ${data.solar_term || ''}`;
-    });
+// 获取农历日期（使用LunarSolarConverter库）
+function getLunarDate() {
+    const now = new Date();
+    const converter = new LunarSolarConverter();
+    const lunar = converter.Lunar(now);
+    return `农历 ${lunar.monthStr}${lunar.dayStr}`;
 }
 ```
 
@@ -398,6 +430,26 @@ function updateDateTimeDisplay() {
 2. 根据需要配置聊天助手参数
 
 ## 最新更新记录
+
+### v1.2.5 (2026-03-01)
+
+#### 架构优化
+- 🏗️ 重构Agent交互模块，采用类封装设计模式
+- 🏗️ 优化模块化架构，分离agent/common/pages/modules目录
+- 🏗️ 统一API请求封装，自动注入CSRF Token
+
+#### 功能增强
+- 🆕 完善SSE流式进度监控机制
+- 🆕 新增ProgressManager进度管理器
+- 🆕 新增ResultRenderer结果渲染器
+- 🆕 新增DialogManager对话管理器
+- 🆕 优化PlanEditor规划编辑器交互
+
+#### 技术改进
+- 📈 改进EventSource错误处理与重连机制
+- 📈 优化内存管理，防止组件销毁时内存泄漏
+- 📈 增强请求防抖与状态保护
+- 📈 完善日志输出，便于调试
 
 ### v1.2.0 (2025-10-21)
 

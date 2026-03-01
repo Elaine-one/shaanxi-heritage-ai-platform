@@ -10,10 +10,19 @@ from pathlib import Path
 from loguru import logger
 from Agent.config import config
 
+_logger_initialized = False
+
 def setup_logger():
     """
     设置日志配置
     """
+    global _logger_initialized
+    
+    if _logger_initialized:
+        return
+    
+    _logger_initialized = True
+    
     # 移除默认的日志处理器
     logger.remove()
     

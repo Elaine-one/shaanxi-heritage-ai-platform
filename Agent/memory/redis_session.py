@@ -21,8 +21,7 @@ from redis import Redis
 class RedisSessionPool(SessionPool):
     """
     基于Redis的会话池管理器
-    继承自SessionPool，保持接口兼容
-    集成用户历史服务和对话记录服务
+    继承自SessionPool，集成用户历史服务和对话记录服务
     """
     
     def __init__(self, max_sessions: int = 100, cleanup_interval: int = 3600):
@@ -390,7 +389,7 @@ class RedisSessionPool(SessionPool):
             logger.error(f"清理最旧会话时发生错误: {str(e)}")
     
     def _cleanup_oldest_sessions(self, count: int):
-        """兼容父类的清理方法"""
+        """清理指定数量的最旧会话"""
         # 使用异步方法
         try:
             loop = asyncio.get_event_loop()

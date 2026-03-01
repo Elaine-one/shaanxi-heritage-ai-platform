@@ -1,10 +1,8 @@
-##--- START OF FILE ali_model.py ---
-
 # -*- coding: utf-8 -*-
 """
-阿里云模型调用模块
-实现与DashScope API的集成，提供智能对话和分析能力
-包含ReAct推理支持
+LLM 模型调用模块
+实现与 LLM API 的集成，提供智能对话和分析能力
+支持多厂商切换（DashScope/OpenAI/DeepSeek/GLM 等）
 """
 
 import asyncio
@@ -12,75 +10,54 @@ import json
 import re
 from typing import Dict, List, Any, Optional
 from loguru import logger
-import dashscope
-from dashscope import Generation
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from Agent.config import config
 
-class AliCloudModel:
+
+class LLMModel:
     """
-    阿里云模型调用类
-    封装DashScope API调用逻辑
+    LLM 模型调用类
+    封装 LLM API 调用逻辑，支持多厂商
     """
     
     def __init__(self):
         """
-        初始化阿里云模型
+        初始化 LLM 模型
         """
-        # 设置API密钥
-        dashscope.api_key = config.DASHSCOPE_API_KEY
+        llm_config = config.get_llm_config()
         
-        # 模型配置
-        self.model_config = config.get_model_config()
+        self.llm = ChatOpenAI(
+            api_key=llm_config.api_key,
+            base_url=llm_config.base_url,
+            model=llm_config.model,
+            temperature=llm_config.temperature,
+            max_tokens=max(llm_config.max_tokens, 4500),
+        )
         
-        # 【关键配置修正】
-        # 强制提升 max_tokens 以支持长文档生成
-        if self.model_config.get('max_tokens', 1500) < 4500:
-            logger.info("AliModel: 自动提升 max_tokens 至 4500")
-            self.model_config['max_tokens'] = 4500
-            
-        logger.info(f"阿里云模型初始化完成，使用模型: {self.model_config['model']}")
+        self.model_name = llm_config.model
+        logger.info(f"LLM 模型初始化完成，使用模型: {self.model_name}")
     
     async def _call_model(self, prompt: str) -> Dict[str, Any]:
         """
-        调用阿里云模型 - 核心基础方法
+        调用 LLM 模型 - 核心基础方法
         """
         try:
             logger.debug(f"调用模型，提示词长度: {len(prompt)}")
             
             messages = [
-                {
-                    'role': 'system',
-                    'content': '你是一个专业的旅游规划助手，专门为用户制定陕西非物质文化遗产相关的旅游计划。'
-                },
-                {
-                    'role': 'user',
-                    'content': prompt
-                }
+                SystemMessage(content='你是一个专业的旅游规划助手，专门为用户制定陕西非物质文化遗产相关的旅游计划。'),
+                HumanMessage(content=prompt)
             ]
             
-            # 调用API
-            response = Generation.call(
-                model=self.model_config['model'],
-                messages=messages,
-                temperature=0.7,  # 适度增加创造性
-                max_tokens=self.model_config['max_tokens'],
-                top_p=self.model_config['top_p'],
-                result_format='message'
-            )
+            response = await self.llm.ainvoke(messages)
             
-            if response.status_code == 200:
-                content = response.output.choices[0].message.content
-                logger.debug(f"模型响应成功，内容长度: {len(content)}")
-                return {
-                    'success': True,
-                    'content': content
-                }
-            else:
-                logger.error(f"模型调用失败: {response.message}")
-                return {
-                    'success': False,
-                    'error': f'API调用失败: {response.message}'
-                }
+            content = response.content
+            logger.debug(f"模型响应成功，内容长度: {len(content)}")
+            return {
+                'success': True,
+                'content': content
+            }
                 
         except Exception as e:
             logger.error(f"模型调用异常: {str(e)}")
@@ -88,10 +65,6 @@ class AliCloudModel:
                 'success': False,
                 'error': f'调用异常: {str(e)}'
             }
-    
-    # ------------------------------------------------------------------
-    # 业务方法 (完整保留)
-    # ------------------------------------------------------------------
 
     async def generate_travel_plan(self, 
                                  heritage_items: List[Dict[str, Any]], 
@@ -139,10 +112,6 @@ class AliCloudModel:
         except Exception as e:
             return {'success': False, 'error': f'生成建议失败: {str(e)}'}
 
-    # ------------------------------------------------------------------
-    # Prompt 构建器 (完整保留)
-    # ------------------------------------------------------------------
-    
     def _build_travel_plan_prompt(self, heritage_items: List[Dict[str, Any]], user_preferences: Dict[str, Any] = None) -> str:
         heritage_info = "\n".join([
             f"- {item['name']} ({item.get('category','文化')}, {item.get('region','陕西')})"
@@ -187,21 +156,15 @@ class AliCloudModel:
 请提供{location}{season}{duration}天非遗旅游建议，重点包括必玩项目、穿搭、美食。要求简洁实用。
 """
         return prompt
-    
-    # ------------------------------------------------------------------
-    # 响应解析器 (完整保留)
-    # ------------------------------------------------------------------
 
     def _parse_json_response(self, content: str) -> Dict[str, Any]:
         """尝试解析JSON响应"""
         try:
-            # 清洗Markdown代码块
             if '```json' in content:
                 content = content.split('```json')[1].split('```')[0]
             elif '```' in content:
                 content = content.split('```')[1].split('```')[0]
             
-            # 查找JSON边界
             if '{' in content and '}' in content:
                 json_start = content.find('{')
                 json_end = content.rfind('}') + 1
@@ -221,43 +184,26 @@ class AliCloudModel:
             'content': content,
             'format': 'text'
         }
-    
-    # ------------------------------------------------------------------
-    # ReAct 推理方法 (新增)
-    # ------------------------------------------------------------------
 
-    async def react推理(self, 
+    async def react_inference(self, 
                        user_input: str,
                        tools_info: List[Dict[str, Any]],
                        conversation_history: List[Dict[str, str]] = None,
                        plan_summary: str = None,
                        max_iterations: int = 5) -> Dict[str, Any]:
         """
-        执行ReAct推理循环
-        
-        Args:
-            user_input: 用户输入
-            tools_info: 可用工具信息列表
-            conversation_history: 对话历史
-            plan_summary: 规划摘要信息
-            max_iterations: 最大迭代次数
-            
-        Returns:
-            Dict包含: thought(思考), action(动作), observation(观察), final_answer(最终答案)
+        执行 ReAct 推理循环
         """
         try:
-            # 构建ReAct系统提示
             system_prompt = self._build_react_system_prompt(tools_info)
             
-            # 构建对话上下文
             history_text = ""
             if conversation_history:
                 history_text = "\n".join([
-                    f"{msg['role']}: {msg['content'][:200]}"  # 限制历史长度
-                    for msg in conversation_history[-5:]  # 只保留最近5轮
+                    f"{msg['role']}: {msg['content'][:200]}"
+                    for msg in conversation_history[-5:]
                 ])
             
-            # 构建规划摘要上下文
             plan_context = ""
             if plan_summary:
                 plan_context = f"""
@@ -280,41 +226,24 @@ Observation: 工具返回结果 (如果没有调用工具，填"无")
 """
             
             messages = [
-                {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': user_prompt}
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt)
             ]
             
-            # 调用模型
-            response = Generation.call(
-                model=self.model_config['model'],
-                messages=messages,
-                temperature=0.3,  # 较低温度保证推理准确
-                max_tokens=1000,
-                top_p=self.model_config.get('top_p', 0.95),
-                result_format='message'
-            )
+            response = await self.llm.ainvoke(messages)
+            content = response.content
             
-            if response.status_code == 200:
-                content = response.output.choices[0].message.content
-                
-                # 解析ReAct响应
-                parsed = self._parse_react_response(content)
-                
-                logger.info(f"ReAct推理完成: thought={parsed.get('thought','')[:50]}...")
-                
-                # 如果action是final_answer，使用observation作为最终答案
-                if parsed.get('action', '').strip() == 'final_answer':
-                    parsed['final_answer'] = parsed.get('observation', parsed.get('thought', ''))
-                
-                return {
-                    'success': True,
-                    **parsed
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': f'推理失败: {response.message}'
-                }
+            parsed = self._parse_react_response(content)
+            
+            logger.info(f"ReAct推理完成: thought={parsed.get('thought','')[:50]}...")
+            
+            if parsed.get('action', '').strip() == 'final_answer':
+                parsed['final_answer'] = parsed.get('observation', parsed.get('thought', ''))
+            
+            return {
+                'success': True,
+                **parsed
+            }
                 
         except Exception as e:
             logger.error(f"ReAct推理异常: {str(e)}")
@@ -324,7 +253,7 @@ Observation: 工具返回结果 (如果没有调用工具，填"无")
             }
     
     def _build_react_system_prompt(self, tools_info: List[Dict[str, Any]]) -> str:
-        """构建ReAct系统提示词"""
+        """构建 ReAct 系统提示词"""
         tools_desc = "\n".join([
             f"- 工具名: {t['name']}\n  描述: {t['description']}\n  参数: {json.dumps(t.get('parameters',{}), ensure_ascii=False)}"
             for t in tools_info
@@ -367,7 +296,7 @@ Observation: 根据您当前的旅游规划，您选择了以下非遗项目：
 现在开始处理用户问题："""
     
     def _parse_react_response(self, content: str) -> Dict[str, str]:
-        """解析ReAct响应"""
+        """解析 ReAct 响应"""
         result = {
             'thought': '',
             'action': '',
@@ -375,17 +304,14 @@ Observation: 根据您当前的旅游规划，您选择了以下非遗项目：
         }
         
         try:
-            # 提取Thought
             thought_match = re.search(r'Thought:\s*(.+?)(?=\nAction:|$)', content, re.DOTALL)
             if thought_match:
                 result['thought'] = thought_match.group(1).strip()
             
-            # 提取Action
             action_match = re.search(r'Action:\s*(.+?)(?=\nObservation:|$)', content, re.DOTALL)
             if action_match:
                 result['action'] = action_match.group(1).strip()
             
-            # 提取Observation
             obs_match = re.search(r'Observation:\s*(.+?)(?=$)', content, re.DOTALL)
             if obs_match:
                 result['observation'] = obs_match.group(1).strip()
@@ -395,20 +321,12 @@ Observation: 根据您当前的旅游规划，您选择了以下非遗项目：
         
         return result
     
-    async def 生成最终答案(self,
+    async def generate_final_answer(self,
                           thought: str,
                           observation: Dict[str, Any],
                           context: str = "") -> Dict[str, Any]:
         """
         根据观察结果生成最终答案
-        
-        Args:
-            thought: 之前的思考
-            observation: 工具调用结果
-            context: 上下文信息
-            
-        Returns:
-            最终回答
         """
         try:
             observation_text = json.dumps(observation, ensure_ascii=False, indent=2)
@@ -430,43 +348,25 @@ Observation: 根据您当前的旅游规划，您选择了以下非遗项目：
 回答："""
             
             messages = [
-                {
-                    'role': 'system',
-                    'content': '你是一个专业的旅游规划助手，根据工具返回的信息生成准确、友好的回答。'
-                },
-                {
-                    'role': 'user',
-                    'content': prompt
-                }
+                SystemMessage(content='你是一个专业的旅游规划助手，根据工具返回的信息生成准确、友好的回答。'),
+                HumanMessage(content=prompt)
             ]
             
-            response = Generation.call(
-                model=self.model_config['model'],
-                messages=messages,
-                temperature=0.7,
-                max_tokens=2000,
-                top_p=self.model_config.get('top_p', 0.95),
-                result_format='message'
-            )
-            
-            if response.status_code == 200:
-                content = response.output.choices[0].message.content
-                return {'success': True, 'answer': content}
-            else:
-                return {'success': False, 'error': response.message}
+            response = await self.llm.ainvoke(messages)
+            content = response.content
+            return {'success': True, 'answer': content}
                 
         except Exception as e:
             logger.error(f"生成最终答案失败: {str(e)}")
             return {'success': False, 'error': str(e)}
 
-# 全局模型实例
 _model_instance = None
 
-def get_ali_model() -> AliCloudModel:
+def get_llm_model() -> LLMModel:
     """
-    获取阿里云模型实例（单例模式）
+    获取 LLM 模型实例（单例模式）
     """
     global _model_instance
     if _model_instance is None:
-        _model_instance = AliCloudModel()
+        _model_instance = LLMModel()
     return _model_instance

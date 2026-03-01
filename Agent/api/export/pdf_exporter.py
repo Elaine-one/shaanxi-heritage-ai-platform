@@ -35,8 +35,8 @@ class PDFExporter:
         """
         try:
             agent = get_agent()
-            ali_model = agent.ali_model if hasattr(agent, 'ali_model') else None
-            self.integrator = PDFContentIntegrator(ali_model=ali_model)
+            llm_model = agent.llm_model if hasattr(agent, 'llm_model') else None
+            self.integrator = PDFContentIntegrator(llm_model=llm_model)
             logger.info("PDF内容整合器初始化完成")
         except Exception as e:
             logger.error(f"初始化PDF内容整合器失败: {str(e)}")
@@ -59,7 +59,7 @@ class PDFExporter:
             # 使用传递的对话历史，如果没有则创建基本的历史
             conversation_history = plan_data.get('conversation_history', [])
             
-            # 如果没有对话历史但有ai_descriptions，则创建基本历史（向后兼容）
+            # 如果没有对话历史但有ai_descriptions，则创建基本历史
             if not conversation_history and plan_data.get('ai_descriptions'):
                 for desc in plan_data['ai_descriptions']:
                     conversation_history.append({

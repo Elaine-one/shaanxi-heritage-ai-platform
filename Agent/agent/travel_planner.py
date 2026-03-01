@@ -10,9 +10,9 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from loguru import logger
 from geopy.distance import geodesic
-from Agent.services.heritage_analyzer import HeritageAnalyzer
+from Agent.services.heritage_analyzer import get_heritage_analyzer
 from Agent.services.weather import get_weather_service
-from Agent.models.dashscope import get_ali_model
+from Agent.models.llm_model import get_llm_model
 
 class TravelPlanner:
     """
@@ -24,9 +24,9 @@ class TravelPlanner:
         """
         初始化旅游规划器
         """
-        self.heritage_analyzer = HeritageAnalyzer()
+        self.heritage_analyzer = get_heritage_analyzer()
         self.weather_service = get_weather_service()
-        self.ali_model = get_ali_model()
+        self.llm_model = get_llm_model()
         self.planning_progress = {}
         
         logger.info("旅游规划器初始化完成")
@@ -90,8 +90,8 @@ class TravelPlanner:
                 planning_request
             )
             
-            # 步骤4: 优化路线规划 (核心算法升级)
-            await self._update_progress(plan_id, 70, '路径规划计算', progress_callback)
+            # 步骤4: 优化路线规划
+            await self._update_progress(plan_id, 70, '优化路线规划', progress_callback)
             # 使用 v2 版本的路径规划，强制考虑出发地
             optimized_route = await self._optimize_travel_route_v2(
                 heritage_analysis['heritage_items'],
@@ -109,7 +109,7 @@ class TravelPlanner:
                 planning_request
             )
             
-            # 【关键修复】确保返回数据中包含前端需要的 estimated_time
+            # 确保返回数据中包含前端需要的 estimated_time
             complete_plan['estimated_time'] = "2-5分钟"
 
             # 步骤6: 完成规划
@@ -226,7 +226,7 @@ class TravelPlanner:
 
             logger.info(f"生成AI建议，用户参数：出发地={departure_location}, 天数={travel_days}天, 人数={group_size}人, 预算={budget_range}, 交通={travel_mode}")
             
-            ai_response = await self.ali_model._call_model(prompt)
+            ai_response = await self.llm_model._call_model(prompt)
             
             logger.info(f"AI建议生成完成")
             
@@ -253,7 +253,7 @@ class TravelPlanner:
                 'error': str(e)
             }
 
-    # ------------------ 百度地图 API 集成 ------------------
+    # 百度地图 API 集成
 
     async def _get_coordinates(self, location_name: str) -> tuple:
         """
@@ -350,7 +350,7 @@ class TravelPlanner:
             
             # 4. 按天分组 (考虑每天的容量)
             daily_itinerary = []
-            # 【关键修改】使用安全的天数变量
+            # 使用安全的天数变量
             items_per_day = len(ordered_route) / safe_travel_days
             
             current_item_idx = 0

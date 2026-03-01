@@ -46,7 +46,7 @@ class HeritageSearchTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "查询非物质文化遗产项目的详细信息，包括名称、类别、地区、描述、传承人信息等。适用于回答用户关于特定非遗项目的问题。"
+        return "查询非物质文化遗产项目的详细信息。支持两种查询方式：1) 通过heritage_id精确查询；2) 通过keywords关键词模糊搜索。返回结果包含项目ID、名称、类别、地区、描述等。"
 
     @property
     def parameters(self) -> Dict[str, Any]:
@@ -55,19 +55,19 @@ class HeritageSearchTool(BaseTool):
             "properties": {
                 "heritage_id": {
                     "type": "integer",
-                    "description": "非遗项目ID（可选，如果不知道ID可使用关键词搜索）"
-                },
-                "category": {
-                    "type": "string",
-                    "description": "非遗类别，如：传统技艺、民间文学、传统音乐、传统舞蹈、戏曲、曲艺、传统体育游艺与杂技、传统美术、传统医药、民俗"
-                },
-                "region": {
-                    "type": "string",
-                    "description": "地区名称，如：西安、咸阳、宝鸡等陕西城市"
+                    "description": "非遗项目ID（整数），如17、20。用于精确查询特定项目"
                 },
                 "keywords": {
                     "type": "string",
-                    "description": "搜索关键词，用于模糊匹配名称或描述"
+                    "description": "搜索关键词，用于模糊匹配项目名称或描述，如'皮影戏'"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "非遗类别筛选：传统技艺、民间文学、传统音乐、传统舞蹈、戏曲、曲艺、传统体育游艺与杂技、传统美术、传统医药、民俗"
+                },
+                "region": {
+                    "type": "string",
+                    "description": "地区筛选，如：西安、咸阳、宝鸡等陕西城市"
                 }
             },
             "required": []
@@ -77,37 +77,46 @@ class HeritageSearchTool(BaseTool):
                       region: str = None, keywords: str = None) -> Dict[str, Any]:
         """执行非遗项目查询"""
         try:
-            from ..services.heritage_analyzer import HeritageAnalyzer
-            analyzer = HeritageAnalyzer()
-
+            import aiohttp
+            from Agent.config import config
+            
+            backend_url = config.BACKEND_API_URL
+            
             if heritage_id:
-                result = await analyzer.analyze_heritage_items([heritage_id])
+                api_url = f"{backend_url}/items/?ids={heritage_id}"
             else:
-                result = await analyzer.analyze_heritage_items([])
-
-            if result.get('success') and result.get('heritage_items'):
-                items = result['heritage_items']
-                filtered_items = items
-
-                if category:
-                    filtered_items = [item for item in filtered_items
-                                     if category in item.get('category', '')]
-                if region:
-                    filtered_items = [item for item in filtered_items
-                                     if region in item.get('region', '')]
+                params = []
                 if keywords:
-                    kw = keywords.lower()
-                    filtered_items = [item for item in filtered_items
-                                     if kw in item.get('name', '').lower()
-                                     or kw in item.get('description', '').lower()]
-
-                return {
-                    'success': True,
-                    'heritage_items': filtered_items,
-                    'count': len(filtered_items)
-                }
-
-            return {'success': False, 'error': result.get('error', '未找到相关项目')}
+                    params.append(f"search={keywords}")
+                if category:
+                    params.append(f"category={category}")
+                if region:
+                    params.append(f"region={region}")
+                
+                if params:
+                    api_url = f"{backend_url}/items/?{'&'.join(params)}"
+                else:
+                    api_url = f"{backend_url}/items/"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        if isinstance(data, dict) and 'results' in data:
+                            items = data['results']
+                        elif isinstance(data, list):
+                            items = data
+                        else:
+                            items = []
+                        
+                        return {
+                            'success': True,
+                            'heritage_items': items,
+                            'count': len(items)
+                        }
+                    else:
+                        return {'success': False, 'error': f'API请求失败: {response.status}'}
 
         except Exception as e:
             logger.error(f"非遗查询失败: {str(e)}")
@@ -206,7 +215,7 @@ class TravelRouteTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "根据非遗项目列表和用户偏好，生成优化的旅游路线规划。包括日程安排、交通路线、停留时间建议等。"
+        return "根据非遗项目ID列表和用户偏好，生成优化的旅游路线规划。注意：heritage_ids必须是整数ID数组（如[17,20]），不能是项目名称。如需通过名称查找项目，请先使用heritage_search工具获取ID。"
 
     @property
     def parameters(self) -> Dict[str, Any]:
@@ -216,19 +225,19 @@ class TravelRouteTool(BaseTool):
                 "heritage_ids": {
                     "type": "array",
                     "items": {"type": "integer"},
-                    "description": "非遗项目ID列表"
+                    "description": "非遗项目ID数组（整数），如[17, 20]。必须是数字ID，不能是名称字符串"
                 },
                 "travel_days": {
                     "type": "integer",
-                    "description": "旅行天数"
+                    "description": "旅行天数（整数），如3"
                 },
                 "departure_location": {
                     "type": "string",
-                    "description": "出发地城市"
+                    "description": "出发地城市名称，如'西安'"
                 },
                 "travel_mode": {
                     "type": "string",
-                    "description": "出行方式：自驾、公共交通、步行等"
+                    "description": "出行方式：自驾、公共交通"
                 },
                 "budget_range": {
                     "type": "string",
@@ -243,7 +252,7 @@ class TravelRouteTool(BaseTool):
                       budget_range: str = "中等") -> Dict[str, Any]:
         """执行路线规划"""
         try:
-            from .travel_planner import get_travel_planner
+            from Agent.agent.travel_planner import get_travel_planner
             planner = get_travel_planner()
 
             planning_request = {
@@ -301,12 +310,12 @@ class KnowledgeBaseTool(BaseTool):
     async def execute(self, question: str, category: str = "其他") -> Dict[str, Any]:
         """执行知识库问答"""
         try:
-            from .ali_model import get_ali_model
-            ali_model = get_ali_model()
+            from Agent.models.llm_model import get_llm_model
+            llm_model = get_llm_model()
 
             prompt = self._build_knowledge_prompt(question, category)
 
-            response = await ali_model._call_model(prompt)
+            response = await llm_model._call_model(prompt)
 
             if response.get('success'):
                 return {
@@ -365,12 +374,12 @@ class PlanEditTool(BaseTool):
                       edit_request: str) -> Dict[str, Any]:
         """执行规划编辑"""
         try:
-            from .ali_model import get_ali_model
-            ali_model = get_ali_model()
+            from Agent.models.llm_model import get_llm_model
+            llm_model = get_llm_model()
 
             prompt = self._build_edit_prompt(current_plan, edit_request)
 
-            response = await ali_model._call_model(prompt)
+            response = await llm_model._call_model(prompt)
 
             if response.get('success'):
                 import json
@@ -482,11 +491,12 @@ class ToolRegistry:
 
         for tool in default_tools:
             self.register(tool)
+        
+        logger.info(f"工具注册完成，共 {len(self._tools)} 个工具: {', '.join(self._tools.keys())}")
 
     def register(self, tool: BaseTool):
         """注册工具"""
         self._tools[tool.name] = tool
-        logger.debug(f"工具已注册: {tool.name}")
 
     def get_tool(self, name: str) -> Optional[BaseTool]:
         """获取工具"""
