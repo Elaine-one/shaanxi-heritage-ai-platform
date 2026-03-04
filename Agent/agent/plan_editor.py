@@ -37,17 +37,7 @@ class PlanEditor:
                                plan_id: str, 
                                original_plan: Dict[str, Any],
                                user_id: str = None) -> Dict[str, Any]:
-        """
-        开始编辑会话
-        
-        Args:
-            plan_id (str): 规划ID
-            original_plan (Dict[str, Any]): 原始规划数据
-            user_id (str, optional): 用户ID
-        
-        Returns:
-            Dict[str, Any]: 编辑会话信息
-        """
+        """开始编辑会话"""
         try:
             session_pool = get_session_pool()
              
@@ -87,19 +77,10 @@ class PlanEditor:
                 'timestamp': datetime.now().isoformat()
             }
     
-    async def process_edit_request(self, 
-                                 session_id: str, 
-                                 user_message: str) -> Dict[str, Any]:
-        """
-        处理用户的对话请求
-        
-        Args:
-            session_id (str): 编辑会话ID
-            user_message (str): 用户消息
-        
-        Returns:
-            Dict[str, Any]: 处理结果
-        """
+    async def process_edit_request_stream(self, 
+                                       session_id: str, 
+                                       user_message: str):
+        """流式处理用户的对话请求"""
         try:
             session_pool = get_session_pool()
             
@@ -107,11 +88,8 @@ class PlanEditor:
             session_context = session_pool.get_session(session_id)
             
             if not session_context:
-                return {
-                    'success': False,
-                    'error': '编辑会话不存在或已过期',
-                    'error_type': 'session_not_found'
-                }
+                yield "错误: 编辑会话不存在或已过期"
+                return
             
             # 获取当前规划数据
             current_plan = session_context.current_plan
@@ -130,88 +108,36 @@ class PlanEditor:
             # 获取对话历史
             conversation_history = session_context.conversation_history
             
-            # 使用ReAct推理生成AI响应
-            ai_response = await self._generate_ai_response_with_react(
-                session_id, user_message, current_plan, conversation_history
-            )
+            # 构建规划摘要
+            plan_summary = self._build_plan_summary(current_plan)
             
-            # 记录AI响应
-            session_context.conversation_history.append({
-                'role': 'assistant',
-                'content': ai_response,
-                'timestamp': datetime.now().isoformat()
-            })
+            # 构建上下文
+            context = ""
+            if plan_summary:
+                context = f"""【当前用户规划信息 - 请务必参考】
+{plan_summary}
+
+"""
             
-            # 更新会话上下文
-            session_pool.update_session_context(session_id, session_context)
+            if conversation_history:
+                history_context = self.react_agent._build_conversation_context(conversation_history)
+                if history_context:
+                    context += f"{history_context}\n"
             
-            # 生成综合规划（合并对话内容和天气信息）
-            comprehensive_result = await self.generate_comprehensive_plan(session_id)
+            # 使用 ReAct Agent 流式运行
+            async for chunk in self.react_agent.run_stream(user_message, plan_summary, conversation_history):
+                yield chunk
             
-            # 构建最终响应，包含AI回复和导出选项
-            final_response = ai_response
-            if comprehensive_result['success']:
-                final_response += "\n\n" + "="*50 + "\n"
-                final_response += "📋 **综合规划摘要**\n"
-                
-                comprehensive_plan = comprehensive_result['comprehensive_plan']
-                
-                # 添加基本信息
-                basic_info = comprehensive_plan.get('basic_info', {})
-                if basic_info.get('destination'):
-                    final_response += f"🎯 **目的地**: {basic_info['destination']}\n"
-                if basic_info.get('duration') or basic_info.get('travel_days'):
-                    days = basic_info.get('duration', basic_info.get('travel_days', ''))
-                    final_response += f"📅 **行程天数**: {days}天\n"
-                if basic_info.get('budget'):
-                    final_response += f"💰 **预算**: {basic_info['budget']}元\n"
-                
-                # 添加天气信息
-                weather_info = comprehensive_plan.get('weather_forecast')
-                if weather_info and weather_info.get('success'):
-                    final_response += "\n🌤️ **天气预报**:\n"
-                    forecast = weather_info.get('forecast', [])
-                    for i, day in enumerate(forecast[:3]):  # 显示前3天
-                        final_response += f"  {day.get('date', '')}: {day.get('condition', '')} {day.get('min_temp', '')}°C~{day.get('max_temp', '')}°C\n"
-                
-                # 添加对话摘要
-                conv_summary = comprehensive_plan.get('conversation_summary', {})
-                if conv_summary.get('total_messages', 0) > 0:
-                    final_response += f"\n💬 **对话统计**: 共{conv_summary['total_messages']}条消息\n"
-                
-                final_response += "\n" + "="*50 + "\n"
-                final_response += "📄 **导出规划**: 您可以通过主系统导出精美的PDF出行表格\n"
-                final_response += "💡 PDF导出功能已整合到专门的内容整合器中，提供更智能的AI内容整合。"
-            
-            return {
-                'success': True,
-                'response': final_response,
-                'changes_made': False,
-                'session_id': session_id,
-                'comprehensive_plan_available': comprehensive_result['success']
-            }
+            # 注意：流式输出不更新会话历史，因为需要完整响应
+            # 如果需要记录完整响应，可以在流式结束后调用 process_edit_request
             
         except Exception as e:
-            logger.error(f"处理编辑请求时发生错误: {str(e)}")
+            logger.error(f"流式处理编辑请求时发生错误: {str(e)}")
             logger.exception("完整错误堆栈:")
-            return {
-                'success': False,
-                'error': f'处理编辑请求失败: {str(e)}',
-                'error_type': 'edit_request_error',
-                'session_id': session_id,
-                'timestamp': datetime.now().isoformat()
-            }
+            yield f"错误: 处理编辑请求失败: {str(e)}"
     
     def _generate_plan_understanding(self, plan: Dict[str, Any]) -> str:
-        """
-        生成规划理解文本
-        
-        Args:
-            plan (Dict[str, Any]): 规划数据
-        
-        Returns:
-            str: 规划理解文本
-        """
+        """生成规划理解文本"""
         try:
             understanding_parts = []
             
@@ -262,69 +188,8 @@ class PlanEditor:
             logger.warning(f"生成规划理解时发生错误: {str(e)}")
             return f"规划信息: {json.dumps(plan, ensure_ascii=False, indent=2)}"
     
-    async def _generate_ai_response_with_react(
-        self, 
-        session_id: str, 
-        user_message: str, 
-        current_plan: Dict[str, Any],
-        conversation_history: List[Dict[str, Any]]
-    ) -> str:
-        """
-        使用LangChain ReAct Agent生成AI响应
-        
-        Args:
-            session_id (str): 会话ID
-            user_message (str): 用户消息
-            current_plan (Dict[str, Any]): 当前规划
-            conversation_history (List[Dict[str, Any]]): 对话历史
-        
-        Returns:
-            str: AI响应
-        """
-        try:
-            logger.info(f"LangChain Agent: 开始处理用户输入: {user_message[:50]}...")
-            
-            # 调试：打印规划数据结构
-            logger.debug(f"current_plan keys: {list(current_plan.keys()) if current_plan else 'None'}")
-            logger.debug(f"basic_info: {current_plan.get('basic_info', 'missing')}")
-            
-            # 构建规划摘要
-            plan_summary = self._build_plan_summary(current_plan)
-            logger.debug(f"plan_summary: {plan_summary}")
-            
-            # 调用LangChain Agent
-            agent_result = await self.react_agent.run(
-                user_input=user_message,
-                plan_summary=plan_summary,
-                conversation_history=conversation_history
-            )
-            
-            logger.info(f"LangChain Agent: 处理完成，success={agent_result.get('success')}")
-            
-            if agent_result.get('success'):
-                answer = agent_result.get('answer', '')
-                logger.info(f"LangChain Agent: 成功返回答案，长度={len(answer)}")
-                return answer
-            else:
-                error = agent_result.get('error', '未知错误')
-                logger.error(f"LangChain Agent: 处理失败: {error}")
-                return f"抱歉，处理您的请求时遇到了问题: {error}"
-                
-        except Exception as e:
-            logger.error(f"LangChain Agent执行异常: {str(e)}")
-            logger.exception("完整错误堆栈:")
-            return f"抱歉，处理您的消息时出现了问题: {str(e)}"
-    
     def _build_plan_summary(self, plan: Dict[str, Any]) -> str:
-        """
-        构建规划摘要
-        
-        Args:
-            plan (Dict[str, Any]): 规划数据
-        
-        Returns:
-            str: 规划摘要
-        """
+        """构建规划摘要"""
         try:
             summary_parts = []
             
@@ -385,15 +250,7 @@ class PlanEditor:
             return str(plan)
     
     def end_session(self, session_id: str) -> Dict[str, Any]:
-        """
-        结束编辑会话
-        
-        Args:
-            session_id (str): 会话ID
-        
-        Returns:
-            Dict[str, Any]: 结束结果
-        """
+        """结束编辑会话"""
         try:
             session_pool = get_session_pool()
             result = session_pool.remove_session(session_id)
@@ -418,15 +275,7 @@ class PlanEditor:
             }
     
     def get_session_info(self, session_id: str) -> Dict[str, Any]:
-        """
-        获取会话信息
-        
-        Args:
-            session_id (str): 会话ID
-        
-        Returns:
-            Dict[str, Any]: 会话信息
-        """
+        """获取会话信息"""
         try:
             session_pool = get_session_pool()
             session_context = session_pool.get_session(session_id)
@@ -458,15 +307,7 @@ class PlanEditor:
             }
     
     async def generate_comprehensive_plan(self, session_id: str) -> Dict[str, Any]:
-        """
-        生成包含对话内容和天气信息的综合规划
-        
-        Args:
-            session_id (str): 会话ID
-        
-        Returns:
-            Dict[str, Any]: 综合规划数据
-        """
+        """生成包含对话内容和天气信息的综合规划"""
         try:
             session_pool = get_session_pool()
             session_context = session_pool.get_session(session_id)
@@ -512,15 +353,7 @@ class PlanEditor:
     # 请使用PDFContentIntegrator类进行PDF导出
     
     async def _get_destination_weather(self, destination: str) -> Dict[str, Any]:
-        """
-        根据目的地获取天气信息
-        
-        Args:
-            destination (str): 目的地名称
-        
-        Returns:
-            Dict[str, Any]: 天气信息
-        """
+        """根据目的地获取天气信息"""
         try:
             # 使用地理编码服务获取坐标
             from Agent.services.geocoding import get_geocoding_service
@@ -545,15 +378,7 @@ class PlanEditor:
             }
     
     def _summarize_conversation(self, conversation_history: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        总结对话内容
-        
-        Args:
-            conversation_history (List[Dict[str, Any]]): 对话历史
-        
-        Returns:
-            Dict[str, Any]: 对话摘要
-        """
+        """总结对话内容"""
         try:
             if not conversation_history:
                 return {
@@ -589,16 +414,7 @@ class PlanEditor:
     # 请使用PDFContentIntegrator类的相关方法
     
     async def apply_plan_changes(self, session_id: str, final_plan: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        应用规划修改，覆盖原有规划
-        
-        Args:
-            session_id (str): 会话ID
-            final_plan (Dict[str, Any]): 最终规划数据
-        
-        Returns:
-            Dict[str, Any]: 应用结果
-        """
+        """应用规划修改，覆盖原有规划"""
         try:
             logger.info(f"开始应用规划修改，会话ID: {session_id}")
             

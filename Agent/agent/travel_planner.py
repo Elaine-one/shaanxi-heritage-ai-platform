@@ -34,16 +34,7 @@ class TravelPlanner:
     async def create_travel_plan(self, 
                                planning_request: Dict[str, Any],
                                progress_callback: Optional[callable] = None) -> Dict[str, Any]:
-        """
-        创建旅游规划
-        
-        Args:
-            planning_request (Dict[str, Any]): 规划请求参数
-            progress_callback (Optional[callable]): 进度回调函数
-        
-        Returns:
-            Dict[str, Any]: 旅游规划结果
-        """
+        """创建旅游规划"""
         try:
             plan_id = planning_request.get('plan_id', f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
             logger.info(f"开始创建旅游规划: {plan_id}")
@@ -156,7 +147,6 @@ class TravelPlanner:
             logger.info(f"进度更新: {plan_id} -> {new_progress}% - {step_name}")
             
             if progress_callback:
-                logger.debug(f"调用进度回调: {plan_id}")
                 await progress_callback(plan_id, self.planning_progress[plan_id])
     
     async def _get_weather_for_locations(self, 
@@ -195,6 +185,8 @@ class TravelPlanner:
         生成AI建议，基于用户参数提供个性化建议
         """
         try:
+            from Agent.prompts import get_ai_suggestions_prompt
+            
             travel_days = planning_request.get('travel_days', 3)
             departure_location = planning_request.get('departure_location', '')
             group_size = planning_request.get('group_size', 2)
@@ -205,26 +197,14 @@ class TravelPlanner:
             heritage_items = heritage_analysis.get('heritage_items', [])
             heritage_names = ', '.join([item['name'] for item in heritage_items])
             
-            prompt = f"""你是一位专业的旅游规划师。请根据以下用户需求提供个性化旅游建议：
-
-用户信息：
-- 出发地：{departure_location}
-- 天数：{travel_days}天
-- 人数：{group_size}人
-- 预算：{budget_range}
-- 交通方式：{travel_mode}
-- 特殊要求：{', '.join(special_requirements) if special_requirements else '无'}
-- 非遗项目：{heritage_names}
-
-请提供以下内容：
-1. 个性化旅游建议（根据天数、人数、预算、交通方式等）
-2. 旅行注意事项（基于天气情况和非遗项目特点）
-3. 装备清单（根据天数和季节）
-4. 预算估算（根据天数、人数和预算档次）
-
-请用简洁明了的语言回答，不要使用markdown格式。"""
-
-            logger.info(f"生成AI建议，用户参数：出发地={departure_location}, 天数={travel_days}天, 人数={group_size}人, 预算={budget_range}, 交通={travel_mode}")
+            prompt = get_ai_suggestions_prompt(
+                departure_location=departure_location,
+                travel_days=travel_days,
+                people_count=group_size,
+                budget_range=budget_range,
+                travel_mode=travel_mode,
+                heritage_names=heritage_names
+            )
             
             ai_response = await self.llm_model._call_model(prompt)
             
@@ -277,7 +257,7 @@ class TravelPlanner:
             start_location = request.get('departure_location', '')
             travel_days = request.get('travel_days', 3)
             
-            # 【手术式修改】健壮性：确保天数至少为1天，防止后续计算 items_per_day 时除零
+            # 确保天数至少为1天，防止除零错误
             safe_travel_days = max(1, int(travel_days))
             
             logger.info(f"开始路径规划，出发地: {start_location}, 项目数: {len(items)}, 天数: {safe_travel_days}")
@@ -355,7 +335,7 @@ class TravelPlanner:
             
             current_item_idx = 0
             
-            # 【手术式修改】获取全量天气位置映射
+            # 获取全量天气位置映射
             weather_locations = weather_data.get('locations', {}) if weather_data.get('success') else {}
             
             for day in range(1, safe_travel_days + 1):
@@ -374,7 +354,7 @@ class TravelPlanner:
                         day_items.append(ordered_route[current_item_idx])
                         current_item_idx += 1
 
-                # 【手术式新增逻辑】注入当天特定地点的天气
+                # 注入当天特定地点的天气
                 day_weather_info = None
                 if day_items and weather_locations:
                     # 规则：以当天第一个景点作为该天的天气参考中心
@@ -470,7 +450,7 @@ class TravelPlanner:
         plan_id = planning_request.get('plan_id', f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         itinerary = optimized_route.get('daily_itinerary', [])
         
-        # 【替换】不再做无意义的时间计算，改为“行程节奏分析”
+        # 行程节奏分析
         pace_summary = {
             'overall_pace': "舒适", # 默认
             'busy_days': [d['day'] for d in itinerary if '特种兵' in d.get('pace_label','')],
@@ -496,7 +476,7 @@ class TravelPlanner:
             
             'heritage_items': heritage_analysis.get('heritage_items', []),
             'itinerary': itinerary,
-            'pace_analysis': pace_summary, # 【替换】用这个替代 time_analysis
+            'pace_analysis': pace_summary,  # 行程节奏分析
             'weather_info': weather_data,
             'heritage_overview': {
                 'heritage_items': heritage_analysis.get('heritage_items', []) # 确保数据在 overview 里也有一份

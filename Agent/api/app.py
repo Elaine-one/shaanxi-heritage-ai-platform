@@ -554,15 +554,48 @@ async def cleanup_temp_file(path: str):
             os.remove(path)
     except Exception: pass
 
-@app.post("/api/agent/chat", summary="AI对话")
-async def agent_chat(request: Dict[str, Any], current_user: TokenData = Depends(get_current_user_from_session)):
-    """与AI助手进行对话交互"""
+@app.post("/api/agent/chat-stream", summary="AI对话流式")
+async def agent_chat_stream(request: Dict[str, Any], current_user: TokenData = Depends(get_current_user_from_session)):
+    """与AI助手进行流式对话交互"""
     try:
         msg = request.get('message', '')
         sid = request.get('session_id', str(uuid.uuid4()))
         agent = get_agent()
-        resp = await agent.process_message(msg, sid)
-        return {"success": True, "data": resp, "session_id": sid}
+        
+        async def event_generator():
+            try:
+                from Agent.agent import get_plan_editor
+                plan_editor = get_plan_editor()
+                
+                # 流式输出内容
+                async for chunk in agent.process_message_stream(msg, sid):
+                    yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+                
+                # 流式输出完成后，获取会话信息并返回元数据
+                session_info = plan_editor.get_session_info(sid)
+                if session_info.get('success'):
+                    session_data = session_info.get('session_info', {})
+                    current_plan = session_data.get('current_plan', {})
+                    
+                    # 发送元数据事件
+                    yield f"data: {json.dumps({'metadata': {'changes_made': False, 'updated_plan': current_plan}}, ensure_ascii=False)}\n\n"
+                
+                # 发送完成事件
+                yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
+                
+            except Exception as e:
+                logger.error(f"流式生成异常: {str(e)}")
+                yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+        
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -10,7 +10,8 @@ class PlanEditor {
         this.chatHistory = [];
         this.isEditing = false;
         this.eventsBound = false;
-        this.isSending = false; // 防止重复发送
+        this.isSending = false;
+        this.renderThrottleTimer = null;
         this.init();
     }
 
@@ -326,42 +327,114 @@ class PlanEditor {
         const originalBtnText = sendBtn.innerHTML;
         sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         
+        // 显示"思考中"状态
+        const loadingId = this.showLoading();
+        
         try {
             if (!this.sessionId) await this.initializeChatSession();
 
-            const loadingId = this.showLoading();
-            
             const apiUrl = await this.getApiBaseUrl();
-            const response = await fetch(`${apiUrl}/edit_plan`, {
+            
+            // 使用流式接口
+            const response = await fetch(`${apiUrl}/chat-stream`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ session_id: this.sessionId, user_input: message })
+                body: JSON.stringify({ 
+                    message: message,
+                    session_id: this.sessionId 
+                })
             });
 
-            this.hideLoading(loadingId);
-            const result = await response.json();
-            
-            if (result.success) {
-                let cleanResponse = result.ai_response || "";
-                
-                // 处理可能返回的 JSON 字符串
-                if (typeof cleanResponse === 'string' && cleanResponse.trim().startsWith('{')) {
-                    try {
-                        const parsed = JSON.parse(cleanResponse);
-                        if (parsed.ai_response) cleanResponse = parsed.ai_response;
-                    } catch(e) {}
-                }
-
-                if (result.changes_made && result.updated_plan) {
-                    this.currentPlan = result.updated_plan;
-                }
-                
-                // 启用打字机效果
-                await this.addChatMessage('ai', cleanResponse, true);
-            } else {
-                this.addChatMessage('ai', '抱歉，处理您的请求时遇到了一些问题。', false);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
+
+            // 创建消息容器
+            const messageId = `msg-${Date.now()}`;
+            const chatHistory = document.getElementById('chat-history');
+            const html = `
+                <div class="chat-message ai-message">
+                    <div class="message-avatar"><i class="fas fa-robot"></i></div>
+                    <div class="message-content" id="${messageId}"></div>
+                </div>
+            `;
+            chatHistory.insertAdjacentHTML('beforeend', html);
+
+            // 移除"思考中"状态（因为已经开始接收数据）
+            this.hideLoading(loadingId);
+
+            // 读取流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullMessage = '';
+            let isDone = false;
+            let pendingRender = false;
+
+            const renderMessage = () => {
+                const html = marked.parse(fullMessage);
+                document.getElementById(messageId).innerHTML = html;
+                this.scrollToBottom();
+                pendingRender = false;
+            };
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                // 解码数据
+                buffer += decoder.decode(value, { stream: true });
+
+                // 处理 SSE 数据
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6);
+                        try {
+                            const parsed = JSON.parse(data);
+                            
+                            if (parsed.error) {
+                                this.addChatMessage('ai', `错误: ${parsed.error}`, false);
+                                return;
+                            }
+
+                            if (parsed.content) {
+                                fullMessage += parsed.content;
+                                
+                                if (!pendingRender) {
+                                    pendingRender = true;
+                                    requestAnimationFrame(() => {
+                                        renderMessage();
+                                    });
+                                }
+                            }
+                            
+                            if (parsed.done) {
+                                isDone = true;
+                            }
+                            
+                            if (parsed.metadata) {
+                                // 处理元数据
+                                if (parsed.metadata.changes_made && parsed.metadata.updated_plan) {
+                                    this.currentPlan = parsed.metadata.updated_plan;
+                                }
+                            }
+                        } catch (e) {
+                            console.error('解析 SSE 数据失败:', e);
+                        }
+                    }
+                }
+            }
+
+            if (pendingRender) {
+                renderMessage();
+            }
+
+            console.log('流式输出完成，总长度:', fullMessage.length);
+
         } catch (error) {
             console.error('发送消息失败:', error);
             this.addChatMessage('ai', '网络请求失败，请稍后重试。', false);

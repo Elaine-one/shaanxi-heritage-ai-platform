@@ -25,13 +25,7 @@ class RedisSessionPool(SessionPool):
     """
     
     def __init__(self, max_sessions: int = 100, cleanup_interval: int = 3600):
-        """
-        初始化Redis会话池
-        
-        Args:
-            max_sessions (int): 最大会话数量
-            cleanup_interval (int): 清理间隔（秒）
-        """
+        """初始化Redis会话池"""
         self.max_sessions = max_sessions
         self.cleanup_interval = cleanup_interval
         self.redis_client: Optional[Redis] = None
@@ -114,25 +108,16 @@ class RedisSessionPool(SessionPool):
                            plan_id: str, 
                            original_plan: Dict[str, Any],
                            user_id: Optional[str] = None) -> SessionContext:
-        """
-        创建新的编辑会话
-        
-        Args:
-            plan_id (str): 规划ID
-            original_plan (Dict[str, Any]): 原始规划数据
-            user_id (Optional[str]): 用户ID
-        
-        Returns:
-            SessionContext: 会话上下文
-        """
+        """创建新的编辑会话"""
         # 检查会话数量限制
         current_count = self.redis_client.zcard(self.session_index_key)
         if current_count >= self.max_sessions:
             # 清理最旧的会话
             await self._cleanup_oldest_sessions_redis(1)
         
-        # 生成会话ID
-        session_id = f"edit_{plan_id}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        # 生成会话ID (使用更简洁的格式)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        session_id = f"edit_{plan_id}_{timestamp}"
         
         # 提取核心信息
         core_info = self._extract_core_info(original_plan)
@@ -239,16 +224,7 @@ class RedisSessionPool(SessionPool):
             return None
     
     def update_session_context(self, session_id: str, session_context: SessionContext) -> bool:
-        """
-        更新整个会话上下文
-        
-        Args:
-            session_id (str): 会话ID
-            session_context (SessionContext): 更新的会话上下文
-        
-        Returns:
-            bool: 更新是否成功
-        """
+        """更新整个会话上下文"""
         session_key = self._get_session_key(session_id)
         
         # 检查会话是否存在
@@ -265,16 +241,7 @@ class RedisSessionPool(SessionPool):
         return True
     
     def update_session(self, session_id: str, updated_plan: Dict[str, Any]) -> bool:
-        """
-        更新会话的规划数据
-        
-        Args:
-            session_id (str): 会话ID
-            updated_plan (Dict[str, Any]): 更新的规划数据
-        
-        Returns:
-            bool: 更新是否成功
-        """
+        """更新会话的规划数据"""
         session = self.get_session(session_id)
         if not session:
             return False
@@ -299,15 +266,7 @@ class RedisSessionPool(SessionPool):
         return True
     
     def remove_session(self, session_id: str) -> bool:
-        """
-        移除会话
-        
-        Args:
-            session_id (str): 会话ID
-        
-        Returns:
-            bool: 移除是否成功
-        """
+        """移除会话"""
         session_key = self._get_session_key(session_id)
         
         # 使用pipeline删除会话和索引
@@ -326,15 +285,7 @@ class RedisSessionPool(SessionPool):
         return self.update_session(session_id, new_plan)
     
     def get_optimized_context(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """
-        获取优化的AI上下文（只包含必要信息）
-        
-        Args:
-            session_id (str): 会话ID
-        
-        Returns:
-            Optional[Dict[str, Any]]: 优化的上下文
-        """
+        """获取优化的AI上下文（只包含必要信息）"""
         session = self.get_session(session_id)
         if not session:
             return None
@@ -401,12 +352,7 @@ class RedisSessionPool(SessionPool):
             logger.error(f"清理最旧会话时发生错误: {str(e)}")
     
     def get_session_stats(self) -> Dict[str, Any]:
-        """
-        获取会话池统计信息
-        
-        Returns:
-            Dict[str, Any]: 统计信息
-        """
+        """获取会话池统计信息"""
         try:
             total_sessions = self.redis_client.zcard(self.session_index_key)
             
@@ -445,12 +391,7 @@ class RedisSessionPool(SessionPool):
             }
     
     def health_check(self) -> Dict[str, Any]:
-        """
-        Redis连接健康检查
-        
-        Returns:
-            Dict[str, Any]: 健康状态
-        """
+        """Redis连接健康检查"""
         try:
             self.redis_client.ping()
             info = self.redis_client.info()

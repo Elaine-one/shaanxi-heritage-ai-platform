@@ -23,20 +23,7 @@ async def get_current_user_from_session(
     request: Request,
     sessionid: Optional[str] = Cookie(None)
 ) -> TokenData:
-    """
-    从Django session中获取当前认证用户
-    通过Django后端API验证session，避免跨端口cookie问题
-    
-    Args:
-        request: FastAPI请求对象
-        sessionid: Django session cookie
-    
-    Returns:
-        TokenData: 当前用户的token数据
-    
-    Raises:
-        HTTPException: 认证失败时抛出401异常
-    """
+    """从Django session中获取当前认证用户"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="未登录或会话已过期",
@@ -104,17 +91,7 @@ async def get_current_user_optional_from_session(
     request: Request,
     sessionid: Optional[str] = Cookie(None)
 ) -> Optional[TokenData]:
-    """
-    从Django session中获取当前认证用户（可选）
-    如果没有提供session或session无效，返回None而不是抛出异常
-    
-    Args:
-        request: FastAPI请求对象
-        sessionid: Django session cookie（可选）
-    
-    Returns:
-        Optional[TokenData]: 当前用户的token数据，未认证返回None
-    """
+    """从Django session中获取当前认证用户（可选）"""
     if not sessionid:
         return None
     
@@ -124,28 +101,9 @@ async def get_current_user_optional_from_session(
         return None
 
 def require_auth_from_session(user: TokenData = Depends(get_current_user_from_session)) -> TokenData:
-    """
-    强制要求Django session认证的依赖项
-    
-    Args:
-        user: 当前用户
-    
-    Returns:
-        TokenData: 当前用户
-    
-    Raises:
-        HTTPException: 未认证时抛出401异常
-    """
+    """强制要求Django session认证的依赖项"""
     return user
 
 def optional_auth_from_session(user: Optional[TokenData] = Depends(get_current_user_optional_from_session)) -> Optional[TokenData]:
-    """
-    可选Django session认证的依赖项
-    
-    Args:
-        user: 当前用户（可选）
-    
-    Returns:
-        Optional[TokenData]: 当前用户，未认证返回None
-    """
+    """可选Django session认证的依赖项"""
     return user

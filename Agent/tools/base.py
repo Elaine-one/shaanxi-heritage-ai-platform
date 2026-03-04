@@ -10,6 +10,29 @@ from abc import ABC, abstractmethod
 from loguru import logger
 
 
+def _filter_ids_from_data(data: Any) -> Any:
+    """
+    从数据中过滤掉ID字段，避免泄露给用户
+    
+    Args:
+        data: 原始数据（字典、列表或其他类型）
+    
+    Returns:
+        过滤后的数据
+    """
+    if isinstance(data, dict):
+        filtered = {}
+        for key, value in data.items():
+            if key.lower() in ['id', 'session_id', 'plan_id', 'heritage_id', 'user_id']:
+                continue
+            filtered[key] = _filter_ids_from_data(value)
+        return filtered
+    elif isinstance(data, list):
+        return [_filter_ids_from_data(item) for item in data]
+    else:
+        return data
+
+
 class BaseTool(ABC):
     """工具基类，定义标准工具接口"""
 
@@ -110,9 +133,11 @@ class HeritageSearchTool(BaseTool):
                         else:
                             items = []
                         
+                        filtered_items = _filter_ids_from_data(items)
+                        
                         return {
                             'success': True,
-                            'heritage_items': items,
+                            'heritage_items': filtered_items,
                             'count': len(items)
                         }
                     else:
@@ -266,10 +291,13 @@ class TravelRouteTool(BaseTool):
             result = await planner.create_travel_plan(planning_request)
 
             if result.get('success'):
+                filtered_plan = _filter_ids_from_data(result.get('plan', {}))
+                filtered_route = _filter_ids_from_data(result.get('route', []))
+                
                 return {
                     'success': True,
-                    'plan': result.get('plan', {}),
-                    'route': result.get('route', [])
+                    'plan': filtered_plan,
+                    'route': filtered_route
                 }
             else:
                 return {'success': False, 'error': result.get('error', '路线规划失败')}
@@ -332,14 +360,8 @@ class KnowledgeBaseTool(BaseTool):
 
     def _build_knowledge_prompt(self, question: str, category: str) -> str:
         """构建知识库问答提示词"""
-        return f"""你是一个陕西非物质文化遗产专家。请根据你的知识回答以下问题：
-
-问题类别：{category}
-问题：{question}
-
-请提供准确、详细的回答。如果涉及具体项目，请尽量包含历史背景、文化意义和特色亮点。
-
-回答："""
+        from Agent.prompts import get_knowledge_qa_prompt
+        return get_knowledge_qa_prompt(category=category, question=question)
 
 
 class PlanEditTool(BaseTool):
@@ -385,15 +407,17 @@ class PlanEditTool(BaseTool):
                 import json
                 try:
                     edited_plan = json.loads(response['content'])
+                    filtered_plan = _filter_ids_from_data(edited_plan)
                     return {
                         'success': True,
-                        'edited_plan': edited_plan,
+                        'edited_plan': filtered_plan,
                         'changes': f"已根据'{edit_request}'修改规划"
                     }
                 except json.JSONDecodeError:
+                    filtered_current = _filter_ids_from_data(current_plan)
                     return {
                         'success': True,
-                        'edited_plan': current_plan,
+                        'edited_plan': filtered_current,
                         'changes': response['content']
                     }
             else:
@@ -407,21 +431,11 @@ class PlanEditTool(BaseTool):
                           edit_request: str) -> str:
         """构建规划编辑提示词"""
         import json
-        return f"""你是一个专业的旅游规划师。请根据用户的要求修改旅游规划。
-
-当前规划：
-{json.dumps(current_plan, ensure_ascii=False, indent=2)}
-
-用户修改要求：{edit_request}
-
-请分析用户意图，修改规划并返回完整的JSON格式规划数据。确保修改后：
-1. 行程安排合理
-2. 路线逻辑清晰
-3. 包含必要的非遗项目信息
-
-如果用户要求不合理，请提供替代建议。
-
-请只返回JSON数据，不要其他解释："""
+        from Agent.prompts import get_plan_edit_prompt
+        return get_plan_edit_prompt(
+            current_plan=json.dumps(current_plan, ensure_ascii=False, indent=2),
+            edit_request=edit_request
+        )
 
 
 class GeocodingTool(BaseTool):

@@ -50,101 +50,32 @@ class TravelPlanningAgent:
         
         logger.info("Agent初始化完成")
     
-    async def process_message(self, message: str, session_id: str) -> Dict[str, Any]:
+    async def process_message_stream(self, message: str, session_id: str):
         """
-        处理用户聊天消息
+        流式处理用户聊天消息
         
         Args:
             message (str): 用户消息
             session_id (str): 会话ID
         
-        Returns:
-            Dict[str, Any]: 处理结果，包含AI响应
+        Yields:
+            str: 流式输出的文本块
         """
         try:
-            logger.info(f"处理用户消息: {session_id} - {message[:50]}...")
+            logger.info(f"流式处理用户消息: {session_id} - {message[:50]}...")
             
             from Agent.agent import get_plan_editor
             
             # 获取plan_editor实例
             plan_editor = get_plan_editor()
             
-            # 使用plan_editor处理编辑请求
-            result = await plan_editor.process_edit_request(session_id, message)
-            
-            if result['success']:
-                # 格式化AI响应为Markdown格式
-                ai_response = result.get('ai_response', '抱歉，我无法处理您的请求。')
-                
-                # 确保响应包含适当的Markdown格式
-                formatted_response = self._format_response_as_markdown(ai_response)
-                
-                return {
-                    'success': True,
-                    'response': formatted_response,
-                    'session_id': session_id,
-                    'conversation_type': result.get('conversation_type', 'general'),
-                    'changes_made': result.get('changes_made', False)
-                }
-            else:
-                return {
-                    'success': False,
-                    'response': result.get('ai_response', '处理消息时发生错误'),
-                    'error': result.get('error', '未知错误'),
-                    'session_id': session_id
-                }
+            # 使用plan_editor流式处理编辑请求
+            async for chunk in plan_editor.process_edit_request_stream(session_id, message):
+                yield chunk
                 
         except Exception as e:
-            logger.error(f"处理消息时发生错误: {str(e)}")
-            return {
-                'success': False,
-                'response': f'抱歉，处理您的消息时发生了错误: {str(e)}',
-                'error': str(e),
-                'session_id': session_id
-            }
-    
-    def _format_response_as_markdown(self, response: str) -> str:
-        """
-        将AI响应格式化为Markdown格式
-        
-        Args:
-            response (str): 原始AI响应
-        
-        Returns:
-            str: 格式化后的Markdown响应
-        """
-        try:
-            # 如果响应已经包含Markdown格式，直接返回
-            if any(marker in response for marker in ['###', '##', '#', '**', '*', '- ', '1. ']):
-                return response
-            
-            # 否则，为响应添加基本的Markdown格式
-            lines = response.split('\n')
-            formatted_lines = []
-            
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    formatted_lines.append('')
-                    continue
-                
-                # 检测是否为标题（包含关键词）
-                if any(keyword in line for keyword in ['建议', '推荐', '注意', '提醒', '总结']):
-                    formatted_lines.append(f'### {line}')
-                # 检测是否为列表项
-                elif line.startswith(('1.', '2.', '3.', '4.', '5.', '•', '-')):
-                    if not line.startswith('- '):
-                        formatted_lines.append(f'- {line}')
-                    else:
-                        formatted_lines.append(line)
-                else:
-                    formatted_lines.append(line)
-            
-            return '\n'.join(formatted_lines)
-            
-        except Exception as e:
-            logger.warning(f"格式化Markdown时发生错误: {str(e)}")
-            return response
+            logger.error(f"流式处理消息时发生错误: {str(e)}")
+            yield f"错误: {str(e)}"
     
     async def create_travel_plan(self, 
                                user_id: int,

@@ -2,11 +2,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-import logging
+from loguru import logger
 
 from Agent.services.weather import get_weather_service
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/weather", tags=["天气服务"])
 
 

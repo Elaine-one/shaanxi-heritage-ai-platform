@@ -239,10 +239,11 @@ cd backend && python manage.py migrate
 
 # 4. 启动服务
 # 终端1: Django后端
-python manage.py runserver 0.0.0.0:8000
+cd backend
+python manage.py runserver
 
-# 终端2: Agent服务
-cd Agent && python -m uvicorn Agent.api.app:app --host 0.0.0.0 --port 8001
+# 终端2: Agent服务 
+python -m Agent.api.app
 ```
 
 ### 访问地址
