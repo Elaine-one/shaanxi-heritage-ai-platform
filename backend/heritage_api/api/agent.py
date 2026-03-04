@@ -148,7 +148,7 @@ def proxy_agent_request(request, path):
         client = get_http_client()
         
         # 检查是否为 SSE 请求
-        if 'progress-stream' in path:
+        if 'progress-stream' in path or 'chat-stream' in path:
             logger.info(f"[SSE代理] 检测到SSE请求，启用流式转发")
             return StreamingHttpResponse(
                 _sse_stream_generator(client, method, target_url, params, content, headers),

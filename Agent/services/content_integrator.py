@@ -14,7 +14,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 from loguru import logger
 from Agent.utils.content_extractor import ContentExtractor
-from Agent.prompts import CONVERSATION_SUMMARY_PROMPT
+from Agent.prompts import get_conversation_summary_prompt
 
 
 class AIContentIntegrator:
@@ -148,7 +148,7 @@ class AIContentIntegrator:
 
     async def _ai_autonomous_content_integration(self, result: Dict[str, Any], conversation_history: List[Dict] = None) -> Dict[str, Any]:
         """
-        核心手术式修改：AI自主整合内容
+        AI自主整合内容
         """
         try:
             # 1. 基础数据提取
@@ -298,7 +298,7 @@ class AIContentIntegrator:
             logger.info(f"开始对 {len(conversation_history)} 条对话历史进行智能摘要...")
             
             # 使用 LLM 进行智能摘要
-            summary_prompt = CONVERSATION_SUMMARY_PROMPT.format(
+            summary_prompt = get_conversation_summary_prompt(
                 conversation_history=conversation_text
             )
             

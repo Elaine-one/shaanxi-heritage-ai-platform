@@ -79,23 +79,6 @@ async def start_edit_session(request: StartEditSessionRequest, current_user: Tok
         raise HTTPException(status_code=500, detail='服务器内部错误')
 
 
-@edit_router.post('/edit_plan', summary="编辑规划", response_model=EditResponse)
-async def edit_plan(request: EditPlanRequest, current_user: TokenData = Depends(get_current_user_from_session)):
-    """向AI发送编辑请求，修改旅游规划"""
-    try:
-        result = await plan_editor.process_edit_request(request.session_id, request.user_input)
-        
-        return EditResponse(
-            success=result['success'],
-            ai_response=result.get('response', ''),
-            changes_made=result.get('changes_made', False),
-            message=result.get('message', '')
-        )
-    except Exception as e:
-        logger.error(f"编辑错误: {str(e)}")
-        raise HTTPException(status_code=500, detail='处理失败')
-
-
 @edit_router.post('/export_pdf', summary="导出PDF", response_model=EditResponse)
 async def export_plan_pdf(request: ExportPdfRequest, current_user: TokenData = Depends(get_current_user_from_session)):
     """将当前编辑的规划导出为PDF文件"""

@@ -75,13 +75,7 @@ class SessionPool:
     """
     
     def __init__(self, max_sessions: int = 100, cleanup_interval: int = 3600):
-        """
-        初始化会话池
-        
-        Args:
-            max_sessions (int): 最大会话数量
-            cleanup_interval (int): 清理间隔（秒）
-        """
+        """初始化会话池"""
         self.max_sessions = max_sessions
         self.cleanup_interval = cleanup_interval
         
@@ -116,25 +110,16 @@ class SessionPool:
                            plan_id: str, 
                            original_plan: Dict[str, Any],
                            user_id: Optional[str] = None) -> SessionContext:
-        """
-        创建新的编辑会话
-        
-        Args:
-            plan_id (str): 规划ID
-            original_plan (Dict[str, Any]): 原始规划数据
-            user_id (Optional[str]): 用户ID
-        
-        Returns:
-            SessionContext: 会话上下文
-        """
+        """创建新的编辑会话"""
         with self.session_lock:
             # 检查会话数量限制
             if len(self.sessions) >= self.max_sessions:
                 # 清理最旧的会话
                 self._cleanup_oldest_sessions(1)
             
-            # 生成会话ID
-            session_id = f"edit_{plan_id}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+            # 生成会话ID (使用更简洁的格式)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            session_id = f"edit_{plan_id}_{timestamp}"
             
             # 提取核心信息
             core_info = self._extract_core_info(original_plan)
@@ -156,15 +141,7 @@ class SessionPool:
             return session_context
     
     def _extract_core_info(self, plan: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        从规划数据中提取AI所需的核心信息
-        
-        Args:
-            plan (Dict[str, Any]): 规划数据
-        
-        Returns:
-            Dict[str, Any]: 核心信息
-        """
+        """从规划数据中提取AI所需的核心信息"""
         core_info = {
             'weather_info': None,
             'selected_heritage_items': [],
@@ -281,16 +258,7 @@ class SessionPool:
             return session
     
     def update_session_context(self, session_id: str, session_context: SessionContext) -> bool:
-        """
-        更新整个会话上下文
-        
-        Args:
-            session_id (str): 会话ID
-            session_context (SessionContext): 更新的会话上下文
-        
-        Returns:
-            bool: 更新是否成功
-        """
+        """更新整个会话上下文"""
         with self.session_lock:
             if session_id not in self.sessions:
                 return False
@@ -303,16 +271,7 @@ class SessionPool:
             return True
     
     def update_session(self, session_id: str, updated_plan: Dict[str, Any]) -> bool:
-        """
-        更新会话的规划数据
-        
-        Args:
-            session_id (str): 会话ID
-            updated_plan (Dict[str, Any]): 更新的规划数据
-        
-        Returns:
-            bool: 更新是否成功
-        """
+        """更新会话的规划数据"""
         with self.session_lock:
             session = self.sessions.get(session_id)
             if not session:
@@ -336,15 +295,7 @@ class SessionPool:
             return True
     
     def remove_session(self, session_id: str) -> bool:
-        """
-        移除会话
-        
-        Args:
-            session_id (str): 会话ID
-        
-        Returns:
-            bool: 移除是否成功
-        """
+        """移除会话"""
         with self.session_lock:
             if session_id in self.sessions:
                 del self.sessions[session_id]
@@ -353,16 +304,7 @@ class SessionPool:
             return False
     
     def update_session_plan(self, session_id: str, new_plan: Dict[str, Any]) -> bool:
-        """
-        更新会话中的规划数据
-        
-        Args:
-            session_id (str): 会话ID
-            new_plan (Dict[str, Any]): 新的规划数据
-        
-        Returns:
-            bool: 更新是否成功
-        """
+        """更新会话中的规划数据"""
         if session_id in self.sessions:
             self.sessions[session_id].current_plan = new_plan
             self.sessions[session_id].last_activity = datetime.now()
@@ -370,15 +312,7 @@ class SessionPool:
         return False
     
     def get_optimized_context(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """
-        获取优化的AI上下文（只包含必要信息）
-        
-        Args:
-            session_id (str): 会话ID
-        
-        Returns:
-            Optional[Dict[str, Any]]: 优化的上下文
-        """
+        """获取优化的AI上下文（只包含必要信息）"""
         session = self.get_session(session_id)
         if not session:
             return None
@@ -396,12 +330,7 @@ class SessionPool:
         }
     
     def cleanup_expired_sessions(self, max_age_hours: int = 24):
-        """
-        清理过期会话
-        
-        Args:
-            max_age_hours (int): 最大会话年龄（小时）
-        """
+        """清理过期会话"""
         with self.session_lock:
             cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
             expired_sessions = []
@@ -419,12 +348,7 @@ class SessionPool:
                 logger.info(f"清理了 {len(expired_sessions)} 个过期会话")
     
     def _cleanup_oldest_sessions(self, count: int):
-        """
-        清理最旧的会话
-        
-        Args:
-            count (int): 要清理的会话数量
-        """
+        """清理最旧的会话"""
         if not self.sessions:
             return
         
@@ -441,12 +365,7 @@ class SessionPool:
             logger.info(f"清理最旧会话: {session_id}")
     
     def get_session_stats(self) -> Dict[str, Any]:
-        """
-        获取会话池统计信息
-        
-        Returns:
-            Dict[str, Any]: 统计信息
-        """
+        """获取会话池统计信息"""
         with self.session_lock:
             total_sessions = len(self.sessions)
             active_sessions = 0

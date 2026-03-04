@@ -4,14 +4,16 @@ ReAct Agent 实现
 使用自定义 ReAct 循环，支持多厂商 LLM 切换
 """
 
+import asyncio
 import json
 import re
 from typing import Dict, Any, List, Optional
 from loguru import logger
 
 from Agent.models.llm_factory import get_llm
+from Agent.models.llm_model import LLMModel
 from Agent.tools.base import get_tool_registry
-from Agent.prompts import REACT_SYSTEM_PROMPT
+from Agent.prompts import REACT_SYSTEM_PROMPT, get_react_prompt
 
 
 class LangChainReActAgent:
@@ -23,6 +25,7 @@ class LangChainReActAgent:
         自动从配置加载 LLM（支持多厂商切换）
         """
         self.llm = get_llm()
+        self.llm_model = LLMModel()
         self.tool_registry = get_tool_registry()
         self.tools = self.tool_registry.get_tool_names()
         self.max_iterations = 10
@@ -40,146 +43,22 @@ class LangChainReActAgent:
 
     def _build_react_prompt(self, user_input: str, context: str = "") -> str:
         """构建 ReAct 提示词"""
+        from datetime import datetime
+        current_date = datetime.now().strftime('%Y年%m月%d日')
+        
         tool_desc = self._build_tool_descriptions()
         tool_names = ", ".join(self.tools)
         
-        prompt = f"""{REACT_SYSTEM_PROMPT}
-
-工具详情:
-{tool_desc}
-
-可用工具列表: [{tool_names}]
-
-=== 输出格式（严格遵守）===
-
-Thought: 分析问题，决定是否需要调用工具
-Action: 工具名称（如需调用）
-Action Input: {{"参数名": "参数值"}}
-
-或者直接回答:
-
-Thought: 分析问题，已知信息足够
-Final Answer: 你的完整回答
-
-=== 规则 ===
-
-1. 简单问题（打招呼、常识问题）直接 Final Answer
-2. 需要查询数据时，调用工具
-3. 每次只调用一个工具
-4. 收到 Observation 后，必须给出 Final Answer 或调用下一个工具
-5. 不要重复调用同一工具
-6. 【重要】Final Answer 必须包含完整的回答内容，不要把详细信息放在 Thought 中
-
-{context}
-
-=== 开始 ===
-
-Question: {user_input}
-Thought: """
-        return prompt
-
-    async def run(self, user_input: str, plan_summary: str = None, conversation_history: List[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        运行 Agent
+        system_prompt = REACT_SYSTEM_PROMPT.format(current_date=current_date)
+        system_prompt = system_prompt.replace('{{', '{').replace('}}', '}')
         
-        Args:
-            user_input: 用户输入
-            plan_summary: 规划摘要（可选）
-            conversation_history: 对话历史（可选）
-        
-        Returns:
-            Dict包含: success(是否成功), answer(最终答案), intermediate_steps(中间步骤)
-        """
-        try:
-            logger.info(f"ReAct Agent: 开始处理用户输入: {user_input[:50]}...")
-
-            context = ""
-            
-            if plan_summary:
-                context = f"""【当前用户规划信息 - 请务必参考】
-{plan_summary}
-
-"""
-            
-            if conversation_history:
-                history_context = await self._build_conversation_context(conversation_history)
-                if history_context:
-                    context += f"【对话历史】\n{history_context}\n"
-                    logger.info(f"包含对话历史上下文，历史消息数: {len(conversation_history)}")
-
-            intermediate_steps = []
-            current_input = user_input
-            iteration = 0
-
-            while iteration < self.max_iterations:
-                iteration += 1
-                logger.debug(f"ReAct 迭代 {iteration}/{self.max_iterations}")
-
-                prompt = self._build_react_prompt(current_input, context)
-                
-                response = await self.llm.ainvoke(prompt)
-                response_text = response.content if hasattr(response, 'content') else str(response)
-                
-                parsed = self._parse_react_response(response_text)
-                
-                if parsed.get('final_answer'):
-                    logger.info(f"ReAct Agent: 处理完成，输出长度: {len(parsed['final_answer'])}")
-                    return {
-                        'success': True,
-                        'answer': parsed['final_answer'],
-                        'intermediate_steps': intermediate_steps
-                    }
-                
-                if parsed.get('action') and parsed.get('action_input'):
-                    tool_name = parsed['action']
-                    tool_input = parsed['action_input']
-                    
-                    if tool_name not in self.tools:
-                        observation = f"错误: 未知工具 '{tool_name}'，可用工具: {list(self.tools)}"
-                    else:
-                        try:
-                            logger.info(f"调用工具: {tool_name}, 参数: {tool_input}")
-                            tool = self.tool_registry.get_tool(tool_name)
-                            observation = await tool.execute(**tool_input)
-                            observation = json.dumps(observation, ensure_ascii=False)
-                            logger.info(f"工具返回: {observation[:200]}...")
-                        except Exception as e:
-                            observation = f"工具执行错误: {str(e)}"
-                    
-                    intermediate_steps.append({
-                        'thought': parsed.get('thought', ''),
-                        'action': tool_name,
-                        'action_input': tool_input,
-                        'observation': observation
-                    })
-                    
-                    context += f"\nThought: {parsed.get('thought', '')}\nAction: {tool_name}\nAction Input: {json.dumps(tool_input, ensure_ascii=False)}\nObservation: {observation}\n"
-                    current_input = "继续处理，根据观察结果给出回答或调用下一个工具。"
-                else:
-                    final_answer = parsed.get('thought', response_text)
-                    logger.info(f"ReAct Agent: 处理完成（无工具调用），输出长度: {len(final_answer)}")
-                    return {
-                        'success': True,
-                        'answer': final_answer,
-                        'intermediate_steps': intermediate_steps
-                    }
-
-            return {
-                'success': False,
-                'error': '达到最大迭代次数',
-                'answer': '抱歉，处理您的请求时超出了最大步骤限制，请简化您的问题后重试。'
-            }
-
-        except Exception as e:
-            logger.error(f"ReAct Agent 执行失败: {str(e)}")
-            logger.exception("完整错误堆栈:")
-            
-            error_msg = str(e)
-            return {
-                'success': False,
-                'error': error_msg,
-                'answer': f"抱歉，处理您的请求时遇到了问题: {error_msg}"
-            }
+        return get_react_prompt(
+            system_prompt=system_prompt,
+            tool_descriptions=tool_desc,
+            tool_names=tool_names,
+            context=context,
+            question=user_input
+        )
 
     def _parse_react_response(self, response: str) -> Dict[str, Any]:
         """解析 ReAct 响应"""
@@ -217,86 +96,136 @@ Thought: """
         
         return result
 
-    async def _build_conversation_context(self, conversation_history: List[Dict[str, Any]]) -> str:
-        """
-        构建对话历史上下文（基于 LLM 智能摘要）
-        
-        Args:
-            conversation_history: 对话历史列表
-        
-        Returns:
-            str: 对话历史摘要上下文字符串
-        """
+    async def run_stream(self, user_input: str, plan_summary: str = None, conversation_history: List[Dict[str, Any]] = None):
+        """流式运行 Agent，只输出 Final Answer 之后的内容"""
+        try:
+            logger.info(f"🚀 ReAct Agent 开始处理 | 输入: {user_input[:50]}...")
+            
+            if plan_summary:
+                logger.info(f"📋 包含规划摘要")
+            
+            if conversation_history:
+                logger.info(f"💬 包含对话历史: {len(conversation_history)} 条")
+
+            context = ""
+            
+            if plan_summary:
+                context = f"""【当前用户规划信息 - 请务必参考】
+{plan_summary}
+
+"""
+            
+            if conversation_history:
+                history_context = self._build_conversation_context(conversation_history)
+                if history_context:
+                    context += f"{history_context}\n"
+
+            intermediate_steps = []
+            current_input = user_input
+            iteration = 0
+
+            while iteration < self.max_iterations:
+                iteration += 1
+                logger.info(f"🔄 迭代 {iteration}/{self.max_iterations}")
+
+                prompt = self._build_react_prompt(current_input, context)
+                
+                # 流式调用 LLM，先收集完整响应
+                buffer = ""
+                
+                async for chunk in self.llm_model._call_model_stream(prompt):
+                    buffer += chunk
+                
+                # 解析响应
+                parsed = self._parse_react_response(buffer)
+                
+                # 打印思维链
+                if parsed.get('thought'):
+                    logger.info(f"🧠 {parsed.get('thought', '')[:100]}...")
+                
+                # 检查是否有Final Answer
+                if parsed.get('final_answer'):
+                    logger.info(f"✅ 最终答案 | 长度: {len(parsed['final_answer'])}")
+                    # 流式输出 Final Answer
+                    final_answer = parsed['final_answer']
+                    chunk_size = 20
+                    for i in range(0, len(final_answer), chunk_size):
+                        yield final_answer[i:i + chunk_size]
+                        await asyncio.sleep(0.01)
+                    return
+                
+                # 检查是否需要调用工具
+                if parsed.get('action') and parsed.get('action_input'):
+                    tool_name = parsed['action']
+                    tool_input = parsed['action_input']
+                    
+                    # 打印工具调用信息
+                    logger.info(f"🔧 调用工具: {tool_name} | 参数: {json.dumps(tool_input, ensure_ascii=False)}")
+                    
+                    if tool_name not in self.tools:
+                        observation = f"错误: 未知工具 '{tool_name}'，可用工具: {list(self.tools)}"
+                        logger.error(f"❌ {observation}")
+                    else:
+                        try:
+                            tool = self.tool_registry.get_tool(tool_name)
+                            observation = await tool.execute(**tool_input)
+                            observation = json.dumps(observation, ensure_ascii=False)
+                            logger.info(f"✅ 工具成功 | 返回: {observation[:150]}...")
+                        except Exception as e:
+                            observation = f"工具执行错误: {str(e)}"
+                            logger.error(f"❌ {observation}")
+                    
+                    intermediate_steps.append({
+                        'thought': parsed.get('thought', ''),
+                        'action': tool_name,
+                        'action_input': tool_input,
+                        'observation': observation
+                    })
+                    
+                    context += f"\nThought: {parsed.get('thought', '')}\nAction: {tool_name}\nAction Input: {json.dumps(tool_input, ensure_ascii=False)}\nObservation: {observation}\n"
+                    current_input = "继续处理，根据观察结果给出回答或调用下一个工具。"
+                    
+                    # 继续循环，让LLM决定下一步是调用工具还是给出Final Answer
+                    continue
+                else:
+                    final_answer = parsed.get('thought', buffer)
+                    logger.info(f"✅ 直接回答 | 长度: {len(final_answer)}")
+                    # 流式输出
+                    chunk_size = 20
+                    for i in range(0, len(final_answer), chunk_size):
+                        yield final_answer[i:i + chunk_size]
+                        await asyncio.sleep(0.01)
+                    return
+
+            logger.error(f"⚠️ 超出最大步骤限制 ({self.max_iterations})")
+            yield "抱歉，处理您的请求时超出了最大步骤限制，请简化您的问题后重试。"
+
+        except Exception as e:
+            logger.error(f"❌ ReAct Agent 执行失败: {str(e)}")
+            logger.exception("完整错误堆栈:")
+            yield f"抱歉，处理您的请求时遇到了问题: {str(e)}"
+
+    def _build_conversation_context(self, conversation_history: List[Dict[str, Any]]) -> str:
+        """构建对话历史上下文"""
         if not conversation_history:
             return ""
         
-        try:
-            conversation_text = self._format_conversation_to_text(conversation_history)
-            
-            logger.info(f"开始对 {len(conversation_history)} 条对话历史进行智能摘要...")
-            
-            from Agent.prompts import CONVERSATION_SUMMARY_PROMPT
-            summary_prompt = CONVERSATION_SUMMARY_PROMPT.format(
-                conversation_history=conversation_text
-            )
-            
-            summary_result = await self.llm.ainvoke(summary_prompt)
-            summary = summary_result.content if hasattr(summary_result, 'content') else str(summary_result)
-            
-            logger.info(f"对话历史摘要生成完成，摘要长度: {len(summary)} 字符")
-            
-            return f"【对话历史摘要】\n{summary}"
-            
-        except Exception as e:
-            logger.error(f"对话历史摘要生成失败，降级为简单截取: {str(e)}")
-            return self._build_conversation_context_fallback(conversation_history)
-    
-    def _format_conversation_to_text(self, conversation_history: List[Dict[str, Any]]) -> str:
-        """
-        将对话历史转换为文本格式
+        # 直接格式化对话历史，传递给LLM自己理解
+        lines = ["【对话历史】"]
         
-        Args:
-            conversation_history: 对话历史列表
-        
-        Returns:
-            str: 格式化的对话文本
-        """
-        lines = []
-        for idx, msg in enumerate(conversation_history, 1):
-            role = msg.get('role', 'unknown')
-            content = msg.get('content', '')
-            
-            if role == 'user':
-                lines.append(f"{idx}. 用户: {content}")
-            elif role == 'assistant':
-                lines.append(f"{idx}. 助手: {content}")
-        
-        return "\n".join(lines)
-    
-    def _build_conversation_context_fallback(self, conversation_history: List[Dict[str, Any]]) -> str:
-        """
-        降级方案：构建对话历史上下文（简单截取）
-        
-        Args:
-            conversation_history: 对话历史列表
-        
-        Returns:
-            str: 对话历史上下文字符串
-        """
-        context_parts = ["【对话历史】"]
-        
-        recent_history = conversation_history[-5:]
+        # 限制历史数量，避免token超限
+        recent_history = conversation_history[-10:]
         
         for msg in recent_history:
             role = msg.get('role', 'unknown')
             content = msg.get('content', '')
             
             if role == 'user':
-                context_parts.append(f"用户: {content}")
+                lines.append(f"用户: {content}")
             elif role == 'assistant':
-                context_parts.append(f"助手: {content}")
+                lines.append(f"助手: {content}")
         
-        return "\n".join(context_parts)
+        return "\n".join(lines)
 
 
 _agent_instance = None

@@ -1,6 +1,5 @@
 import asyncio
 import aiohttp
-import logging
 from typing import Dict, Any, List, Optional
 import time
 from datetime import datetime, timedelta
@@ -8,6 +7,7 @@ import hashlib
 import ssl
 import os
 import sys
+from loguru import logger
 from Agent.config.settings import Config
 
 # 导入配置
@@ -16,8 +16,6 @@ from .weather_config import (
     SSL_VERIFY, CACHE_ENABLED, CACHE_TTL, CACHE_MAX_SIZE,
     ENVIRONMENT_CONFIG
 )
-
-logger = logging.getLogger(__name__)
 
 class WeatherService:
     """
