@@ -12,6 +12,7 @@
     max-width: 100%; /* 修改为100%，不限制最大宽度 */
     position: relative; /* 确保定位正确 */
     width: 100%; /* 确保容器占满可用空间 */
+    background-image: none; /* 移除可能的背景图片 */
 }
 
 /* 响应式布局 */

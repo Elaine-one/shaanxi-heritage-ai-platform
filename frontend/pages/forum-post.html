@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="../css/forum.css">
     <link rel="stylesheet" href="../css/forum-post.css">
     <link rel="stylesheet" href="../css/forum-post-header.css">
+    <!-- 新增：统一组件样式 -->
+    <link rel="stylesheet" href="../css/components/modal.css">
+    <link rel="stylesheet" href="../css/components/notification.css">
     <!-- Quill富文本编辑器样式 -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <!-- Font Awesome图标 -->
@@ -411,15 +414,15 @@
     <main class="main-content">
         <div class="container">
             <!-- 面包屑导航和返回按钮 -->
-            <div class="post-navigation" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding: 1.5rem 2rem; background: #fff3cd; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); color: #343a40;">
-                <nav class="breadcrumb" style="font-size: 0.95rem; display: flex; align-items: center;">
-                    <a href="../index.html" style="color: #c93838; text-decoration: none; transition: all 0.3s ease; padding: 0.3rem 0.6rem; border-radius: 6px;">首页</a>
-                    <span class="separator" style="margin: 0 0.5rem; color: #6c757d; font-weight: 500;">/</span>
-                    <a href="forum.html" style="color: #c93838; text-decoration: none; transition: all 0.3s ease; padding: 0.3rem 0.6rem; border-radius: 6px;">非遗论坛</a>
-                    <span class="separator" style="margin: 0 0.5rem; color: #6c757d; font-weight: 500;">/</span>
-                    <span class="current" style="color: #343a40; font-weight: 600; padding: 0.3rem 0.6rem; background: rgba(201, 56, 56, 0.1); border-radius: 6px;">帖子详情</span>
+            <div class="post-navigation">
+                <nav class="breadcrumb">
+                    <a href="../index.html">首页</a>
+                    <span class="separator">/</span>
+                    <a href="forum.html">非遗论坛</a>
+                    <span class="separator">/</span>
+                    <span class="current">帖子详情</span>
                 </nav>
-                <button class="back-to-forum-btn" onclick="window.location.href='forum.html'" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.5rem; background: #c93838; color: white; border: 2px solid #c93838; border-radius: 25px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(201, 56, 56, 0.3);">
+                <button class="back-to-forum-btn" onclick="window.location.href='forum.html'">
                     <i class="fas fa-arrow-left"></i>
                     返回论坛
                 </button>
@@ -765,31 +768,17 @@
         </div>
     </div>
 
-    <!-- 登录提示模态框 -->
-    <div class="modal" id="loginModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>需要登录</h3>
-                <button class="close-btn" id="closeLoginModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p>您需要登录后才能进行此操作</p>
-                <div class="modal-actions">
-                    <button class="cancel-btn" id="cancelLogin">取消</button>
-                    <button class="primary-btn" id="goToLogin">去登录</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- JavaScript引入 -->
     <!-- 日期时间工具模块 -->
     <script src="../js/common/date-utils.js" defer></script>
     <!-- 通用脚本 -->
     <script src="../js/common/utils.js" defer></script>
     <script src="../js/common/api.js" defer></script>
+    <!-- 新增：统一组件脚本 -->
+    <script src="../js/common/auth-redirect.js" defer></script>
+    <script src="../js/common/modal-manager.js" defer></script>
+    <script src="../js/common/notification-manager.js" defer></script>
+    <script src="../js/components/login-modal.js" defer></script>
     <!-- 用户资料API -->
     <script src="../js/api/user-profile-api.js" defer></script>
     <!-- 用户认证脚本 -->

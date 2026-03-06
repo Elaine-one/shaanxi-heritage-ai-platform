@@ -69,17 +69,8 @@ async function apiRequest(endpoint, options = {}) {
 
 // 非遗项目相关API
 const heritageAPI = {
-    // 获取所有非遗项目
+    // 获取所有非遗项目（支持分页）
     getAllItems: async (params = {}) => {
-        let allItems = [];
-        let currentPage = params.page || 1; // Start with the requested page or default to 1
-        
-        // Use the page_size from input params for the first request.
-        // If backend limits this, actualReturnedPageSize will reflect it.
-        const requestedPageSize = params.page_size || 100; // Default if not specified
-
-        const initialRequestParams = { ...params, page: currentPage, page_size: requestedPageSize };
-        
         const buildQueryString = (p) => {
             const query = new URLSearchParams();
             Object.entries(p).forEach(([key, value]) => {
@@ -92,45 +83,17 @@ const heritageAPI = {
             return query.toString();
         };
 
-        let currentQueryString = buildQueryString(initialRequestParams);
-        console.log(`[heritageAPI.getAllItems] Initial request: /items/?${currentQueryString}`);
+        const queryString = buildQueryString(params);
+        console.log(`[heritageAPI.getAllItems] Request: /items/?${queryString}`);
         
         try {
-            let response = await apiRequest(`/items/?${currentQueryString}`);
+            const response = await apiRequest(`/items/?${queryString}`);
             
             if (response && response.results) {
-                allItems = allItems.concat(response.results);
-                const totalCount = response.count || 0;
-                let actualReturnedPageSize = response.results.length;
-
-                console.log(`[heritageAPI.getAllItems] Page ${currentPage} fetched. Items: ${actualReturnedPageSize}/${totalCount}. Total collected: ${allItems.length}`);
-
-                while (allItems.length < totalCount && actualReturnedPageSize > 0) {
-                    currentPage++;
-                    const nextPageParams = { ...params, page: currentPage, page_size: actualReturnedPageSize };
-                    currentQueryString = buildQueryString(nextPageParams);
-                    
-                    console.log(`[heritageAPI.getAllItems] Fetching next page ${currentPage}: /items/?${currentQueryString}`);
-                response = await apiRequest(`/items/?${currentQueryString}`);
-
-                    if (response && response.results && response.results.length > 0) {
-                        allItems = allItems.concat(response.results);
-                        actualReturnedPageSize = response.results.length;
-                        console.log(`[heritageAPI.getAllItems] Page ${currentPage} fetched. Items: ${actualReturnedPageSize}/${totalCount}. Total collected: ${allItems.length}`);
-                    } else {
-                        console.warn(`[heritageAPI.getAllItems] Page ${currentPage} returned no more results or an error. Stopping pagination.`);
-                        break;
-                    }
-                }
-                
-                console.log(`[heritageAPI.getAllItems] Finished fetching. Total items collected: ${allItems.length}`);
-                return {
-                    count: totalCount,
-                    results: allItems,
-                };
-
+                console.log(`[heritageAPI.getAllItems] Success. Items: ${response.results.length}/${response.count}`);
+                return response;
             } else {
-                console.error('[heritageAPI.getAllItems] Initial API request failed or returned invalid data.');
+                console.error('[heritageAPI.getAllItems] API request failed or returned invalid data.');
                 return { count: 0, results: [] };
             }
         } catch (error) {

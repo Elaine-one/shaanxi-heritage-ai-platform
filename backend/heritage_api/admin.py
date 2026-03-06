@@ -1,15 +1,15 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import Heritage, HeritageImage, UserFavorite, UserHistory, News, Policy
+from .models import Heritage, UserFavorite, UserHistory, News, Policy
 from .user_models import UserProfile
 from .creation_models import (
-    UserCreation, CreationLike, CreationComment, CreationTag, 
-    CreationReport, CreationViewHistory, CreationFavorite, CreationShare
+    UserCreation, CreationLike, CreationComment,
+    CreationViewHistory, CreationFavorite
 )
 from .forum_models import (
     ForumPost, ForumComment, ForumTag, ForumPostLike, ForumCommentLike,
-    ForumPostFavorite, ForumUserFollow, ForumReport, ForumAnnouncement,
+    ForumPostFavorite, ForumUserFollow, ForumReport,
     ForumUserStats
 )
 
@@ -100,17 +100,6 @@ class UserHistoryAdmin(admin.ModelAdmin):
     verbose_name_plural = '浏览历史'
 
 # 注册HeritageImage模型
-@admin.register(HeritageImage)
-class HeritageImageAdmin(admin.ModelAdmin):
-    list_display = ('heritage', 'image', 'is_main')
-    list_filter = ('is_main', 'heritage__category')
-    search_fields = ('heritage__name',)
-    ordering = ('heritage', '-is_main')
-    list_per_page = 20
-    verbose_name = '非遗图片'
-    verbose_name_plural = '非遗图片'
-
-
 @admin.register(News)
 class NewsAdmin(admin.ModelAdmin):
     list_display = ('title', 'author', 'source', 'publish_date', 'view_count', 'is_active')
@@ -315,31 +304,6 @@ class ForumReportAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'handled_at')
 
 
-@admin.register(ForumAnnouncement)
-class ForumAnnouncementAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author', 'is_active', 'is_pinned', 'created_at', 'updated_at')
-    list_filter = ('is_active', 'is_pinned', 'created_at')
-    search_fields = ('title', 'content', 'author__username')
-    ordering = ('-is_pinned', '-created_at')
-    list_per_page = 20
-    list_editable = ('is_active', 'is_pinned')
-    
-    fieldsets = (
-        ('公告信息', {
-            'fields': ('title', 'content', 'author')
-        }),
-        ('状态设置', {
-            'fields': ('is_active', 'is_pinned')
-        }),
-        ('时间戳', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-    
-    readonly_fields = ('created_at', 'updated_at')
-
-
 @admin.register(ForumUserStats)
 class ForumUserStatsAdmin(admin.ModelAdmin):
     list_display = ('user', 'level', 'experience', 'post_count', 'comment_count', 'like_received', 'follower_count', 'following_count', 'last_active_at')
@@ -425,41 +389,6 @@ class CreationCommentAdmin(admin.ModelAdmin):
         return obj.content[:50] + '...' if len(obj.content) > 50 else obj.content
     content_preview.short_description = '评论内容'
 
-@admin.register(CreationTag)
-class CreationTagAdmin(admin.ModelAdmin):
-    list_display = ('name', 'usage_count', 'is_active', 'created_at')
-    list_filter = ('is_active', 'created_at')
-    search_fields = ('name', 'description')
-    ordering = ('-usage_count', 'name')
-    list_per_page = 20
-    list_editable = ('is_active',)
-    verbose_name = '创作标签'
-    verbose_name_plural = '创作标签'
-
-@admin.register(CreationReport)
-class CreationReportAdmin(admin.ModelAdmin):
-    list_display = ('reporter', 'creation', 'report_type', 'status', 'created_at')
-    list_filter = ('report_type', 'status', 'created_at')
-    search_fields = ('reporter__username', 'creation__title', 'description')
-    ordering = ('-created_at',)
-    list_per_page = 20
-    list_editable = ('status',)
-    
-    fieldsets = (
-        ('举报信息', {
-            'fields': ('reporter', 'creation', 'report_type', 'description', 'evidence_urls')
-        }),
-        ('处理信息', {
-            'fields': ('status', 'handled_by', 'handled_at', 'resolution')
-        }),
-        ('时间戳', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-    
-    readonly_fields = ('created_at', 'updated_at')
-
 @admin.register(CreationViewHistory)
 class CreationViewHistoryAdmin(admin.ModelAdmin):
     list_display = ('user', 'creation', 'viewed_at', 'duration')
@@ -479,16 +408,6 @@ class CreationFavoriteAdmin(admin.ModelAdmin):
     list_per_page = 20
     verbose_name = '创作收藏'
     verbose_name_plural = '创作收藏'
-
-@admin.register(CreationShare)
-class CreationShareAdmin(admin.ModelAdmin):
-    list_display = ('user', 'creation', 'platform', 'shared_at')
-    list_filter = ('platform', 'shared_at')
-    search_fields = ('user__username', 'creation__title')
-    ordering = ('-shared_at',)
-    list_per_page = 20
-    verbose_name = '创作分享'
-    verbose_name_plural = '创作分享'
 
 
 @admin.register(Policy)

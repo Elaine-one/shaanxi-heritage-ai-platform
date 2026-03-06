@@ -10,6 +10,9 @@
     <link rel="stylesheet" href="../css/forum-post.css">
     <link rel="stylesheet" href="../css/forum-post-header.css">
     <link rel="stylesheet" href="../css/post-detail.css">
+    <!-- 新增：统一组件样式 -->
+    <link rel="stylesheet" href="../css/components/modal.css">
+    <link rel="stylesheet" href="../css/components/notification.css">
     
     <!-- 引入Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1282,32 +1285,6 @@
         </div>
     </div>
 
-    <!-- 登录提示模态框 -->
-    <div id="loginModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>登录提示</h3>
-                <button id="closeLoginModal" class="close-btn">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div class="modal-body">
-                <p>您需要登录后才能进行此操作。</p>
-                
-                <div class="form-actions">
-                    <button type="button" id="cancelLogin" class="cancel-btn">
-                        取消
-                    </button>
-                    
-                    <button type="button" id="goToLogin" class="submit-btn">
-                        前往登录
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- 返回顶部按钮 -->
     <button id="scrollToTopBtn" class="scroll-to-top-btn">
         <i class="fas fa-arrow-up"></i>
@@ -1327,6 +1304,11 @@
     <!-- 引入自定义JavaScript -->
     <script src="../js/common/utils.js"></script>
     <script src="../js/common/api.js"></script>
+    <!-- 新增：统一组件脚本 -->
+    <script src="../js/common/auth-redirect.js"></script>
+    <script src="../js/common/modal-manager.js"></script>
+    <script src="../js/common/notification-manager.js"></script>
+    <script src="../js/components/login-modal.js"></script>
     <script src="../js/common/auth.js"></script>
     <script src="../js/api/forum-api.js"></script>
     <script src="../js/pages/post-detail.js"></script>

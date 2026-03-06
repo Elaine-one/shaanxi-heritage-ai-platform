@@ -280,35 +280,41 @@ function initCollectionSystem() {
  * 显示登录提示
  */
 function showLoginPrompt() {
-    // 创建提示框
-    const promptDiv = document.createElement('div');
-    promptDiv.className = 'login-prompt';
-    promptDiv.innerHTML = `
-        <div class="login-prompt-content">
-            <h3>需要登录</h3>
-            <p>收藏功能需要登录后才能使用</p>
-            <div class="login-prompt-actions">
-                <button id="go-login" class="login-btn">去登录</button>
-                <button id="cancel-login" class="cancel-btn">取消</button>
+    if (typeof LoginModal !== 'undefined') {
+        LoginModal.showForFavorite({
+            autoRedirect: true
+        });
+    } else {
+        // 降级方案：创建提示框
+        const promptDiv = document.createElement('div');
+        promptDiv.className = 'login-prompt';
+        promptDiv.innerHTML = `
+            <div class="login-prompt-content">
+                <h3>需要登录</h3>
+                <p>收藏功能需要登录后才能使用</p>
+                <div class="login-prompt-actions">
+                    <button id="go-login" class="login-btn">去登录</button>
+                    <button id="cancel-login" class="cancel-btn">取消</button>
+                </div>
             </div>
-        </div>
-    `;
-    
-    // 添加到页面
-    document.body.appendChild(promptDiv);
-    
-    // 添加事件监听
-    document.getElementById('go-login').addEventListener('click', function() {
-        // 跳转到登录页面
-        const isInPagesDir = window.location.pathname.includes('/pages/');
-        const loginPath = isInPagesDir ? 'login.html' : 'pages/login.html';
-        window.location.href = loginPath;
-    });
-    
-    document.getElementById('cancel-login').addEventListener('click', function() {
-        // 移除提示框
-        promptDiv.remove();
-    });
+        `;
+        
+        // 添加到页面
+        document.body.appendChild(promptDiv);
+        
+        // 添加事件监听
+        document.getElementById('go-login').addEventListener('click', function() {
+            // 跳转到登录页面
+            const isInPagesDir = window.location.pathname.includes('/pages/');
+            const loginPath = isInPagesDir ? 'login.html' : 'pages/login.html';
+            window.location.href = loginPath;
+        });
+        
+        document.getElementById('cancel-login').addEventListener('click', function() {
+            // 移除提示框
+            promptDiv.remove();
+        });
+    }
 }
 
 /**

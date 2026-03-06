@@ -556,13 +556,6 @@ const heritageImages = {
         if (heritage.main_image_url) {
             return heritage.main_image_url;
         }
-        if (heritage.images && heritage.images.length > 0) {
-            const mainImage = heritage.images.find(img => img.is_main);
-            if (mainImage) {
-                return mainImage.image;
-            }
-            return heritage.images[0].image;
-        }
         return this.defaultImage;
     },
     
@@ -572,11 +565,11 @@ const heritageImages = {
      * @returns {Array<string>} 图片URL列表
      */
     getAllImageUrls: function(heritage) {
-        if (heritage.images && heritage.images.length > 0) {
-            return heritage.images.map(img => img.image);
-        }
         if (heritage.gallery_image_urls && heritage.gallery_image_urls.length > 0) {
             return heritage.gallery_image_urls;
+        }
+        if (heritage.main_image_url) {
+            return [heritage.main_image_url];
         }
         return [this.defaultImage];
     }

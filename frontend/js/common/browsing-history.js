@@ -31,7 +31,7 @@ async function addToHistory(item) {
             // Proceed even if this fails, as the cookie might already be set
         }
 
-        const user = window.getCurrentUser();
+        const user = await window.getCurrentUser();
         
         // 创建历史记录对象
         const historyItem = {
@@ -122,7 +122,7 @@ function saveToLocalStorage(item) {
  * @returns {Promise<Array>} 历史记录数组的Promise
  */
 async function getHistory() {
-    const user = window.getCurrentUser();
+    const user = await window.getCurrentUser();
     
     if (user && user.username) {
         // 用户已登录，从API获取
@@ -175,7 +175,7 @@ function getLocalHistory() {
  * @returns {Promise<boolean>} 操作是否成功的Promise
  */
 async function clearHistory() {
-    const user = getCurrentUser();
+    const user = await window.getCurrentUser();
     
     if (user && user.username) {
         // 用户已登录，通过API清空
@@ -225,12 +225,12 @@ function clearLocalHistory() {
  * 删除指定的历史记录
  * @param {number|string} itemId 要删除的项目ID
  */
-function removeFromHistory(itemId) {
+async function removeFromHistory(itemId) {
     if (!itemId) return false;
     
     try {
         // 获取现有历史记录
-        let history = getHistory();
+        let history = await getHistory();
         
         // 过滤掉要删除的项目
         const newHistory = history.filter(item => String(item.id) !== String(itemId));
@@ -240,8 +240,34 @@ function removeFromHistory(itemId) {
             return false;
         }
         
-        // 保存新的历史记录
+        // 保存新的历史记录到本地存储（作为备份）
         localStorage.setItem('browsing_history', JSON.stringify(newHistory));
+        
+        // 如果用户已登录，尝试通过API删除
+        const user = await window.getCurrentUser();
+        if (user && user.username) {
+            try {
+                const response = await fetch(`${HISTORY_API_BASE_URL}remove/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': window.getCsrfToken()
+                    },
+                    body: JSON.stringify({ heritage_id: itemId }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API错误: ${response.status}`);
+                }
+                
+                console.log('已通过API删除历史记录:', itemId);
+            } catch (apiError) {
+                console.error('API删除历史记录失败:', apiError);
+                // API失败时，至少本地存储已更新
+            }
+        }
+        
         console.log('已从历史记录中删除项目:', itemId);
         return true;
     } catch (error) {

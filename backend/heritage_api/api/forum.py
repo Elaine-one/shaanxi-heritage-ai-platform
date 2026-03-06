@@ -17,12 +17,12 @@ import uuid
 
 from ..forum_models import (
     ForumPost, ForumComment, ForumTag, ForumPostLike, ForumCommentLike,
-    ForumPostFavorite, ForumUserFollow, ForumReport, ForumAnnouncement,
+    ForumPostFavorite, ForumUserFollow, ForumReport,
     ForumUserStats
 )
 from ..serializers.forum import (
     ForumPostListSerializer, ForumPostDetailSerializer, ForumPostCreateSerializer,
-    ForumCommentSerializer, ForumTagSerializer, ForumAnnouncementSerializer,
+    ForumCommentSerializer, ForumTagSerializer,
     ForumReportSerializer, ForumUserStatsSerializer, ForumLikeSerializer,
     ForumFavoriteSerializer, ForumFollowSerializer, ForumSearchSerializer
 )
@@ -222,11 +222,7 @@ class ForumTagListView(generics.ListAPIView):
         return queryset[:50]  # 最多返回50个标签
 
 
-class ForumAnnouncementListView(generics.ListAPIView):
-    """论坛公告列表视图"""
-    queryset = ForumAnnouncement.objects.filter(is_active=True)
-    serializer_class = ForumAnnouncementSerializer
-    pagination_class = None
+
 
 
 class ForumUserStatsListView(generics.ListAPIView):
@@ -482,6 +478,7 @@ def toggle_user_follow(request, user_id):
     follower_count = target_user.followers.count()
     
     return Response({
+        'is_following': is_followed,
         'is_followed': is_followed,
         'follower_count': follower_count
     })

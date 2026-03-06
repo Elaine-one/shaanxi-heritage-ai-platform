@@ -7,6 +7,9 @@
     <link rel="shortcut icon" href="../static/common/favicon.ico">
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/pages/user-creation.css">
+    <!-- 新增：统一组件样式 -->
+    <link rel="stylesheet" href="../css/components/modal.css">
+    <link rel="stylesheet" href="../css/components/notification.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- 视频播放器 -->
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
@@ -15,6 +18,11 @@
     <script src="../js/common/date-utils.js" defer></script>
     <script src="../js/common/utils.js" defer></script>
     <script src="../js/common/api.js" defer></script>
+    <!-- 新增：统一组件脚本 -->
+    <script src="../js/common/auth-redirect.js" defer></script>
+    <script src="../js/common/modal-manager.js" defer></script>
+    <script src="../js/common/notification-manager.js" defer></script>
+    <script src="../js/components/login-modal.js" defer></script>
     <script src="../js/common/auth.js" defer></script>
     <!-- 用户资料API -->
     <script src="../js/api/user-profile-api.js" defer></script>
@@ -62,6 +70,16 @@
                     <div class="stat-item">
                         <span class="stat-number" id="todayCreations">0</span>
                         <span class="stat-label">新增</span>
+                    </div>
+                </div>
+                
+                <!-- 排序选项 -->
+                <div class="sort-options">
+                    <h3><i class="fas fa-sort"></i> 排序方式</h3>
+                    <div class="sort-list">
+                        <button class="sort-btn active" data-sort="latest">最新发布</button>
+                        <button class="sort-btn" data-sort="hot">最热创作</button>
+                        <button class="sort-btn" data-sort="featured">精选推荐</button>
                     </div>
                 </div>
                 
@@ -116,15 +134,56 @@
 
             <!-- 右侧：创作内容流 -->
             <div class="creation-feed">
-                <!-- 排序选项 -->
-                <div class="sort-options">
-                    <button class="sort-btn active" data-sort="latest">最新发布</button>
-                    <button class="sort-btn" data-sort="hot">最热创作</button>
-                    <button class="sort-btn" data-sort="featured">精选推荐</button>
-                </div>
 
-                <!-- 创作列表 -->
+                <!-- 创作列表 - 抖音风格 -->
                 <div class="creation-list" id="creationList">
+                    <!-- 抖音风格的视频容器 -->
+                    <div class="douyin-container">
+                        <div class="video-feed" id="videoFeed">
+                            <!-- 视频内容将通过JavaScript动态加载 -->
+                        </div>
+                        
+                        <!-- 右侧互动栏 -->
+                        <div class="interactive-bar">
+                            <!-- 用户信息 -->
+                            <div class="user-info">
+                                <div class="avatar-container">
+                                    <img src="" alt="User" class="user-avatar" id="currentUserAvatar">
+                                    <span class="follow-btn" id="followBtn">+ 关注</span>
+                                </div>
+                                <span class="username" id="currentUsername"></span>
+                            </div>
+                            
+                            <!-- 互动按钮 -->
+                            <div class="interaction-buttons">
+                                <div class="interaction-btn like-btn" onclick="userCreation.handleLike()">
+                                    <i class="fas fa-heart"></i>
+                                    <span class="interaction-count" id="likeCount">0</span>
+                                </div>
+                                <div class="interaction-btn comment-btn" onclick="userCreation.handleComment()">
+                                    <i class="fas fa-comment"></i>
+                                    <span class="interaction-count" id="commentCount">0</span>
+                                </div>
+                                <div class="interaction-btn share-btn" onclick="userCreation.handleShare()">
+                                    <i class="fas fa-share"></i>
+                                    <span class="interaction-count" id="shareCount">0</span>
+                                </div>
+                                <div class="interaction-btn collect-btn" onclick="userCreation.handleCollect()">
+                                    <i class="fas fa-bookmark"></i>
+                                </div>
+                                <div class="interaction-btn volume-btn" onclick="userCreation.toggleVolume()">
+                                    <i class="fas fa-volume-mute" id="volumeIcon"></i>
+                                </div>
+                            </div>
+                            
+                            <!-- 音乐信息 -->
+                            <div class="music-info">
+                                <div class="music-icon"></div>
+                                <span class="music-title" id="musicTitle"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- 加载骨架屏 -->
                     <div class="loading-skeleton">
                         <div class="skeleton-creation">
@@ -135,20 +194,7 @@
                                 <div class="skeleton-stats"></div>
                             </div>
                         </div>
-                        <div class="skeleton-creation">
-                            <div class="skeleton-video"></div>
-                            <div class="skeleton-content">
-                                <div class="skeleton-title"></div>
-                                <div class="skeleton-user"></div>
-                                <div class="skeleton-stats"></div>
-                            </div>
-                        </div>
                     </div>
-                </div>
-
-                <!-- 加载更多 -->
-                <div class="load-more-container">
-                    <button class="load-more-btn" id="loadMoreBtn">加载更多创作</button>
                 </div>
             </div>
         </div>

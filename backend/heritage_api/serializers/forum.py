@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 from ..forum_models import (
     ForumPost, ForumComment, ForumTag, ForumPostLike, ForumCommentLike,
-    ForumPostFavorite, ForumUserFollow, ForumReport, ForumAnnouncement,
+    ForumPostFavorite, ForumUserFollow, ForumReport,
     ForumUserStats
 )
 from ..user_models import UserProfile
@@ -324,19 +324,6 @@ class ForumPostCreateSerializer(serializers.ModelSerializer):
             stats.add_experience(5)
             
         return post
-
-
-class ForumAnnouncementSerializer(serializers.ModelSerializer):
-    """论坛公告序列化器"""
-    author = UserBasicSerializer(read_only=True)
-    
-    class Meta:
-        model = ForumAnnouncement
-        fields = [
-            'id', 'title', 'content', 'author', 'is_active',
-            'is_pinned', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['author', 'created_at', 'updated_at']
 
 
 class ForumReportSerializer(serializers.ModelSerializer):

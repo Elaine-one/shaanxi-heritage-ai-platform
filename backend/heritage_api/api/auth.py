@@ -54,13 +54,16 @@ def register_user(request):
     注册新用户 - 邮箱注册版
     """
     # 检查注册请求速率限制 (10次/分钟)
-    ip_address = request.META.get('REMOTE_ADDR', 'unknown')
-    rate_limit_status = redis_client.check_rate_limit('register', ip_address, 10, 60)
-    if not rate_limit_status['allowed']:
-        return Response(
-            {'message': '请求过于频繁，请稍后再试'},
-            status=status.HTTP_429_TOO_MANY_REQUESTS
-        )
+    # 如果配置了禁用登录失败次数限制，跳过速率限制检查
+    from django.conf import settings
+    if not getattr(settings, 'DISABLE_LOGIN_RATE_LIMIT', False):
+        ip_address = request.META.get('REMOTE_ADDR', 'unknown')
+        rate_limit_status = redis_client.check_rate_limit('register', ip_address, 10, 60)
+        if not rate_limit_status['allowed']:
+            return Response(
+                {'message': '请求过于频繁，请稍后再试'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
     email = request.data.get('email')
     password = request.data.get('password')
     captcha_key = request.data.get('captcha_key')
@@ -186,13 +189,16 @@ def login_user(request):
     用户登录 - 使用邮箱登录
     """
     # 检查登录请求速率限制 (10次/分钟)
-    ip_address = request.META.get('REMOTE_ADDR', 'unknown')
-    rate_limit_status = redis_client.check_rate_limit('login', ip_address, 10, 60)
-    if not rate_limit_status['allowed']:
-        return Response(
-            {'message': '请求过于频繁，请稍后再试'},
-            status=status.HTTP_429_TOO_MANY_REQUESTS
-        )
+    # 如果配置了禁用登录失败次数限制，跳过速率限制检查
+    from django.conf import settings
+    if not getattr(settings, 'DISABLE_LOGIN_RATE_LIMIT', False):
+        ip_address = request.META.get('REMOTE_ADDR', 'unknown')
+        rate_limit_status = redis_client.check_rate_limit('login', ip_address, 10, 60)
+        if not rate_limit_status['allowed']:
+            return Response(
+                {'message': '请求过于频繁，请稍后再试'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
     email = request.data.get('email')
     password = request.data.get('password')
     remember_me = request.data.get('remember_me', False)

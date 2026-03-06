@@ -142,13 +142,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // 检查文件类型
                     if (!file.type.match('image.*')) {
-                        alert('请选择图片文件');
+                        if (typeof NotificationManager !== 'undefined') {
+                            NotificationManager.error('请选择图片文件');
+                        } else {
+                            alert('请选择图片文件');
+                        }
                         return;
                     }
                     
                     // 检查文件大小（限制为2MB）
                     if (file.size > 2 * 1024 * 1024) {
-                        alert('图片大小不能超过2MB');
+                        if (typeof NotificationManager !== 'undefined') {
+                            NotificationManager.error('图片大小不能超过2MB');
+                        } else {
+                            alert('图片大小不能超过2MB');
+                        }
                         return;
                     }
                     
@@ -237,8 +245,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // 更新本地存储中的用户信息，包含头像数据
             localStorage.setItem('user', JSON.stringify({
+                id: userData.id, // 使用id字段，与后端返回的数据格式一致
                 username: userData.username,
-                userId: userData.id,
                 email: userData.email,
                 displayName: displayName,
                 avatar: userData.profile && userData.profile.avatar ? userData.profile.avatar : null
@@ -398,7 +406,11 @@ document.addEventListener('DOMContentLoaded', function() {
     async function exportTravelPlan() {
         // 确保travelAgent已初始化
         if (!travelAgent) {
-            alert('旅游规划功能未初始化，请刷新页面重试');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('旅游规划功能未初始化，请刷新页面重试');
+            } else {
+                alert('旅游规划功能未初始化，请刷新页面重试');
+            }
             return;
         }
         
@@ -537,7 +549,11 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('取消收藏错误:', error);
-            alert('取消收藏失败，请稍后重试');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('取消收藏失败，请稍后重试');
+            } else {
+                alert('取消收藏失败，请稍后重试');
+            }
         });
     }
     
@@ -583,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             // 从API获取浏览历史
-            const response = await fetch('/api/history/?page=1&page_size=20', {
+            const response = await fetch('/api/history/list_history/', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
@@ -598,8 +614,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             console.log('[ProfilePage] Received history from API:', data);
             
-            if (data && Array.isArray(data.results)) {
-                renderBrowsingHistory(data.results);
+            if (data && Array.isArray(data)) {
+                renderBrowsingHistory(data);
             } else {
                 renderBrowsingHistory([]); // 传递空数组以正确处理UI
             }
@@ -753,7 +769,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (apiError) {
                 console.error('API清除浏览历史失败:', apiError);
-                alert('清除浏览历史失败，请稍后重试。');
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.error('清除浏览历史失败，请稍后重试。');
+                } else {
+                    alert('清除浏览历史失败，请稍后重试。');
+                }
             }
         }
     }
@@ -810,7 +830,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const userBio = userBioInput.value.trim();
         
         if (!displayName) {
-            alert('显示名称不能为空');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('显示名称不能为空');
+            } else {
+                alert('显示名称不能为空');
+            }
             return;
         }
         
@@ -826,14 +850,34 @@ document.addEventListener('DOMContentLoaded', function() {
             // 调用API更新用户资料
             const updatedUser = await window.API.userProfile.updateUserProfile(profileData);
             
-            // 重新获取用户信息以更新页面显示
-            await fetchUserInfo();
+            // 只更新显示名称和简介，不重新获取头像信息
+            // 这样可以避免头像被改回之前的状态
+            const user = JSON.parse(localStorage.getItem('user')) || {};
+            user.displayName = displayName;
+            // 保留现有的头像信息
+            localStorage.setItem('user', JSON.stringify(user));
+            
+            // 触发全局头像更新，确保其他页面同步显示
+            if (typeof window.updateUserIcon === 'function') {
+                window.updateUserIcon();
+            }
+            
+            // 更新页面显示
+            username.textContent = displayName;
             
             // 显示成功消息
-            alert('设置已保存');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.success('设置已保存');
+            } else {
+                alert('设置已保存');
+            }
         } catch (error) {
             console.error('保存设置失败:', error);
-            alert('保存设置失败: ' + error.message);
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('保存设置失败: ' + error.message);
+            } else {
+                alert('保存设置失败: ' + error.message);
+            }
         }
     }
     
@@ -845,10 +889,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 await window.API.userProfile.clearUserAvatar();
                 // 立即更新头像显示为默认头像
                 updateAvatarDisplay(null);
-                // 重新获取用户信息以更新本地存储
-                await fetchUserInfo();
-                // 刷新页面以确保所有头像显示正确
-                window.location.reload();
+                // 触发全局头像更新，确保其他页面同步显示
+                if (typeof window.updateUserIcon === 'function') {
+                    window.updateUserIcon();
+                }
                 return;
             }
             
@@ -858,14 +902,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 立即更新头像显示
                 const objectUrl = URL.createObjectURL(avatarData);
                 updateAvatarDisplay(objectUrl);
-                // 重新获取用户信息以更新本地存储
-                await fetchUserInfo();
                 // 触发全局头像更新，确保其他页面同步显示
                 if (typeof window.updateUserIcon === 'function') {
                     window.updateUserIcon();
                 }
-                // 刷新页面以确保所有头像显示正确
-                window.location.reload();
                 return;
             }
             
@@ -882,14 +922,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 await window.API.userProfile.uploadUserAvatar(file);
                 // 立即更新头像显示
                 updateAvatarDisplay(avatarData);
-                // 重新获取用户信息以更新本地存储
-                await fetchUserInfo();
                 // 触发全局头像更新，确保其他页面同步显示
                 if (typeof window.updateUserIcon === 'function') {
                     window.updateUserIcon();
                 }
-                // 刷新页面以确保所有头像显示正确
-                window.location.reload();
                 return;
             }
             
@@ -915,8 +951,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     await window.API.userProfile.uploadUserAvatar(file);
                     // 立即更新头像显示
                     updateAvatarDisplay(avatarUrl);
-                    // 重新获取用户信息以更新本地存储
-                    await fetchUserInfo();
                     // 触发全局头像更新，确保其他页面同步显示
                     if (typeof window.updateUserIcon === 'function') {
                         window.updateUserIcon();
@@ -1130,7 +1164,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             window.updateUserIcon();
                         }
                         
-                        alert('头像已成功设置为文字头像');
+                        if (typeof NotificationManager !== 'undefined') {
+                            NotificationManager.success('头像已成功设置为文字头像');
+                        } else {
+                            alert('头像已成功设置为文字头像');
+                        }
                     } else {
                         // 使用预设头像 - 需要将图片转换为文件上传
                         const bgImage = this.getAttribute('data-bg-image');
@@ -1157,16 +1195,28 @@ document.addEventListener('DOMContentLoaded', function() {
                                     window.updateUserIcon();
                                 }
                                 
-                                alert('头像已成功设置为默认头像');
+                                if (typeof NotificationManager !== 'undefined') {
+                                    NotificationManager.success('头像已成功设置为默认头像');
+                                } else {
+                                    alert('头像已成功设置为默认头像');
+                                }
                             } catch (error) {
                                 console.error('加载默认头像失败:', error);
-                                alert('设置默认头像失败，请稍后重试');
+                                if (typeof NotificationManager !== 'undefined') {
+                                    NotificationManager.error('设置默认头像失败，请稍后重试');
+                                } else {
+                                    alert('设置默认头像失败，请稍后重试');
+                                }
                             }
                         }
                     }
                 } catch (error) {
                     console.error('设置头像失败:', error);
-                    alert('设置头像失败: ' + error.message);
+                    if (typeof NotificationManager !== 'undefined') {
+                        NotificationManager.error('设置头像失败: ' + error.message);
+                    } else {
+                        alert('设置头像失败: ' + error.message);
+                    }
                 }
                 
                 // 关闭对话框
@@ -1383,27 +1433,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // 显示成功提示
                 const message = response.is_followed ? '关注成功！' : '取消关注成功！';
-                // 可以添加一个简单的成功提示
-                const toast = document.createElement('div');
-                toast.className = 'toast-message';
-                toast.textContent = message;
-                toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#4CAF50;color:white;padding:10px 20px;border-radius:4px;z-index:9999;';
-                document.body.appendChild(toast);
-                setTimeout(() => document.body.removeChild(toast), 3000);
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.success(message);
+                } else {
+                    // 可以添加一个简单的成功提示
+                    const toast = document.createElement('div');
+                    toast.className = 'toast-message';
+                    toast.textContent = message;
+                    toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#4CAF50;color:white;padding:10px 20px;border-radius:4px;z-index:9999;';
+                    document.body.appendChild(toast);
+                    setTimeout(() => document.body.removeChild(toast), 3000);
+                }
                 
                 // 刷新列表
                 fetchFollowingList();
                 fetchFollowersList();
             } else {
-                alert('操作失败，请重试');
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.error('操作失败，请重试');
+                } else {
+                    alert('操作失败，请重试');
+                }
             }
         } catch (error) {
             console.error('关注操作失败:', error);
             // 检查是否是网络错误或服务器错误
             if (error.status) {
-                alert(`操作失败：${error.status} ${error.data?.detail || '服务器错误'}`);
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.error(`操作失败：${error.status} ${error.data?.detail || '服务器错误'}`);
+                } else {
+                    alert(`操作失败：${error.status} ${error.data?.detail || '服务器错误'}`);
+                }
             } else {
-                alert('网络错误，请检查网络连接后重试');
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.error('网络错误，请检查网络连接后重试');
+                } else {
+                    alert('网络错误，请检查网络连接后重试');
+                }
             }
         }
     };

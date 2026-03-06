@@ -50,7 +50,9 @@ urlpatterns = [
 if settings.DEBUG:
     # 开发环境下提供媒体文件访问
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    # 开发环境下提供静态文件访问
+    # 开发环境下提供静态文件访问（优先映射backend/static目录）
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.BASE_DIR / 'static')
+    # 如果backend/static中没有找到，再尝试frontend目录
     urlpatterns += static(settings.STATIC_URL, document_root=settings.BASE_DIR.parent / 'frontend')
     # 添加根路径映射以支持直接访问前端文件
     urlpatterns += static('/', document_root=settings.BASE_DIR.parent / 'frontend')

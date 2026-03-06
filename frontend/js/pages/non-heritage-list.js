@@ -43,9 +43,8 @@ const apiCache = {
 
 // 生成缓存键
 function generateCacheKey(apiMethod, params) {
-    // 排除分页参数，因为不同页的数据不同
-    const { page, ...restParams } = params;
-    return `${apiMethod}_${JSON.stringify(restParams)}`;
+    // 包含所有参数，包括分页参数，因为不同页的数据不同
+    return `${apiMethod}_${JSON.stringify(params)}`;
 }
 
 // 分页变量
@@ -54,10 +53,15 @@ const itemsPerPage = 12; // 每页显示12个项目（4列3行）
 let actualTotalPages = 1; // 新增：存储实际总页数
 
 // 页面加载完成后执行
-document.addEventListener('DOMContentLoaded', function() {
-    // 初始化页面
-    initPage();
-});
+    document.addEventListener('DOMContentLoaded', function() {
+        // 加载浏览历史模块
+        const historyScript = document.createElement('script');
+        historyScript.src = '../js/common/browsing-history.js';
+        document.head.appendChild(historyScript);
+        
+        // 初始化页面
+        initPage();
+    });
 
 // 页面初始化
 async function initPage() {
@@ -609,35 +613,41 @@ async function addToFavorites(itemId) {
  * 显示登录提示
  */
 function showLoginPrompt() {
-    // 创建提示框
-    const promptDiv = document.createElement('div');
-    promptDiv.className = 'login-prompt';
-    promptDiv.innerHTML = `
-        <div class="login-prompt-content">
-            <h3>需要登录</h3>
-            <p>收藏功能需要登录后才能使用</p>
-            <div class="login-prompt-actions">
-                <button id="go-login" class="login-btn">去登录</button>
-                <button id="cancel-login" class="cancel-btn">取消</button>
+    if (typeof LoginModal !== 'undefined') {
+        LoginModal.showForFavorite({
+            autoRedirect: true
+        });
+    } else {
+        // 降级方案：创建提示框
+        const promptDiv = document.createElement('div');
+        promptDiv.className = 'login-prompt';
+        promptDiv.innerHTML = `
+            <div class="login-prompt-content">
+                <h3>需要登录</h3>
+                <p>收藏功能需要登录后才能使用</p>
+                <div class="login-prompt-actions">
+                    <button id="go-login" class="login-btn">去登录</button>
+                    <button id="cancel-login" class="cancel-btn">取消</button>
+                </div>
             </div>
-        </div>
-    `;
-    
-    // 添加到页面
-    document.body.appendChild(promptDiv);
-    
-    // 添加事件监听
-    document.getElementById('go-login').addEventListener('click', function() {
-        // 跳转到登录页面
-        const isInPagesDir = window.location.pathname.includes('/pages/');
-        const loginPath = isInPagesDir ? 'login.html' : 'pages/login.html';
-        window.location.href = loginPath;
-    });
-    
-    document.getElementById('cancel-login').addEventListener('click', function() {
-        // 移除提示框
-        promptDiv.remove();
-    });
+        `;
+        
+        // 添加到页面
+        document.body.appendChild(promptDiv);
+        
+        // 添加事件监听
+        document.getElementById('go-login').addEventListener('click', function() {
+            // 跳转到登录页面
+            const isInPagesDir = window.location.pathname.includes('/pages/');
+            const loginPath = isInPagesDir ? 'login.html' : 'pages/login.html';
+            window.location.href = loginPath;
+        });
+        
+        document.getElementById('cancel-login').addEventListener('click', function() {
+            // 移除提示框
+            promptDiv.remove();
+        });
+    }
 }
 
 function createHeritageItem(item) {
@@ -654,25 +664,9 @@ function createHeritageItem(item) {
     if (item.main_image_url) {
         imageUrl = item.main_image_url;
     } 
-    // 如果有images数组，查找主图
-    else if (item.images && Array.isArray(item.images) && item.images.length > 0) {
-        // 查找标记为主图的图片
-        const mainImage = item.images.find(img => img && img.is_main);
-        if (mainImage && mainImage.image) {
-            // 如果有具体的图片名称，使用heritageImages.getMainImage获取正确路径
-            if (typeof window.heritageImages === 'object' && typeof window.heritageImages.getMainImage === 'function') {
-                imageUrl = window.heritageImages.getMainImage(item.id, mainImage.image);
-            } else {
-                imageUrl = mainImage.image;
-            }
-        } else if (item.images[0] && item.images[0].image) {
-            // 如果没有主图标记，使用第一张图片
-            if (typeof window.heritageImages === 'object' && typeof window.heritageImages.getMainImage === 'function') {
-                imageUrl = window.heritageImages.getMainImage(item.id, item.images[0].image);
-            } else {
-                imageUrl = item.images[0].image;
-            }
-        }
+    // 如果有gallery_image_urls数组，使用第一张图片
+    else if (item.gallery_image_urls && Array.isArray(item.gallery_image_urls) && item.gallery_image_urls.length > 0) {
+        imageUrl = item.gallery_image_urls[0];
     }
     // 使用项目ID直接构建图片路径
     else if (item.id) {
@@ -753,8 +747,12 @@ function createHeritageItem(item) {
     
     // 添加点击事件
     itemElement.addEventListener('click', function(e) {
-        if (!e.target.classList.contains('view-details')) {
+        if (!e.target.classList.contains('view-details') && !e.target.closest('.favorite-btn')) {
             if (item.id && item.id > 0) {
+                // 记录浏览历史
+                if (typeof addToHistory === 'function') {
+                    addToHistory(item);
+                }
                 window.location.href = `heritage-detail.html?id=${item.id}`;
             } else {
                 console.warn('无效的项目ID:', item.id);

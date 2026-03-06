@@ -8,6 +8,10 @@
 logs/
 logs/*
 
+# Nginx 日志
+nginx_logs/
+# 脚本文件
+scripts/
 # 缓存文件
 __pycache__/
 *.pyc
@@ -52,3 +56,5 @@ ENV/
 *.tmp
 *.temp
 .temp/
+
+nginx.conf

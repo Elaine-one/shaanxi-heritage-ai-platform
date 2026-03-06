@@ -156,9 +156,15 @@ document.addEventListener('DOMContentLoaded', function() {
             // 注册成功
             showMessage('注册成功，请登录', 'success');
             
-            // 延迟后跳转到登录页面
+            // 注册成功后跳转到登录页面，不保存当前页面
             setTimeout(() => {
-                window.location.href = 'login.html';
+                if (typeof AuthRedirect !== 'undefined') {
+                    // 直接跳转到登录页，不设置redirect参数
+                    window.location.href = '/pages/login.html';
+                } else {
+                    // 降级方案：跳转到登录页
+                    window.location.href = 'login.html';
+                }
             }, 2000);
         })
         .catch(error => {

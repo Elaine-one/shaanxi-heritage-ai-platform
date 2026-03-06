@@ -252,6 +252,8 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
     ],
+    # API 文档配置
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
 }
 
 # Redis配置
@@ -263,6 +265,10 @@ REDIS_PORT = int(os.getenv('REDIS_PORT')) if os.getenv('REDIS_PORT') else 6379
 REDIS_DB = int(os.getenv('REDIS_DB')) if os.getenv('REDIS_DB') else 0
 # Redis密码
 REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')  # 如果Redis设置了密码，在这里配置
+
+# 开发环境配置
+# 是否禁用登录失败次数限制 (开发环境建议True，生产环境必须False)
+DISABLE_LOGIN_RATE_LIMIT = os.getenv('DISABLE_LOGIN_RATE_LIMIT', 'False').lower() == 'true'
 
 # Celery配置
 CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'

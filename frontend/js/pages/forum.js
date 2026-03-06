@@ -94,25 +94,6 @@ class ForumManager {
             this.handleNewPostSubmit();
         });
         
-        // 登录模态框
-        const loginModal = document.getElementById('loginModal');
-        const closeLoginModal = document.getElementById('closeLoginModal');
-        const cancelLogin = document.getElementById('cancelLogin');
-        
-        closeLoginModal.addEventListener('click', () => {
-            this.hideLoginModal();
-        });
-        
-        cancelLogin.addEventListener('click', () => {
-            this.hideLoginModal();
-        });
-        
-        loginModal.addEventListener('click', (e) => {
-            if (e.target === loginModal) {
-                this.hideLoginModal();
-            }
-        });
-        
         // 编辑帖子模态框
         const editPostModal = document.getElementById('editPostModal');
         const closeEditModal = document.getElementById('closeEditModal');
@@ -352,14 +333,26 @@ class ForumManager {
             });
         });
         
-        // 异步检查当前用户状态并显示关注按钮
+        // 显示关注按钮并绑定事件
+        const followBtn = postDiv.querySelector('.follow-btn');
+        
+        // 检查当前用户状态
         this.isLoggedIn().then(isLoggedIn => {
+            // 只有当帖子作者不是当前用户时才显示关注按钮
             if (isLoggedIn) {
                 const currentUser = JSON.parse(localStorage.getItem('user'));
-                const followBtn = postDiv.querySelector('.follow-btn');
+                // 兼容两种字段名：id 和 userId
+                const currentUserId = currentUser.id || currentUser.userId;
                 
-                // 只有当帖子作者不是当前用户时才显示关注按钮
-                if (currentUser && currentUser.id !== post.author.id) {
+                console.log('当前用户:', currentUser);
+                console.log('帖子作者:', post.author);
+                console.log('当前用户ID:', currentUserId, '帖子作者ID:', post.author.id);
+                
+                if (currentUserId && currentUserId === post.author.id) {
+                    // 是自己的帖子，隐藏关注按钮
+                    followBtn.style.display = 'none';
+                } else {
+                    // 不是自己的帖子，显示关注按钮
                     followBtn.style.display = 'inline-block';
                     
                     // 检查是否已关注
@@ -367,15 +360,20 @@ class ForumManager {
                         followBtn.textContent = isFollowing ? '已关注' : '关注';
                         followBtn.classList.toggle('following', isFollowing);
                     });
-                    
-                    // 绑定关注按钮事件
-                    followBtn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        this.toggleFollow(post.author.id, followBtn);
-                    });
                 }
+            } else {
+                // 未登录用户也显示关注按钮
+                followBtn.style.display = 'inline-block';
+                followBtn.textContent = '关注';
+                followBtn.classList.remove('following');
             }
+            
+            // 绑定关注按钮事件
+            followBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleFollow(post.author.id, followBtn);
+            });
         });
         
         // 异步检查权限并添加操作按钮
@@ -496,13 +494,15 @@ class ForumManager {
     }
     
     showLoginModal() {
-        const modal = document.getElementById('loginModal');
-        modal.classList.add('show');
-    }
-    
-    hideLoginModal() {
-        const modal = document.getElementById('loginModal');
-        modal.classList.remove('show');
+        if (typeof LoginModal !== 'undefined') {
+            LoginModal.show({
+                title: '需要登录',
+                message: '您需要登录后才能发布帖子或进行其他操作',
+                autoRedirect: true
+            });
+        } else {
+            console.warn('LoginModal not available');
+        }
     }
     
     hideEditPostModal() {
@@ -814,9 +814,10 @@ class ForumManager {
         return this.formatDateTime(dateString);
     }
     
-    // 使用全局api-utils中的showErrorMessage函数
     showError(message) {
-        if (window.apiUtils && window.apiUtils.showErrorMessage) {
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.error(message);
+        } else if (window.apiUtils && window.apiUtils.showErrorMessage) {
             window.apiUtils.showErrorMessage('错误: ' + message);
         } else {
             alert('错误: ' + message);
@@ -824,8 +825,11 @@ class ForumManager {
     }
     
     showSuccess(message) {
-        // 简单的成功提示，可以替换为更好的UI组件
-        alert('成功: ' + message);
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.success(message);
+        } else {
+            alert('成功: ' + message);
+        }
     }
     
     async updateUserIcon() {

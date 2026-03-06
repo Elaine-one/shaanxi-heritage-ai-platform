@@ -277,41 +277,121 @@ frontend/
 
 ### 本地开发
 
-1. 克隆仓库：
-   ```bash
-   git clone <repository_url>
-   cd <repository_directory>/frontend
-   ```
+本地开发需要同时启动后端服务器和前端服务器。
 
-2. 使用简单的 HTTP 服务器：
-   ```bash
-   python -m http.server 8080
-   ```
-   或使用 VS Code 的 Live Server 插件
+#### 1. 启动后端服务器
 
-3. 在浏览器中访问：
-   ```
-   http://localhost:8080
-   ```
+```bash
+# 进入后端目录
+cd backend
 
-### 配置后端 API
+# 激活虚拟环境（如果使用）
+source venv/bin/activate  # Linux/Mac
+# 或
+venv\Scripts\activate  # Windows
 
-前端使用相对路径 `/api` 作为API基础路径，通过Django后端代理访问。无需额外配置API地址。
-
-```javascript
-// js/common/api.js
-const COMMON_API_BASE_URL = '/api';  // 使用相对路径，适配生产环境
-
-// js/common/heritage-api.js
-const HERITAGE_SPECIFIC_API_BASE_URL = '/api/';
+# 启动 Django 开发服务器
+python manage.py runserver
 ```
 
-### Agent 服务配置
+后端服务器将在 `http://127.0.0.1:8000` 运行。
 
-旅游规划 Agent 服务 (`js/agent/agent-core.js`) 默认通过 Django 后端代理访问，无需额外配置。
-请求路径映射：`/api/agent/...` -> Django -> Agent Service (localhost:8001)
+#### 2. 启动前端服务器
 
-如需修改，请查看 `js/agent/agent-core.js` 中的 `getApiBaseUrl` 方法。
+**方式一：使用 Python HTTP 服务器**
+```bash
+# 在项目根目录运行
+python -m http.server 8080
+```
+
+**方式二：使用 VS Code 的 Live Server 插件**
+- 安装 Live Server 插件
+- 右键点击 `index.html`，选择 "Open with Live Server"
+
+#### 3. 配置 CORS（仅开发环境）
+
+如果前端和后端不在同一端口，需要在后端配置 CORS。后端已安装 `django-cors-headers`，确保在 `backend/heritage_project/settings.py` 中配置：
+
+```python
+CORS_ALLOW_ALL_ORIGINS = True  # 仅开发环境使用
+```
+
+#### 4. 访问应用
+
+- 前端页面: http://localhost:8080
+- 后端 API:  http://127.0.0.1:8000/api/
+- 管理后台:  http://127.0.0.1:8000/admin/
+
+### 生产环境部署（推荐）
+
+生产环境推荐使用 Nginx 作为前端服务器，代理后端 API 请求。
+
+#### 1. 安装 Nginx
+
+**Windows:**
+- 下载 nginx for Windows: http://nginx.org/en/download.html
+- 解压到指定目录（例如：C:\nginx）
+- 将 C:\nginx 添加到系统 PATH 环境变量
+
+**Linux/Mac:**
+```bash
+# Ubuntu/Debian
+sudo apt-get install nginx
+
+# CentOS/RHEL
+sudo yum install nginx
+
+# macOS
+brew install nginx
+```
+
+#### 2. 启动服务
+
+**Windows:**
+```bash
+# 在项目根目录运行
+start_nginx.bat
+```
+
+**Linux/Mac:**
+```bash
+# 在项目根目录运行
+chmod +x start_nginx.sh
+./start_nginx.sh
+```
+
+#### 3. 访问应用
+
+启动成功后，访问以下地址：
+- 前端页面: http://localhost
+- 后端 API:  http://localhost/api/
+- 管理后台:  http://localhost/admin/
+
+#### 4. 管理命令
+
+**Windows:**
+- 停止服务: `stop_nginx.bat`
+- 重启服务: `restart_nginx.bat`
+
+**Linux/Mac:**
+- 停止服务: `./stop_nginx.sh`
+- 重启服务: `./restart_nginx.sh`
+
+#### 5. 配置说明
+
+Nginx 配置文件位于项目根目录的 `nginx.conf`，主要配置包括：
+- 前端静态文件服务（`/`）
+- 后端 API 代理（`/api/`）
+- Agent 服务代理（`/api/agent/`）
+- 管理后台代理（`/admin/`）
+- 静态文件代理（`/static/`）
+- 媒体文件代理（`/media/`）
+
+详细配置说明请查看 `nginx.conf` 文件中的注释。
+
+#### 6. HTTPS 配置（生产环境）
+
+生产环境建议启用 HTTPS，配置方法请参考 `nginx.conf` 文件中的 HTTPS 配置示例。
 
 ## API 调用
 
@@ -431,6 +511,26 @@ function getLunarDate() {
 
 ## 最新更新记录
 
+### v1.3.0 (2026-03-06)
+
+#### 创作者中心全面优化
+- 🎨 创作者中心UI/UX全面升级，采用现代化设计语言
+- 🎨 新增渐变色彩系统和视觉层次优化
+- 🎨 优化卡片布局、间距和阴影效果
+- 🎨 添加流畅的交互动画和过渡效果
+- 🎨 完善响应式设计，适配多种屏幕尺寸
+
+#### 关注功能完善
+- � 修复关注按钮在本人帖子上的显示问题
+- 🔄 统一用户ID字段命名规范（id vs userId）
+- � 修复用户创作中心关注API端点错误
+- 🔄 实现论坛与用户创作中心关注状态同步
+- � 修复重复关注/取消关注的问题
+
+#### 代码质量提升
+- ✅ 完善错误处理和用户反馈提示
+- ✅ 提升代码可维护性和一致性
+
 ### v1.2.5 (2026-03-01)
 
 #### 架构优化
@@ -454,7 +554,6 @@ function getLunarDate() {
 ### v1.2.0 (2025-10-21)
 
 #### Bug修复
-- ✅ 修复了favicon.ico文件404错误
 - ✅ 修复了logo.png文件路径问题
 - ✅ 修复了forum-post.html页面中静态资源引用路径错误
 - ✅ 优化了静态文件的组织结构
@@ -470,42 +569,6 @@ function getLunarDate() {
 - 📈 改进了移动端适配效果
 - 📈 增强了代码的可维护性
 - 📈 完善了错误处理机制
-
-## 开发规范
-
-### 代码风格
-- 使用2个空格进行缩进
-- 变量和函数名使用驼峰命名法
-- 常量使用大写字母和下划线
-- 为所有函数添加注释说明
-
-### 文件命名
-- HTML文件使用小写字母和连字符
-- CSS文件按功能模块命名
-- JavaScript文件按页面或功能命名
-- 图片文件使用描述性名称
-
-## 故障排除
-
-### 常见问题
-
-**Q: 页面显示404错误**
-A: 检查静态文件路径是否正确，确保favicon.ico和logo.png文件存在于正确位置
-
-**Q: 地图无法显示**
-A: 检查百度地图API密钥是否正确配置，网络连接是否正常
-
-**Q: 收藏功能不工作**
-A: 确认用户已登录，检查后端API是否正常运行
-
-**Q: 聊天助手无法加载**
-A: 检查AI服务配置是否正确，网络连接是否稳定
-
-### 调试技巧
-- 使用浏览器开发者工具检查网络请求
-- 查看控制台错误信息
-- 使用断点调试JavaScript代码
-- 检查本地存储数据是否正确
 
 ## 重要说明
 

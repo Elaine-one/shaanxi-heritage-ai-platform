@@ -32,19 +32,6 @@ class Heritage(models.Model):
     def __str__(self):
         return self.name
 
-class HeritageImage(models.Model):
-    heritage = models.ForeignKey(Heritage, related_name='images', on_delete=models.CASCADE, verbose_name="非遗项目")
-    image = models.ImageField(upload_to='heritage_images/', verbose_name="图片")
-    is_main = models.BooleanField(default=False, verbose_name="是否主图")
-
-    class Meta:
-        verbose_name = "非遗图片"
-        verbose_name_plural = "非遗图片"
-
-    def __str__(self):
-        return f"Image for {self.heritage.name}"
-
-
 class UserFavorite(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorites', verbose_name="用户")
     heritage = models.ForeignKey(Heritage, on_delete=models.CASCADE, related_name='favorited_by', verbose_name="非遗项目")

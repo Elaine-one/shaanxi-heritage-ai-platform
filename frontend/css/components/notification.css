@@ -1,0 +1,211 @@
+/**
+ * Notification Styles
+ * 统一的通知样式
+ */
+
+/* 通知容器 */
+#notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 通知 */
+.notification {
+    min-width: 300px;
+    max-width: 400px;
+    padding: 12px 16px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideInRight 0.2s ease-out;
+    cursor: default;
+}
+
+.notification.clickable {
+    cursor: pointer;
+}
+
+.notification.clickable:hover {
+    transform: translateX(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 通知图标 */
+.notification > span:first-child {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #4CAF50;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* 通知文本 */
+.notification > span:nth-child(2) {
+    flex: 1;
+    font-size: 14px;
+    color: white;
+    word-break: break-word;
+}
+
+/* 关闭按钮 */
+.notification button {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.notification button:hover {
+    opacity: 1;
+}
+
+/* 成功通知 */
+.notification.success {
+    background: #4CAF50;
+}
+
+.notification.success > span:first-child {
+    background: #4CAF50;
+}
+
+/* 错误通知 */
+.notification.error {
+    background: #F44336;
+}
+
+.notification.error > span:first-child {
+    background: #F44336;
+}
+
+/* 警告通知 */
+.notification.warning {
+    background: #FF9800;
+}
+
+.notification.warning > span:first-child {
+    background: #FF9800;
+}
+
+/* 信息通知 */
+.notification.info {
+    background: #2196F3;
+}
+
+.notification.info > span:first-child {
+    background: #2196F3;
+}
+
+/* 动画 */
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    #notification-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+    }
+    
+    .notification {
+        min-width: auto;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    #notification-container {
+        top: 5px;
+        right: 5px;
+        left: 5px;
+        gap: 8px;
+    }
+    
+    .notification {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    
+    .notification > span:first-child {
+        width: 18px;
+        height: 18px;
+        font-size: 11px;
+    }
+    
+    .notification button {
+        width: 18px;
+        height: 18px;
+        font-size: 18px;
+    }
+}
+
+/* 暗黑模式支持 */
+@media (prefers-color-scheme: dark) {
+    .notification {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    .notification.clickable:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+}
+
+/* 无障碍支持 */
+.notification:focus {
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+
+.notification button:focus {
+    outline: 2px solid white;
+    outline-offset: 2px;
+}
+
+/* 打印样式 */
+@media print {
+    #notification-container {
+        display: none;
+    }
+}

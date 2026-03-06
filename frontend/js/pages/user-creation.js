@@ -9,6 +9,7 @@ class UserCreation {
         this.creations = [];
         this.isLoading = false;
         this.hasMore = true;
+        this.isMuted = true; // 默认静音
         
         this.init();
     }
@@ -32,16 +33,12 @@ class UserCreation {
         // 初始化统计数据实时更新（只在init中调用一次，避免重复创建定时器）
         this.initStatsUpdate();
         
-        if (!isLoggedIn) {
-            this.showLoginRequired();
-            return;
-        }
-
+        // 无论是否登录都加载基础数据
         // 加载统计数据
         await this.loadStatistics();
         
-        // 加载用户个人统计数据（如果是创作者中心页面）
-        if (window.location.pathname.includes('creation-center')) {
+        // 加载用户个人统计数据（如果是创作者中心页面且已登录）
+        if (window.location.pathname.includes('creation-center') && isLoggedIn) {
             await this.loadUserStatistics();
         }
         
@@ -53,6 +50,11 @@ class UserCreation {
         
         // 加载非遗项目列表
         await this.loadHeritageList();
+        
+        // 如果未登录，显示登录提示
+        if (!isLoggedIn) {
+            this.showLoginRequired();
+        }
     }
 
     initEventListeners() {
@@ -65,12 +67,7 @@ class UserCreation {
         
         // 发布创作按钮
         document.getElementById('createBtn').addEventListener('click', async () => {
-            const isLoggedIn = await window.checkLoginStatus();
-            if (!isLoggedIn) {
-                this.showLoginPrompt('发布创作');
-                return;
-            }
-            this.openCreationModal();
+            await this.openCreationModal();
         });
 
         // 创作者中心按钮
@@ -81,6 +78,15 @@ class UserCreation {
                 return;
             }
             this.openCreatorCenter();
+        });
+
+        // 分享按钮
+        document.querySelector('.share-btn')?.addEventListener('click', async () => {
+            const isLoggedIn = await window.checkLoginStatus();
+            if (!isLoggedIn) {
+                this.showLoginPrompt('分享创作');
+                return;
+            }
         });
 
         // 模态框关闭按钮
@@ -122,10 +128,7 @@ class UserCreation {
             });
         });
 
-        // 加载更多按钮
-        document.getElementById('loadMoreBtn').addEventListener('click', () => {
-            this.loadMoreCreations();
-        });
+
 
         // 点击模态框外部关闭
         document.getElementById('creationModal').addEventListener('click', (e) => {
@@ -328,6 +331,13 @@ class UserCreation {
     }
 
     renderCreations() {
+        // 先停止所有视频的播放
+        const allVideos = document.querySelectorAll('.video-item video');
+        allVideos.forEach(video => {
+            video.pause();
+            video.currentTime = 0;
+        });
+        
         const container = document.getElementById('creationList');
         
         if (this.creations.length === 0) {
@@ -344,86 +354,87 @@ class UserCreation {
             return;
         }
 
-        // 获取当前用户信息
-        const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
-
-        container.innerHTML = this.creations.map(creation => {
-            // 检查是否有管理权限（管理员或作者本人）
-            const canManage = currentUser && (currentUser.is_staff || (creation.user && creation.user.id === currentUser.id));
-            
-            return `
-            <div class="creation-card" data-id="${creation.id}">
-                <div class="creation-media">
-                    ${this.renderMedia(creation)}
-                    <div class="creation-type-badge">${this.getTypeLabel(creation.type)}</div>
-                    ${canManage ? `<div class="creation-manage-badge" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
-                        ${currentUser.is_staff ? '管理员' : '我的创作'}
-                    </div>` : ''}
-                </div>
-                <div class="creation-content">
-                    <h3 class="creation-title">${creation.title}</h3>
-                    <p class="creation-description">${creation.description}</p>
-                    
-                    <div class="creation-meta">
-                        <div class="creation-user">
-                            <img src="${creation.user && creation.user.avatar ? creation.user.avatar : '../static/common/default-avatar.png'}" 
-                                 alt="${creation.user && creation.user.display_name ? creation.user.display_name : creation.user ? creation.user.username : '用户'}" 
-                                 class="user-avatar"
-                                 onerror="this.src='../static/common/default-avatar.png'">
-                            <div class="user-info">
-                                <h4>${creation.user && creation.user.display_name ? creation.user.display_name : creation.user ? creation.user.username : '用户'}</h4>
-                                <span>${this.formatDate(creation.created_at)}</span>
+        // 渲染抖音风格的视频界面
+        container.innerHTML = `
+            <div class="douyin-container">
+                <div class="video-feed" id="videoFeed">
+                    ${this.creations.map((creation, index) => `
+                        <div class="video-item ${index === 0 ? 'active' : ''}" data-id="${creation.id}">
+                            ${this.renderMedia(creation)}
+                            <div class="video-overlay">
+                                <div class="video-title">${creation.title}</div>
+                                <div class="video-description">${creation.description}</div>
+                                ${creation.tags && creation.tags.length > 0 ? `
+                                    <div class="video-tags">
+                                        ${creation.tags.map(tag => `<span class="video-tag">#${tag.name}</span>`).join(' ')}
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
-                        <div class="creation-stats">
-                            <div class="stat">
-                                <i class="fas fa-eye"></i>
-                                <span class="stat-views" data-id="${creation.id}">${creation.view_count || 0}</span>
-                            </div>
-                            <div class="stat">
-                                <i class="fas fa-heart"></i>
-                                <span class="stat-likes" data-id="${creation.id}">${creation.like_count || 0}</span>
-                            </div>
-                            <div class="stat">
-                                <i class="fas fa-comment"></i>
-                                <span class="stat-comments" data-id="${creation.id}">${creation.comment_count || 0}</span>
-                            </div>
+                    `).join('')}
+                    
+                    <!-- 滑动指示器 -->
+                    <div class="slide-indicators">
+                        ${this.creations.map((_, index) => `
+                            <div class="indicator ${index === 0 ? 'active' : ''}" data-index="${index}"></div>
+                        `).join('')}
+                    </div>
+                    
+                    <!-- 上下滑动控制按钮 -->
+                    <button class="slide-up" onclick="userCreation.prevVideo()">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                    <button class="slide-down" onclick="userCreation.nextVideo()">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                
+                <!-- 右侧互动栏 -->
+                <div class="interactive-bar">
+                    <!-- 用户信息 -->
+                    <div class="user-info">
+                        <div class="avatar-container">
+                            <img src="${this.creations[0].user && this.creations[0].user.avatar ? this.creations[0].user.avatar : '../static/common/default-avatar.png'}" 
+                                 alt="User" class="user-avatar" id="currentUserAvatar"
+                                 onerror="this.src='../static/common/default-avatar.png'">
+                            <span class="follow-btn" id="followBtn" style="display: none;">+ 关注</span>
+                        </div>
+                        <span class="username" id="currentUsername">${this.creations[0].user && this.creations[0].user.display_name ? this.creations[0].user.display_name : this.creations[0].user ? this.creations[0].user.username : '用户'}</span>
+                    </div>
+                    
+                    <!-- 互动按钮 -->
+                    <div class="interaction-buttons">
+                        <div class="interaction-btn like-btn ${this.creations[0].is_liked || this.creations[0].liked ? 'active' : ''}" onclick="userCreation.handleLike(${this.creations[0].id})">
+                            <i class="fas fa-heart"></i>
+                            <span class="interaction-count" id="likeCount">${this.creations[0].like_count || 0}</span>
+                        </div>
+                        <div class="interaction-btn comment-btn" onclick="userCreation.handleComment(${this.creations[0].id})">
+                            <i class="fas fa-comment"></i>
+                            <span class="interaction-count" id="commentCount">${this.creations[0].comment_count || 0}</span>
+                        </div>
+                        <div class="interaction-btn share-btn" onclick="userCreation.handleShare(${this.creations[0].id})">
+                            <i class="fas fa-share"></i>
+                            <span class="interaction-count" id="shareCount">0</span>
+                        </div>
+                        <div class="interaction-btn collect-btn" onclick="userCreation.handleCollect(${this.creations[0].id})">
+                            <i class="fas fa-bookmark"></i>
+                        </div>
+                        <div class="interaction-btn volume-btn" onclick="userCreation.toggleVolume()">
+                            <i class="fas fa-volume-mute" id="volumeIcon"></i>
                         </div>
                     </div>
                     
-                    ${creation.tags && creation.tags.length > 0 ? `
-                        <div class="creation-tags">
-                            ${creation.tags.map(tag => `<span class="creation-tag" onclick="userCreation.filterByTag('${tag.name}')">#${tag.name}</span>`).join('')}
-                        </div>
-                    ` : ''}
-                    
-                    <div class="creation-actions">
-                        <button class="action-btn like ${creation.is_liked || creation.liked || false ? 'active' : ''}" 
-                                onclick="userCreation.handleLike(${creation.id})">
-                            <i class="fas fa-heart"></i>
-                            ${creation.is_liked || creation.liked || false ? '已点赞' : '点赞'}
-                        </button>
-                        <button class="action-btn" onclick="userCreation.handleComment(${creation.id})">
-                            <i class="fas fa-comment"></i>
-                            评论
-                        </button>
-                        <button class="action-btn" onclick="userCreation.handleShare(${creation.id})">
-                            <i class="fas fa-share"></i>
-                            分享
-                        </button>
-                        ${canManage ? `
-                        <button class="action-btn manage-btn" onclick="userCreation.handleManage(${creation.id})" style="background: #ff6b6b;">
-                            <i class="fas fa-cog"></i>
-                            管理
-                        </button>
-                        ` : ''}
+                    <!-- 音乐信息 -->
+                    <div class="music-info">
+                        <div class="music-icon"></div>
+                        <span class="music-title" id="musicTitle">${this.creations[0].music_title || '未知音乐'}</span>
                     </div>
                 </div>
             </div>
-        `}).join('');
+        `;
         
-        // 初始化视口监控
-        this.initViewportMonitoring();
+        // 初始化视频播放和交互
+        this.initVideoInteraction();
     }
 
     renderMedia(creation) {
@@ -441,7 +452,7 @@ class UserCreation {
                 const videoUrl = processMediaUrl(creation.video_url);
                 const posterUrl = processMediaUrl(creation.thumbnail) || processMediaUrl(creation.image_url);
                 return `
-                    <video class="creation-video" controls poster="${posterUrl || '/static/common/default-video.jpg'}" style="width: 100%; height: 100%; object-fit: cover;">
+                    <video class="creation-video" muted loop playsinline poster="${posterUrl || '/static/common/default-video.jpg'}" style="width: 100%; height: 100%; object-fit: contain; background: #000;">
                         <source src="${videoUrl}" type="video/mp4">
                         <source src="${videoUrl}" type="video/webm">
                         您的浏览器不支持视频播放
@@ -489,9 +500,10 @@ class UserCreation {
             `).join('');
     }
 
-    openCreationModal() {
+    async openCreationModal() {
         // 检查用户是否已登录
-        if (!window.checkLoginStatus()) {
+        const isLoggedIn = await window.checkLoginStatus();
+        if (!isLoggedIn) {
             this.showLoginPrompt('发布创作');
             return;
         }
@@ -517,12 +529,7 @@ class UserCreation {
     }
 
     async handleEmptyStateCreate() {
-        // 检查用户是否已登录
-        if (!window.checkLoginStatus()) {
-            this.showLoginPrompt('发布创作');
-            return;
-        }
-        this.openCreationModal();
+        await this.openCreationModal();
     }
 
     resetModalForm() {
@@ -643,6 +650,14 @@ class UserCreation {
     }
 
     async submitCreation() {
+        // 检查用户是否已登录
+        const isLoggedIn = await window.checkLoginStatus();
+        if (!isLoggedIn) {
+            this.showLoginPrompt('发布创作');
+            this.closeCreationModal();
+            return;
+        }
+        
         const title = document.getElementById('creationTitle').value.trim();
         const content = document.getElementById('creationContent').value.trim();
         const file = document.getElementById('creationFile').files[0];
@@ -765,7 +780,8 @@ class UserCreation {
 
     async handleLike(creationId) {
         // 检查用户是否已登录
-        if (!window.checkLoginStatus()) {
+        const isLoggedIn = await window.checkLoginStatus();
+        if (!isLoggedIn) {
             this.showLoginPrompt('点赞');
             return;
         }
@@ -797,29 +813,29 @@ class UserCreation {
                 console.log('点赞成功，结果:', result);
                 
                 // 更新UI显示
-                    const card = document.querySelector(`[data-id="${creationId}"]`);
-                    if (card) {
-                        const likeBtn = card.querySelector('.action-btn.like');
-                        const likeCount = card.querySelector('.stat-likes');
-                        
-                        if (likeBtn) {
-                            likeBtn.classList.toggle('active', result.liked);
-                            likeBtn.innerHTML = `<i class="fas fa-heart"></i> ${result.liked ? '已点赞' : '点赞'}`;
-                        }
-                        
-                        // 更新点赞数
-                        if (likeCount) {
-                            likeCount.textContent = result.like_count || 0;
-                        }
+                const videoItem = document.querySelector(`.video-item[data-id="${creationId}"]`);
+                if (videoItem) {
+                    // 更新抖音风格界面的点赞按钮
+                    const likeBtn = document.querySelector('.interaction-btn.like-btn');
+                    const likeCount = document.getElementById('likeCount');
+                    
+                    if (likeBtn) {
+                        likeBtn.className = `interaction-btn like-btn ${result.liked ? 'active' : ''}`;
                     }
                     
-                    // 更新本地创作数据
-                    const creationIndex = this.creations.findIndex(c => c.id === creationId);
-                    if (creationIndex !== -1) {
-                        this.creations[creationIndex].is_liked = result.liked;
-                        this.creations[creationIndex].liked = result.liked;
-                        this.creations[creationIndex].like_count = result.like_count;
+                    if (likeCount) {
+                        likeCount.textContent = result.like_count || 0;
                     }
+                }
+                
+                // 更新本地创作数据
+                const creationIndex = this.creations.findIndex(c => c.id === creationId);
+                if (creationIndex !== -1) {
+                    this.creations[creationIndex].is_liked = result.liked;
+                    this.creations[creationIndex].liked = result.liked;
+                    this.creations[creationIndex].like_count = result.like_count;
+                }
+                
                 this.showSuccess(result.message || (result.liked ? '点赞成功' : '取消点赞成功'));
                 // 重新加载统计数据
                 await this.loadStatistics();
@@ -852,7 +868,8 @@ class UserCreation {
 
     async handleComment(creationId) {
         // 检查用户是否已登录
-        if (!window.checkLoginStatus()) {
+        const isLoggedIn = await window.checkLoginStatus();
+        if (!isLoggedIn) {
             this.showLoginPrompt('评论');
             return;
         }
@@ -1171,7 +1188,14 @@ class UserCreation {
         }
     }
 
-    handleShare(creationId) {
+    async handleShare(creationId) {
+        // 检查用户是否已登录
+        const isLoggedIn = await window.checkLoginStatus();
+        if (!isLoggedIn) {
+            this.showLoginPrompt('分享创作');
+            return;
+        }
+        
         // 实现分享功能
         if (navigator.share) {
             navigator.share({
@@ -1188,6 +1212,13 @@ class UserCreation {
     }
 
     async handleManage(creationId) {
+        // 检查用户是否已登录
+        const isLoggedIn = await window.checkLoginStatus();
+        if (!isLoggedIn) {
+            this.showLoginPrompt('管理创作');
+            return;
+        }
+        
         // 获取当前用户信息
         const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
         if (!currentUser) {
@@ -1514,6 +1545,415 @@ class UserCreation {
         });
     }
     
+    initVideoInteraction() {
+        // 初始化视频交互
+        this.currentVideoIndex = 0;
+        
+        // 初始化视频播放
+        this.initVideoPlayback();
+        
+        // 初始化滑动切换
+        this.initSwipeGesture();
+        
+        // 初始化指示器点击
+        this.initIndicatorClick();
+        
+        // 初始化关注按钮
+        this.initFollowButton();
+    }
+    
+    initVideoPlayback() {
+        // 初始化视频播放
+        const videos = document.querySelectorAll('.video-item video');
+        videos.forEach(video => {
+            // 使用isMuted属性设置视频的静音状态
+            video.muted = this.isMuted;
+            
+            // 点击视频切换播放/暂停
+            video.addEventListener('click', () => {
+                if (video.paused) {
+                    video.play().catch(err => console.warn('播放失败:', err));
+                } else {
+                    video.pause();
+                }
+            });
+            
+            // 视频结束时循环播放
+            video.addEventListener('ended', () => {
+                video.currentTime = 0;
+                video.play().catch(err => console.warn('循环播放失败:', err));
+            });
+        });
+        
+        // 自动播放第一个视频
+        const firstVideo = document.querySelector('.video-item.active video');
+        if (firstVideo) {
+            // 使用isMuted属性设置视频的静音状态
+            firstVideo.muted = this.isMuted;
+            // 延迟播放，避免与其他操作冲突
+            setTimeout(() => {
+                firstVideo.play().catch(err => console.warn('自动播放失败:', err));
+            }, 100);
+        }
+        
+        // 初始化音量图标状态
+        const volumeIcon = document.getElementById('volumeIcon');
+        if (volumeIcon) {
+            volumeIcon.className = this.isMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+        }
+    }
+    
+    initSwipeGesture() {
+        // 初始化滑动手势
+        const videoFeed = document.getElementById('videoFeed');
+        let startY = 0;
+        let endY = 0;
+        
+        videoFeed.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+        });
+        
+        videoFeed.addEventListener('touchend', (e) => {
+            endY = e.changedTouches[0].clientY;
+            this.handleSwipe(startY, endY);
+        });
+        
+        // 鼠标滑动支持
+        videoFeed.addEventListener('mousedown', (e) => {
+            startY = e.clientY;
+        });
+        
+        videoFeed.addEventListener('mouseup', (e) => {
+            endY = e.clientY;
+            this.handleSwipe(startY, endY);
+        });
+        
+        // 鼠标滚轮支持
+        videoFeed.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY > 0) {
+                // 向下滚动，下一个视频
+                this.nextVideo();
+            } else {
+                // 向上滚动，上一个视频
+                this.prevVideo();
+            }
+        });
+    }
+    
+    handleSwipe(startY, endY) {
+        const threshold = 50;
+        const diff = startY - endY;
+        
+        if (Math.abs(diff) > threshold) {
+            if (diff > 0) {
+                // 向上滑动，下一个视频
+                this.nextVideo();
+            } else {
+                // 向下滑动，上一个视频
+                this.prevVideo();
+            }
+        }
+    }
+    
+    initIndicatorClick() {
+        // 初始化指示器点击
+        const indicators = document.querySelectorAll('.indicator');
+        indicators.forEach((indicator, index) => {
+            indicator.addEventListener('click', () => {
+                this.switchVideo(index);
+            });
+        });
+    }
+    
+    initFollowButton() {
+        // 初始化关注按钮
+        const followBtn = document.getElementById('followBtn');
+        if (followBtn) {
+            // 检查是否是自己的创作
+            const currentUser = JSON.parse(localStorage.getItem('user'));
+            const currentUserId = currentUser.id || currentUser.userId;
+            const creationUserId = this.creations[0].user && (this.creations[0].user.id || this.creations[0].user.userId);
+            
+            if (currentUserId && creationUserId && currentUserId === creationUserId) {
+                // 是自己的创作，隐藏关注按钮
+                followBtn.style.display = 'none';
+            } else {
+                // 不是自己的创作，显示关注按钮
+                followBtn.style.display = 'inline-block';
+                
+                // 检查是否已关注
+                const isFollowed = this.creations[0].user && this.creations[0].user.is_followed;
+                followBtn.textContent = isFollowed ? '已关注' : '+ 关注';
+            }
+            
+            // 使用onclick属性，避免重复绑定事件监听器
+            followBtn.onclick = () => {
+                const userId = this.creations[this.currentVideoIndex].user.id || this.creations[this.currentVideoIndex].user.userId;
+                this.handleFollow(userId);
+            };
+        }
+    }
+    
+    switchVideo(index) {
+        // 切换到指定视频
+        if (index < 0 || index >= this.creations.length) return;
+        
+        // 停止所有视频的播放
+        const allVideos = document.querySelectorAll('.video-item video');
+        allVideos.forEach(video => {
+            video.pause();
+            video.currentTime = 0;
+        });
+        
+        // 隐藏当前视频
+        const currentVideo = document.querySelector('.video-item.active');
+        if (currentVideo) {
+            currentVideo.classList.remove('active');
+        }
+        
+        // 显示新视频
+        const videoItems = document.querySelectorAll('.video-item');
+        if (videoItems[index]) {
+            videoItems[index].classList.add('active');
+            const video = videoItems[index].querySelector('video');
+            if (video) {
+                // 使用isMuted属性设置视频的静音状态
+                video.muted = this.isMuted;
+                // 重新加载视频源
+                video.load();
+                video.play().catch(err => console.error('自动播放失败:', err));
+            }
+        }
+        
+        // 更新音量图标状态
+        const volumeIcon = document.getElementById('volumeIcon');
+        if (volumeIcon) {
+            volumeIcon.className = this.isMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+        }
+        
+        // 更新指示器
+        const indicators = document.querySelectorAll('.indicator');
+        indicators.forEach((indicator, i) => {
+            indicator.classList.toggle('active', i === index);
+        });
+        
+        // 更新互动栏
+        this.updateInteractiveBar(index);
+        
+        // 更新当前索引
+        this.currentVideoIndex = index;
+    }
+    
+    nextVideo() {
+        // 下一个视频
+        let nextIndex = this.currentVideoIndex + 1;
+        if (nextIndex >= this.creations.length) {
+            nextIndex = 0; // 循环
+        }
+        this.switchVideo(nextIndex);
+    }
+    
+    prevVideo() {
+        // 上一个视频
+        let prevIndex = this.currentVideoIndex - 1;
+        if (prevIndex < 0) {
+            prevIndex = this.creations.length - 1; // 循环
+        }
+        this.switchVideo(prevIndex);
+    }
+    
+    updateInteractiveBar(index) {
+        // 更新互动栏内容
+        const creation = this.creations[index];
+        if (!creation) return;
+        
+        // 更新用户信息
+        const userAvatar = document.getElementById('currentUserAvatar');
+        const username = document.getElementById('currentUsername');
+        const followBtn = document.getElementById('followBtn');
+        
+        if (userAvatar) {
+            userAvatar.src = creation.user && creation.user.avatar ? creation.user.avatar : '../static/common/default-avatar.png';
+        }
+        
+        if (username) {
+            username.textContent = creation.user && creation.user.display_name ? creation.user.display_name : creation.user ? creation.user.username : '用户';
+        }
+        
+        if (followBtn) {
+            // 检查是否是自己的创作
+            const currentUser = JSON.parse(localStorage.getItem('user'));
+            const currentUserId = currentUser.id || currentUser.userId;
+            const creationUserId = creation.user && (creation.user.id || creation.user.userId);
+            
+            if (currentUserId && creationUserId && currentUserId === creationUserId) {
+                // 是自己的创作，隐藏关注按钮
+                followBtn.style.display = 'none';
+            } else {
+                // 不是自己的创作，显示关注按钮
+                followBtn.style.display = 'inline-block';
+                
+                // 检查是否已关注
+                const isFollowed = creation.user && creation.user.is_followed;
+                followBtn.textContent = isFollowed ? '已关注' : '+ 关注';
+            }
+            
+            const userId = creation.user && (creation.user.id || creation.user.userId);
+            if (userId) {
+                followBtn.onclick = () => this.handleFollow(userId);
+            }
+        }
+        
+        // 更新互动按钮
+        const likeBtn = document.querySelector('.interaction-btn.like-btn');
+        const likeCount = document.getElementById('likeCount');
+        const commentBtn = document.querySelector('.interaction-btn.comment-btn');
+        const commentCount = document.getElementById('commentCount');
+        const shareBtn = document.querySelector('.interaction-btn.share-btn');
+        const collectBtn = document.querySelector('.interaction-btn.collect-btn');
+        
+        if (likeBtn) {
+            likeBtn.className = `interaction-btn like-btn ${creation.is_liked || creation.liked ? 'active' : ''}`;
+            likeBtn.onclick = () => this.handleLike(creation.id);
+        }
+        
+        if (likeCount) {
+            likeCount.textContent = creation.like_count || 0;
+        }
+        
+        if (commentBtn) {
+            commentBtn.onclick = () => this.handleComment(creation.id);
+        }
+        
+        if (commentCount) {
+            commentCount.textContent = creation.comment_count || 0;
+        }
+        
+        if (shareBtn) {
+            shareBtn.onclick = () => this.handleShare(creation.id);
+        }
+        
+        if (collectBtn) {
+            collectBtn.onclick = () => this.handleCollect(creation.id);
+        }
+        
+        // 更新音乐信息
+        const musicTitle = document.getElementById('musicTitle');
+        if (musicTitle) {
+            musicTitle.textContent = creation.music_title || '未知音乐';
+        }
+    }
+    
+    async handleFollow(userId) {
+        // 处理关注功能
+        try {
+            // 检查用户是否登录
+            const isLoggedIn = await window.checkLoginStatus();
+            if (!isLoggedIn) {
+                this.showLoginPrompt('关注用户');
+                return;
+            }
+            
+            // 检查是否是自己
+            const currentUser = JSON.parse(localStorage.getItem('user'));
+            const currentUserId = currentUser.id || currentUser.userId;
+            if (currentUserId && currentUserId === userId) {
+                this.showError('不能关注自己');
+                return;
+            }
+            
+            const csrfToken = await this.getCSRFToken();
+            const response = await fetch(`/api/forum/users/${userId}/follow/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                this.showSuccess(result.is_following ? '关注成功' : '取消关注成功');
+                
+                // 更新关注按钮
+                const followBtn = document.getElementById('followBtn');
+                if (followBtn) {
+                    followBtn.textContent = result.is_following ? '已关注' : '+ 关注';
+                }
+                
+                // 更新创作列表中的is_followed字段
+                this.creations.forEach(creation => {
+                    if (creation.user && (creation.user.id === userId || creation.user.userId === userId)) {
+                        creation.user.is_followed = result.is_following;
+                    }
+                });
+            } else {
+                const errorText = await response.text();
+                console.error('关注失败响应:', errorText);
+                this.showError('关注操作失败，请稍后重试');
+            }
+        } catch (error) {
+            console.error('关注操作失败:', error);
+            this.showError('关注操作失败，请稍后重试');
+        }
+    }
+    
+    async handleCollect(creationId) {
+        // 处理收藏功能
+        try {
+            // 检查用户是否登录
+            const isLoggedIn = await window.checkLoginStatus();
+            if (!isLoggedIn) {
+                this.showLoginPrompt('收藏创作');
+                return;
+            }
+            
+            const csrfToken = await this.getCSRFToken();
+            const response = await fetch(`/api/creation-favorites/toggle/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ creation_id: creationId })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                this.showSuccess(result.message || (result.collected ? '收藏成功' : '取消收藏成功'));
+            } else {
+                const errorText = await response.text();
+                console.error('收藏失败响应:', errorText);
+                this.showError('收藏操作失败，请稍后重试');
+            }
+        } catch (error) {
+            console.error('收藏操作失败:', error);
+            this.showError('收藏操作失败，请稍后重试');
+        }
+    }
+    
+    toggleVolume() {
+        // 切换视频音量
+        const currentVideo = document.querySelector('.video-item.active video');
+        if (currentVideo) {
+            const volumeIcon = document.getElementById('volumeIcon');
+            if (this.isMuted) {
+                // 取消静音
+                this.isMuted = false;
+                currentVideo.muted = false;
+                volumeIcon.className = 'fas fa-volume-up';
+                this.showSuccess('已开启声音');
+            } else {
+                // 静音
+                this.isMuted = true;
+                currentVideo.muted = true;
+                volumeIcon.className = 'fas fa-volume-mute';
+                this.showSuccess('已关闭声音');
+            }
+        }
+    }
+    
     startMedia(mediaEl) {
         // 开始媒体加载或播放
         const video = mediaEl.querySelector('video');
@@ -1606,122 +2046,166 @@ class UserCreation {
     }
 
     showLoginRequired() {
-        const container = document.getElementById('creationList');
-        container.innerHTML = `
-            <div class="login-required">
-                <div class="login-icon">
+        // 只显示登录提示模态框，不清空容器
+        if (typeof LoginModal !== 'undefined') {
+            LoginModal.show({
+                title: '请先登录',
+                message: '登录后即可发布创作和访问创作者中心',
+                action: '发布创作',
+                autoRedirect: true
+            });
+        } else {
+            // 降级方案：显示简单的提示
+            const container = document.getElementById('creationList');
+            if (container) {
+                // 创建一个浮动的登录提示
+                const loginPrompt = document.createElement('div');
+                loginPrompt.className = 'login-prompt';
+                loginPrompt.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: var(--shaanxi-red);
+                    color: white;
+                    padding: 12px 20px;
+                    border-radius: 6px;
+                    z-index: 1000;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                `;
+                loginPrompt.innerHTML = `
                     <i class="fas fa-user-lock"></i>
-                </div>
-                <h2>请先登录</h2>
-                <p>登录后即可发布创作和访问创作者中心</p>
-                <div class="login-actions">
-                    <button class="login-btn" onclick="window.location.href='login.html'">
-                        <i class="fas fa-sign-in-alt"></i>
-                        立即登录
-                    </button>
-                    <button class="register-btn" onclick="window.location.href='register.html'">
-                        <i class="fas fa-user-plus"></i>
-                        注册账号
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        // 保持发布按钮可用，让点击事件能够触发登录提示
-        document.getElementById('createBtn').disabled = false;
+                    <span>登录后即可发布创作</span>
+                    <button onclick="window.location.href='pages/login.html'" style="
+                        background: white;
+                        color: var(--shaanxi-red);
+                        border: none;
+                        padding: 4px 12px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: 500;
+                    ">去登录</button>
+                `;
+                document.body.appendChild(loginPrompt);
+                
+                // 3秒后自动消失
+                setTimeout(() => {
+                    if (loginPrompt.parentNode) {
+                        loginPrompt.parentNode.removeChild(loginPrompt);
+                    }
+                }, 3000);
+            }
+        }
     }
 
     showLoginPrompt(action) {
-        // 创建登录提示模态框
-        const modal = document.createElement('div');
-        modal.className = 'login-prompt-modal';
-        modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        `;
-        
-        modal.innerHTML = `
-            <div class="login-prompt-content" style="
-                background: white;
-                padding: 30px;
-                border-radius: 15px;
-                text-align: center;
-                max-width: 400px;
-                width: 90%;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            ">
-                <div class="prompt-icon" style="
-                    font-size: 3rem;
-                    color: #667eea;
-                    margin-bottom: 20px;
+        if (typeof LoginModal !== 'undefined') {
+            LoginModal.show({
+                title: '请先登录',
+                message: `登录后即可${action}`,
+                action: action,
+                autoRedirect: true
+            });
+        } else {
+            // 降级方案：创建登录提示模态框
+            const modal = document.createElement('div');
+            modal.className = 'login-prompt-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+            `;
+            
+            modal.innerHTML = `
+                <div class="login-prompt-content" style="
+                    background: white;
+                    padding: 30px;
+                    border-radius: 15px;
+                    text-align: center;
+                    max-width: 400px;
+                    width: 90%;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
                 ">
-                    <i class="fas fa-user-lock"></i>
-                </div>
-                <h3 style="margin-bottom: 10px; color: #333;">请先登录</h3>
-                <p style="color: #666; margin-bottom: 25px;">登录后即可${action}</p>
-                <div class="prompt-actions" style="display: flex; gap: 15px; justify-content: center;">
-                    <button class="prompt-login-btn" style="
-                        padding: 12px 25px;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        font-weight: 600;
+                    <div class="prompt-icon" style="
+                        font-size: 3rem;
+                        color: #667eea;
+                        margin-bottom: 20px;
                     ">
-                        <i class="fas fa-sign-in-alt"></i>
-                        立即登录
-                    </button>
-                    <button class="prompt-cancel-btn" style="
-                        padding: 12px 25px;
-                        background: #f8f9fa;
-                        color: #666;
-                        border: 1px solid #ddd;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        font-weight: 600;
-                    ">
-                        取消
-                    </button>
+                        <i class="fas fa-user-lock"></i>
+                    </div>
+                    <h3 style="margin-bottom: 10px; color: #333;">请先登录</h3>
+                    <p style="color: #666; margin-bottom: 25px;">登录后即可${action}</p>
+                    <div class="prompt-actions" style="display: flex; gap: 15px; justify-content: center;">
+                        <button class="prompt-login-btn" style="
+                            padding: 12px 25px;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-weight: 600;
+                        ">
+                            <i class="fas fa-sign-in-alt"></i>
+                            立即登录
+                        </button>
+                        <button class="prompt-cancel-btn" style="
+                            padding: 12px 25px;
+                            background: #f8f9fa;
+                            color: #666;
+                            border: 1px solid #ddd;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-weight: 600;
+                        ">
+                            取消
+                        </button>
+                    </div>
                 </div>
-            </div>
-        `;
-        
-        // 添加事件监听器
-        modal.querySelector('.prompt-login-btn').addEventListener('click', () => {
-            window.location.href = 'login.html';
-        });
-        
-        modal.querySelector('.prompt-cancel-btn').addEventListener('click', () => {
-            document.body.removeChild(modal);
-        });
-        
-        // 点击模态框外部关闭
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+            `;
+            
+            // 添加事件监听器
+            modal.querySelector('.prompt-login-btn').addEventListener('click', () => {
+                window.location.href = 'pages/login.html';
+            });
+            
+            modal.querySelector('.prompt-cancel-btn').addEventListener('click', () => {
                 document.body.removeChild(modal);
-            }
-        });
-        
-        document.body.appendChild(modal);
+            });
+            
+            // 点击模态框外部关闭
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
+            
+            document.body.appendChild(modal);
+        }
     }
 
     showError(message) {
-        // 简单的错误提示实现
-        alert(message);
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.error(message);
+        } else {
+            alert(message);
+        }
     }
 
     showSuccess(message) {
-        // 简单的成功提示实现
-        alert(message);
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.success(message);
+        } else {
+            alert(message);
+        }
     }
 
     getTypeLabel(type) {

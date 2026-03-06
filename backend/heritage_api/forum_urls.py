@@ -1,9 +1,47 @@
 from django.urls import path, include
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 from .api import forum as forum_views
 
 app_name = 'forum'
 
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def forum_root(request):
+    """
+    论坛API根视图
+    
+    提供论坛所有可用端点的列表
+    """
+    return Response({
+        'message': '陕西非遗AI平台 - 论坛API',
+        'endpoints': {
+            'posts': request.build_absolute_uri('posts/'),
+            'tags': request.build_absolute_uri('tags/'),
+            'users': {
+                'search': request.build_absolute_uri('users/search/'),
+                'active': request.build_absolute_uri('users/active/'),
+                'stats': request.build_absolute_uri('users/stats/'),
+            },
+            'personal': {
+                'favorites': request.build_absolute_uri('my/favorites/'),
+                'notifications': request.build_absolute_uri('my/notifications/'),
+                'following': request.build_absolute_uri('my/following/'),
+                'followers': request.build_absolute_uri('my/followers/'),
+            },
+            'upload': {
+                'image': request.build_absolute_uri('upload/image/'),
+            }
+        }
+    })
+
+
 urlpatterns = [
+    # 论坛根路径
+    path('', forum_root, name='forum-root'),
+    
     # 帖子相关
     path('posts/', forum_views.ForumPostListView.as_view(), name='post-list'),
     path('posts/<int:pk>/', forum_views.ForumPostDetailView.as_view(), name='post-detail'),
@@ -22,9 +60,8 @@ urlpatterns = [
     path('comments/<int:comment_id>/report/', forum_views.report_comment, name='comment-report'),
     path('comments/<int:comment_id>/delete/', forum_views.delete_comment, name='comment-delete'),
     
-    # 标签和公告
+    # 标签
     path('tags/', forum_views.ForumTagListView.as_view(), name='tag-list'),
-    path('announcements/', forum_views.ForumAnnouncementListView.as_view(), name='announcement-list'),
     
     # 用户相关
     path('users/<int:user_id>/follow-status/', forum_views.check_user_follow_status, name='check-user-follow-status'),
