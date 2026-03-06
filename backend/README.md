@@ -148,59 +148,134 @@ gunicorn heritage_project.wsgi:application --bind 0.0.0.0:8000
 
 | 接口 | 方法 | 描述 |
 |-----|------|------|
-| `/api/auth/register/` | POST | 用户注册 |
-| `/api/auth/login/` | POST | 用户登录 |
+| `/api/auth/register/` | POST | 用户注册（邮箱注册） |
+| `/api/auth/login/` | POST | 用户登录（邮箱登录） |
 | `/api/auth/logout/` | POST | 用户登出 |
-| `/api/auth/user/` | GET | 获取用户信息 |
+| `/api/auth/user/` | GET | 获取当前用户信息 |
 | `/api/auth/csrf/` | GET | 获取CSRF Token |
-| `/api/auth/captcha/generate/` | GET | 生成验证码 |
+| `/api/auth/captcha/generate/` | GET | 生成图形验证码 |
 | `/api/auth/captcha/verify/` | POST | 验证验证码 |
-| `/api/auth/request-password-reset/` | POST | 请求密码重置 |
+| `/api/auth/request-password-reset/` | POST | 请求密码重置（发送邮件） |
 | `/api/auth/reset-password/` | POST | 重置密码 |
+| `/api/auth/security-status/` | GET | 获取安全状态 |
 
 ### 非遗接口
 
 | 接口 | 方法 | 描述 |
 |-----|------|------|
-| `/api/items/` | GET | 获取非遗列表 |
+| `/api/items/` | GET | 获取非遗列表（支持分页、筛选、搜索） |
 | `/api/items/{id}/` | GET | 获取非遗详情 |
-| `/api/items/categories/` | GET | 获取类别列表 |
-| `/api/items/regions/` | GET | 获取地区列表 |
-| `/api/items/levels/` | GET | 获取级别列表 |
-| `/api/items/search_suggestions/` | GET | 搜索建议 |
-| `/api/favorites/` | GET/POST | 收藏列表/添加收藏 |
+| `/api/items/categories/` | GET | 获取所有类别列表 |
+| `/api/items/regions/` | GET | 获取所有地区列表 |
+| `/api/items/levels/` | GET | 获取所有级别列表 |
+
+### 收藏接口
+
+| 接口 | 方法 | 描述 |
+|-----|------|------|
+| `/api/favorites/` | GET | 获取用户收藏列表（支持排序） |
+| `/api/favorites/add/` | POST | 添加收藏（body: `heritage_id`） |
+| `/api/favorites/remove/` | POST | 移除收藏（body: `heritage_id`） |
+| `/api/favorites/check/` | GET | 检查收藏状态（参数: `heritage_id`） |
+
+### 浏览历史接口
+
+| 接口 | 方法 | 描述 |
+|-----|------|------|
+| `/api/history/` | GET | 获取浏览历史列表 |
+| `/api/history/add/` | POST | 添加浏览记录（body: `heritage_id`） |
+| `/api/history/clear/` | DELETE | 清除所有浏览历史 |
+| `/api/history/remove/` | DELETE | 删除特定浏览记录（body: `heritage_id`） |
 
 ### 用户接口
 
 | 接口 | 方法 | 描述 |
 |-----|------|------|
-| `/api/profile/` | GET/PATCH | 用户资料 |
-| `/api/history/` | GET | 浏览历史 |
-| `/api/analytics/` | GET | 用户分析数据 |
-| `/api/user/stats/` | GET | 用户统计 |
-
-### 论坛接口
-
-| 接口 | 方法 | 描述 |
-|-----|------|------|
-| `/api/forum/posts/` | GET/POST | 帖子列表/创建帖子 |
-| `/api/forum/posts/{id}/` | GET/PUT/DELETE | 帖子详情/更新/删除 |
-| `/api/forum/comments/` | GET/POST | 评论列表/发表评论 |
-| `/api/forum/tags/` | GET | 标签列表 |
-
-### Agent代理接口
-
-| 接口 | 方法 | 描述 |
-|-----|------|------|
-| `/api/agent/{path}` | ALL | 代理转发到Agent服务 |
-| `/api/agent-service-url/` | GET | 获取Agent服务地址 |
+| `/api/profile/` | GET/PATCH | 用户资料（GET获取，PATCH更新） |
+| `/api/profile/me/` | GET | 获取当前用户详细信息（含头像） |
+| `/api/profile/update_profile/` | PUT/PATCH | 更新用户资料 |
+| `/api/profile/upload-avatar/` | POST | 上传用户头像 |
+| `/api/profile/clear-avatar/` | POST | 清除用户头像 |
+| `/api/analytics/` | GET | 获取用户创作分析数据 |
+| `/api/export-data/` | POST | 导出用户数据（ZIP格式） |
+| `/api/delete-account/` | POST | 删除用户账户 |
+| `/api/clear-avatar/` | POST | 清除头像（备用接口） |
+| `/api/user/stats/` | GET | 获取用户统计数据 |
 
 ### 资讯政策接口
 
 | 接口 | 方法 | 描述 |
 |-----|------|------|
-| `/api/news/` | GET | 新闻列表 |
-| `/api/policies/` | GET | 政策列表 |
+| `/api/news/` | GET | 新闻列表（支持搜索、标签筛选） |
+| `/api/news/{id}/` | GET | 新闻详情（自动增加浏览量） |
+| `/api/news/sources/` | GET | 获取所有新闻来源 |
+| `/api/news/search_suggestions/` | GET | 获取搜索建议 |
+| `/api/news/tags/` | GET | 获取所有新闻标签 |
+| `/api/policies/` | GET | 政策列表（支持搜索、类型筛选） |
+| `/api/policies/{id}/` | GET | 政策详情（自动增加浏览量） |
+| `/api/policies/types/` | GET | 获取所有政策类型 |
+| `/api/policies/authorities/` | GET | 获取所有发布机构 |
+| `/api/policies/search_suggestions/` | GET | 获取搜索建议 |
+
+### 创作中心接口
+
+| 接口 | 方法 | 描述 |
+|-----|------|------|
+| `/api/creations/` | GET/POST | 创作列表/创建创作 |
+| `/api/creations/{id}/` | GET/PUT/DELETE | 创作详情/更新/删除 |
+| `/api/creation-likes/` | GET/POST | 点赞列表/点赞创作 |
+| `/api/creation-comments/` | GET/POST | 评论列表/发表评论 |
+| `/api/creation-history/` | GET | 创作浏览历史 |
+| `/api/creation-favorites/` | GET/POST | 创作收藏列表/收藏创作 |
+
+### 论坛接口
+
+| 接口 | 方法 | 描述 |
+|-----|------|------|
+| `/api/forum/` | GET | 论坛API根视图（列出所有端点） |
+| `/api/forum/posts/` | GET/POST | 帖子列表/创建帖子 |
+| `/api/forum/posts/{id}/` | GET/PUT/DELETE | 帖子详情/更新/删除 |
+| `/api/forum/posts/{id}/like/` | POST | 切换帖子点赞状态 |
+| `/api/forum/posts/{id}/favorite/` | POST | 切换帖子收藏状态 |
+| `/api/forum/posts/{id}/pin/` | POST | 切换帖子置顶状态（管理员） |
+| `/api/forum/posts/{id}/feature/` | POST | 切换帖子精华状态（管理员） |
+| `/api/forum/posts/{id}/report/` | POST | 举报帖子 |
+| `/api/forum/posts/{id}/view/` | POST | 增加帖子浏览量 |
+| `/api/forum/posts/{post_id}/comments/` | GET/POST | 评论列表/发表评论 |
+| `/api/forum/comments/{id}/like/` | POST | 切换评论点赞状态 |
+| `/api/forum/comments/{id}/report/` | POST | 举报评论 |
+| `/api/forum/comments/{id}/delete/` | DELETE | 删除评论 |
+| `/api/forum/tags/` | GET | 标签列表 |
+| `/api/forum/users/{id}/follow/` | POST | 切换用户关注状态 |
+| `/api/forum/users/{id}/follow-status/` | GET | 检查用户关注状态 |
+| `/api/forum/users/{id}/posts/` | GET | 获取用户帖子列表 |
+| `/api/forum/users/search/` | GET | 搜索用户 |
+| `/api/forum/users/active/` | GET | 获取活跃用户列表 |
+| `/api/forum/users/stats/` | GET | 获取用户统计排行榜 |
+| `/api/forum/my/favorites/` | GET | 我的收藏帖子 |
+| `/api/forum/my/notifications/` | GET | 我的通知 |
+| `/api/forum/my/following/` | GET | 我的关注列表 |
+| `/api/forum/my/followers/` | GET | 我的粉丝列表 |
+| `/api/forum/upload/image/` | POST | 上传图片 |
+
+### Agent代理接口
+
+| 接口 | 方法 | 描述 |
+|-----|------|------|
+| `/api/agent/{path}` | ALL | 代理转发到Agent服务（支持SSE流式响应） |
+| `/api/agent-service-url/` | GET | 获取Agent服务地址 |
+
+### 地图配置接口
+
+| 接口 | 方法 | 描述 |
+|-----|------|------|
+| `/api/map/config/` | GET | 获取百度地图API配置 |
+
+### 旅游规划接口
+
+| 接口 | 方法 | 描述 |
+|-----|------|------|
+| `/api/travel-plan/export/` | GET | 导出旅游规划 |
 
 ## 数据模型
 
@@ -210,38 +285,283 @@ gunicorn heritage_project.wsgi:application --bind 0.0.0.0:8000
 
 ```python
 class Heritage(models.Model):
-    name = models.CharField(max_length=100, unique=True)      # 项目名称
-    category = models.CharField(max_length=50)                # 类别
-    region = models.CharField(max_length=50)                  # 地区
-    level = models.CharField(max_length=50)                   # 级别
-    description = models.TextField()                          # 描述
-    history = models.TextField(blank=True)                    # 历史渊源
-    latitude = models.FloatField(null=True)                   # 纬度
-    longitude = models.FloatField(null=True)                  # 经度
-    inheritors = models.TextField(blank=True)                 # 传承人
+    name = models.CharField(max_length=100, unique=True)           # 项目名称
+    pinyin_name = models.CharField(max_length=200, blank=True)     # 拼音名称
+    category = models.CharField(max_length=50)                     # 类别
+    region = models.CharField(max_length=50)                       # 地区
+    level = models.CharField(max_length=50, default='未知级别')    # 级别
+    batch = models.CharField(max_length=50, blank=True)            # 批次
+    description = models.TextField()                               # 描述
+    history = models.TextField(blank=True)                         # 历史渊源
+    features = models.TextField(blank=True)                        # 基本内容/特征
+    value = models.TextField(blank=True)                           # 重要价值
+    status = models.TextField(blank=True)                          # 存续状况
+    protection_measures = models.TextField(blank=True)             # 保护措施
+    inheritors = models.TextField(blank=True)                      # 传承人
+    related_works = models.TextField(blank=True)                   # 相关制品
+    latitude = models.FloatField(null=True)                        # 纬度
+    longitude = models.FloatField(null=True)                       # 经度
+    main_image_url = models.URLField(max_length=500, blank=True)   # 主图片URL
+    gallery_image_urls = models.JSONField(default=list)            # 图库图片URL列表
 ```
 
-#### User (用户扩展)
+#### UserFavorite (用户收藏)
+
+```python
+class UserFavorite(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)       # 用户
+    heritage = models.ForeignKey(Heritage, on_delete=models.CASCADE)  # 非遗项目
+    created_at = models.DateTimeField(auto_now_add=True)           # 收藏时间
+    
+    class Meta:
+        unique_together = ('user', 'heritage')  # 每个用户对每个项目只能收藏一次
+```
+
+#### UserHistory (浏览历史)
+
+```python
+class UserHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)       # 用户
+    heritage = models.ForeignKey(Heritage, on_delete=models.CASCADE)  # 非遗项目
+    visit_time = models.DateTimeField(auto_now_add=True)           # 浏览时间
+    
+    class Meta:
+        unique_together = ('user', 'heritage')
+```
+
+#### News (新闻资讯)
+
+```python
+class News(models.Model):
+    title = models.CharField(max_length=200)                       # 标题
+    summary = models.TextField(max_length=500, blank=True)         # 摘要
+    content = models.TextField()                                   # 内容
+    author = models.CharField(max_length=100, blank=True)          # 作者
+    source = models.CharField(max_length=200, blank=True)          # 来源
+    source_url = models.URLField(max_length=500, blank=True)       # 来源链接
+    image_url = models.URLField(max_length=500, blank=True)        # 配图链接
+    publish_date = models.DateTimeField()                          # 发布时间
+    view_count = models.PositiveIntegerField(default=0)            # 浏览次数
+    tags = models.CharField(max_length=200, blank=True)            # 标签（逗号分隔）
+    is_active = models.BooleanField(default=True)                  # 是否启用
+```
+
+#### Policy (政策法规)
+
+```python
+class Policy(models.Model):
+    POLICY_TYPE_CHOICES = [
+        ('law', '法律法规'),
+        ('regulation', '部门规章'),
+        ('notice', '通知公告'),
+        ('standard', '标准规范'),
+        ('guidance', '指导意见'),
+        ('plan', '规划计划'),
+        ('other', '其他'),
+    ]
+    
+    title = models.CharField(max_length=200)                       # 标题
+    summary = models.TextField(max_length=500, blank=True)         # 摘要
+    content = models.TextField()                                   # 内容
+    policy_number = models.CharField(max_length=100, blank=True)   # 政策编号
+    issuing_authority = models.CharField(max_length=100)           # 发布机构
+    policy_type = models.CharField(max_length=20, choices=POLICY_TYPE_CHOICES)  # 政策类型
+    publish_date = models.DateField()                              # 发布日期
+    effective_date = models.DateField(blank=True, null=True)       # 生效日期
+    source_url = models.URLField(max_length=500, blank=True)       # 来源链接
+    attachment_url = models.URLField(max_length=500, blank=True)   # 附件链接
+    tags = models.CharField(max_length=200, blank=True)            # 标签
+    view_count = models.PositiveIntegerField(default=0)            # 浏览量
+    is_active = models.BooleanField(default=True)                  # 是否激活
+```
+
+### 用户模型
+
+#### UserProfile (用户资料)
 
 ```python
 class UserProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    avatar = models.ImageField(upload_to='user_avatars/')
-    bio = models.TextField(max_length=500)
-    display_name = models.CharField(max_length=100)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    avatar = models.ImageField(upload_to='user_avatars/', null=True, blank=True)
+    bio = models.TextField(max_length=500, blank=True)
+    display_name = models.CharField(max_length=100, blank=True)
+    
+    # 信号：创建User时自动创建关联的UserProfile
 ```
+
+### 创作中心模型
+
+#### UserCreation (用户创作)
+
+```python
+class UserCreation(models.Model):
+    CREATION_TYPE_CHOICES = [
+        ('video', '视频创作'),
+        ('photo', '图片创作'),
+        ('article', '文章创作'),
+        ('music', '音乐创作'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('published', '已发布'),
+        ('reviewing', '审核中'),
+        ('rejected', '已拒绝'),
+        ('archived', '已归档'),
+    ]
+    
+    title = models.CharField(max_length=100)                        # 创作标题
+    description = models.TextField()                                # 创作描述
+    type = models.CharField(max_length=20, choices=CREATION_TYPE_CHOICES)  # 创作类型
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')  # 状态
+    media_file = models.FileField(upload_to='user_creations/%Y/%m/%d/', blank=True)  # 媒体文件
+    thumbnail = models.ImageField(upload_to='creation_thumbnails/%Y/%m/%d/', blank=True)  # 缩略图
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='creations')  # 作者
+    heritage = models.ForeignKey(Heritage, on_delete=models.SET_NULL, blank=True, null=True)  # 关联非遗项目
+    view_count = models.PositiveIntegerField(default=0)             # 浏览数
+    like_count = models.PositiveIntegerField(default=0)             # 点赞数
+    comment_count = models.PositiveIntegerField(default=0)          # 评论数
+    share_count = models.PositiveIntegerField(default=0)            # 分享数
+    tags = models.JSONField(default=list, blank=True)               # 标签
+    is_featured = models.BooleanField(default=False)                # 是否精选
+    is_public = models.BooleanField(default=True)                   # 是否公开
+    published_at = models.DateTimeField(blank=True, null=True)      # 发布时间
+```
+
+#### CreationLike (创作点赞)
+
+```python
+class CreationLike(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='creation_likes')
+    creation = models.ForeignKey(UserCreation, on_delete=models.CASCADE, related_name='likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'creation')
+```
+
+#### CreationComment (创作评论)
+
+```python
+class CreationComment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='creation_comments')
+    creation = models.ForeignKey(UserCreation, on_delete=models.CASCADE, related_name='comments')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True, related_name='replies')
+    content = models.TextField()
+    is_active = models.BooleanField(default=True)
+    like_count = models.PositiveIntegerField(default=0)
+```
+
+#### CreationFavorite (创作收藏)
+
+```python
+class CreationFavorite(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='creation_favorites')
+    creation = models.ForeignKey(UserCreation, on_delete=models.CASCADE, related_name='favorites')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'creation')
+```
+
+### 论坛模型
 
 #### ForumPost (论坛帖子)
 
 ```python
 class ForumPost(models.Model):
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('published', '已发布'),
+        ('hidden', '已隐藏'),
+        ('deleted', '已删除'),
+    ]
+    
     title = models.CharField(max_length=200)
     content = models.TextField()
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
-    status = models.CharField(choices=STATUS_CHOICES)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='forum_posts')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='published')
+    is_pinned = models.BooleanField(default=False)                  # 是否置顶
+    is_featured = models.BooleanField(default=False)                # 是否精华
+    is_locked = models.BooleanField(default=False)                  # 是否锁定
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
-    tags = models.ManyToManyField('ForumTag')
+    comment_count = models.PositiveIntegerField(default=0)
+    favorite_count = models.PositiveIntegerField(default=0)
+    tags = models.ManyToManyField('ForumTag', blank=True, related_name='posts')
+    last_reply_at = models.DateTimeField(null=True, blank=True)
+```
+
+#### ForumComment (论坛评论)
+
+```python
+class ForumComment(models.Model):
+    post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='forum_comments')
+    content = models.TextField()
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies')
+    like_count = models.PositiveIntegerField(default=0)
+    is_deleted = models.BooleanField(default=False)
+```
+
+#### ForumTag (论坛标签)
+
+```python
+class ForumTag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+    color = models.CharField(max_length=7, default='#007bff')
+    post_count = models.PositiveIntegerField(default=0)
+```
+
+#### ForumPostLike (帖子点赞)
+
+```python
+class ForumPostLike(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_likes')
+    post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name='likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'post')
+```
+
+#### ForumPostFavorite (帖子收藏)
+
+```python
+class ForumPostFavorite(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_favorites')
+    post = models.ForeignKey(ForumPost, on_delete=models.CASCADE, related_name='favorites')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'post')
+```
+
+#### ForumUserFollow (用户关注)
+
+```python
+class ForumUserFollow(models.Model):
+    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name='following')
+    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name='followers')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('follower', 'following')
+```
+
+#### ForumUserStats (用户统计)
+
+```python
+class ForumUserStats(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='forum_stats')
+    post_count = models.PositiveIntegerField(default=0)             # 帖子数
+    comment_count = models.PositiveIntegerField(default=0)          # 评论数
+    like_received = models.PositiveIntegerField(default=0)          # 收到的点赞数
+    followers_count = models.PositiveIntegerField(default=0)        # 粉丝数
+    following_count = models.PositiveIntegerField(default=0)        # 关注数
+    experience = models.PositiveIntegerField(default=0)             # 经验值
+    last_active_at = models.DateTimeField(null=True, blank=True)    # 最后活跃时间
 ```
 
 ## Agent服务代理
@@ -274,27 +594,16 @@ AGENT_SERVICE_URL=http://localhost:8001
 - 请求频率限制
 - 热门数据缓存
 
-### 缓存策略
+## Redis缓存
 
-```python
-# 验证码缓存 (5分钟)
-cache.set(f'captcha:{session_key}', code, 300)
+Redis工具类封装在 `heritage_api/redis_utils.py` 中，提供以下功能：
 
-# 频率限制 (滑动窗口)
-redis_client.check_rate_limit('register', ip, 10, 60)  # 10次/分钟
-```
+- **验证码缓存**: `set_captcha()`, `get_captcha()`, `delete_captcha()`
+- **频率限制**: `check_rate_limit(endpoint, ip, max_requests, window)`
+- **登录安全**: `incr_login_attempts()`, `is_login_locked()`, `reset_login_attempts()`
+- **浏览量统计**: `incr_view_count()`, `get_view_count()`, `get_all_view_counts()`
 
 ## Celery异步任务
-
-### 配置
-
-```python
-# heritage_project/celery.py
-app = Celery('heritage_project')
-app.config_from_object('django.conf:settings', namespace='CELERY')
-```
-
-### 启动Worker
 
 ```bash
 celery -A heritage_project worker -l info
@@ -305,11 +614,9 @@ celery -A heritage_project beat -l info
 
 ### IP白名单中间件
 
-```python
-# heritage_project/middleware.py
-class IPWhitelistMiddleware:
-    """IP访问控制中间件"""
-```
+限制管理后台访问权限，默认只允许 `127.0.0.1` 和 `localhost` 访问 `/admin/`。
+
+配置方式：在 `settings.py` 的 `MIDDLEWARE` 中添加 `'heritage_project.middleware.IPWhitelistMiddleware'`。
 
 ## 开发指南
 
@@ -318,19 +625,6 @@ class IPWhitelistMiddleware:
 1. 在 `api/` 目录下创建视图
 2. 在 `serializers/` 目录下创建序列化器
 3. 在 `urls.py` 中注册路由
-
-```python
-# api/custom.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
-
-class CustomView(APIView):
-    def get(self, request):
-        return Response({'message': 'Hello'})
-
-# urls.py
-path('custom/', CustomView.as_view(), name='custom'),
-```
 
 ### 添加新的数据模型
 

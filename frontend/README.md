@@ -59,6 +59,9 @@ frontend/
 │   ├── agent/               # Agent相关样式
 │   │   ├── plan-editor.css     # 规划编辑器样式
 │   │   └── travel-planning.css  # 旅游规划样式
+│   ├── components/          # 组件样式
+│   │   ├── modal.css           # 模态框样式
+│   │   └── notification.css    # 通知样式
 │   ├── pages/               # 页面特定样式
 │   │   ├── creation-center.css  # 创作中心样式
 │   │   ├── heritage-detail.css  # 详情页样式
@@ -84,6 +87,7 @@ frontend/
 │   │   ├── plan-editor.js       # AI规划编辑器
 │   │   ├── progress-manager.js  # 进度管理器
 │   │   ├── result-renderer.js   # 结果渲染器
+│   │   ├── streaming-chat.js    # 流式聊天
 │   │   └── travel-planning.js   # 旅游规划主脚本
 │   ├── api/                 # API相关脚本
 │   │   ├── forum-api.js         # 论坛API
@@ -92,13 +96,18 @@ frontend/
 │   │   ├── api.js               # 统一API请求封装
 │   │   ├── api-utils.js         # API工具函数
 │   │   ├── auth.js              # 认证相关
+│   │   ├── auth-redirect.js     # 认证重定向
 │   │   ├── bg-image-handler.js  # 背景图片处理
 │   │   ├── browsing-history.js  # 浏览历史
 │   │   ├── date-utils.js        # 日期时间工具
 │   │   ├── heritage-api.js      # 非遗API
-│   │   ├── heritage-ui.js       # UI工具函数
+│   │   ├── heritage-ui.js       # 非遗UI工具函数
+│   │   ├── modal-manager.js     # 模态框管理器
+│   │   ├── notification-manager.js  # 通知管理器
 │   │   ├── tracker.js           # 埋点追踪
 │   │   └── utils.js             # 工具函数
+│   ├── components/        # 可复用组件
+│   │   └── login-modal.js       # 登录模态框组件
 │   ├── lib/               # 工具库
 │   │   └── LunarSolarConverter.js  # 农历阳历转换
 │   ├── modules/          # 模块脚本
@@ -225,30 +234,26 @@ frontend/
 ### 收藏功能相关文件
 
 - **js/common/heritage-api.js**: 封装了收藏相关的 API 调用
-  - `addFavorite()`: 添加收藏
-  - `removeFavorite()`: 移除收藏
-  - `checkFavoriteStatus()`: 检查收藏状态
-  - `getUserFavorites()`: 获取用户收藏列表
-  - `updateFavoriteButtonsState()`: 更新所有收藏按钮状态
+  - `addFavorite(heritageId)`: 添加收藏（POST `/favorites/add/`）
+  - `removeFavorite(heritageId)`: 移除收藏（POST `/favorites/remove/`）
+  - `checkFavoriteStatus(heritageId)`: 检查收藏状态（GET `/favorites/check/`）
+  - `getUserFavorites(sort)`: 获取用户收藏列表（GET `/favorites/`）
   - `heritageEvents`: 收藏状态事件总线
 
 - **js/pages/heritage-detail.js**: 详情页收藏功能
-  - `toggleFavorite()`: 切换收藏状态
-  - `checkFavoriteStatus()`: 检查收藏状态
-  - `updateFavoriteButton()`: 更新收藏按钮样式
+  - 集成收藏API，支持添加/移除收藏
+  - 实时更新收藏按钮状态
+  - 显示收藏状态视觉反馈
 
 - **js/pages/heritage-map-sidebar.js**: 地图页收藏功能
-  - `toggleCollection()`: 切换收藏状态
-  - `updateCollectionButtonsState()`: 更新所有收藏按钮状态
-  - `loadCollectionsFromStorage()`: 从本地存储加载收藏
-  - `saveCollectionsToStorage()`: 保存收藏到本地存储
-  - `updateCollectionCount()`: 更新收藏计数
+  - 地图标记点的收藏操作
+  - 侧边栏列表的收藏状态同步
+  - 本地存储与后端数据同步
 
 - **js/pages/profile.js**: 个人中心收藏管理
-  - `fetchUserFavorites()`: 获取用户收藏列表
-  - `renderFavorites()`: 渲染收藏列表
-  - `removeFavorite()`: 移除收藏
-  - `sortFavorites()`: 排序收藏列表
+  - 展示用户收藏列表
+  - 支持批量取消收藏
+  - 支持按时间/名称排序
 
 - **js/modules/profile-favorites.js**: 个人中心收藏功能模块
   - 提供收藏列表的管理和操作功能
@@ -272,6 +277,50 @@ frontend/
 <script src="../lib/dify_chatbot_embed.js"></script>
 <script src="../lib/maxkb_embed.js"></script>
 ```
+
+## 验证码功能
+
+注册页面使用图形验证码进行人机验证，防止恶意注册。
+
+- **后端**: `/api/auth/captcha/generate/` - 生成验证码
+- **后端**: `/api/auth/captcha/verify/` - 验证验证码
+- **前端**: `js/pages/register.js` - 验证码显示和刷新
+
+## 通知系统
+
+全局通知系统用于显示操作结果、错误提示等信息。
+
+- **js/common/notification-manager.js**: 通知管理器
+- **css/components/notification.css**: 通知样式
+
+使用方式：`NotificationManager.success('操作成功！')` / `error()` / `warning()` / `info()`
+
+## 模态框系统
+
+统一模态框管理，支持确认框、提示框等。
+
+- **js/common/modal-manager.js**: 模态框管理器
+- **css/components/modal.css**: 模态框样式
+- **js/components/login-modal.js**: 登录模态框组件
+
+使用方式：`ModalManager.confirm('确定吗？')` / `alert('提示')` / `showLoginModal()`
+
+## 流式聊天
+
+支持SSE流式响应，用于AI对话场景。
+
+- **js/agent/streaming-chat.js**: `StreamingChatManager` 类
+- **js/agent/progress-manager.js**: 进度管理器
+- **js/agent/result-renderer.js**: 结果渲染器
+
+## Agent智能规划
+
+AI旅游规划Agent，支持SSE流式进度推送。
+
+- **js/agent/agent-core.js**: 规划核心功能
+- **js/agent/dialog-manager.js**: 对话管理器
+- **js/agent/plan-editor.js**: 规划编辑器
+- **js/agent/travel-planning.js**: 旅游规划主入口（自动初始化为 `window.travelAgent`）
 
 ## 如何运行
 
@@ -395,96 +444,39 @@ Nginx 配置文件位于项目根目录的 `nginx.conf`，主要配置包括：
 
 ## API 调用
 
-前端通过 Fetch API 与后端通信，API请求统一封装在 `js/common/api.js` 文件中：
+前端通过 Fetch API 与后端通信，API请求封装在以下文件中：
+
+- **js/common/api.js**: 统一API请求封装，自动注入CSRF Token
+- **js/common/heritage-api.js**: 非遗相关API（列表、详情、收藏等）
+- **js/api/forum-api.js**: 论坛相关API（帖子、评论、点赞、关注等）
+- **js/api/user-profile-api.js**: 用户资料API（头像、资料更新等）
+
+### 主要API模块
 
 ```javascript
-// 统一API请求函数
-async function apiRequest(endpoint, options = {}) {
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers
-    };
-    
-    // CSRF Token自动注入
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes((options.method || 'GET').toUpperCase())) {
-        const csrfToken = window.getCookie('csrftoken');
-        if (csrfToken) {
-            headers['X-CSRFToken'] = csrfToken;
-        }
-    }
-    
-    const url = `/api${endpoint}`;
-    
-    const response = await fetch(url, {
-        ...options,
-        headers,
-        credentials: 'include'  // 携带Session Cookie
-    });
-    
-    return response.json();
-}
-```
+// 非遗API
+heritageAPI.getAllItems(params)    // 获取非遗列表
+heritageAPI.getItemDetail(id)      // 获取非遗详情
+addFavorite(id) / removeFavorite(id)  // 收藏操作
 
-非遗相关API封装在 `js/common/heritage-api.js` 文件中：
+// 论坛API
+forumAPI.getPosts(params)          // 获取帖子列表
+forumAPI.createPost(data)          // 创建帖子
+forumAPI.togglePostLike(id)        // 点赞帖子
 
-```javascript
-// 获取非遗项目列表
-const heritageAPI = {
-    getAllItems: async (params = {}) => {
-        let allItems = [];
-        let currentPage = params.page || 1;
-        // 分页获取所有数据
-        // ...
-    },
-    
-    getDetail: async (id) => {
-        return apiRequest(`/heritage/items/${id}/`);
-    }
-};
-
-// 收藏功能
-async function toggleFavorite(heritageId) {
-    return apiRequest(`/favorites/toggle/${heritageId}/`, {
-        method: 'POST'
-    });
-}
-
-// 检查收藏状态
-async function checkFavoriteStatus(heritageId) {
-    return apiRequest(`/favorites/status/${heritageId}/`);
-}
+// 用户API
+API.userProfile.getUserProfile()   // 获取用户资料
+API.userProfile.uploadUserAvatar(file)  // 上传头像
 ```
 
 ## 日期时间工具
 
-前端包含日期时间工具 `js/common/date-utils.js`，用于处理和格式化日期时间，包括：
+`js/common/date-utils.js` 提供日期时间处理功能：
 
-- 格式化日期时间
-- 显示农历日期（使用 `js/lib/LunarSolarConverter.js` 库）
-- 显示节气信息
-
-```javascript
-// 日期时间格式选项
-const DATE_FORMAT_OPTIONS = {
-    FULL: { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' },
-    DATE_ONLY: { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' },
-    TIME_ONLY: { hour: '2-digit', minute: '2-digit' }
-};
-
-// 获取格式化的日期时间字符串
-function getFormattedDateTime(options = DATE_FORMAT_OPTIONS.FULL) {
-    const now = new Date();
-    return now.toLocaleDateString('zh-CN', options);
-}
-
-// 获取农历日期（使用LunarSolarConverter库）
-function getLunarDate() {
-    const now = new Date();
-    const converter = new LunarSolarConverter();
-    const lunar = converter.Lunar(now);
-    return `农历 ${lunar.monthStr}${lunar.dayStr}`;
-}
-```
+- `dateUtils.getFormattedDateTime()` - 格式化日期时间
+- `dateUtils.getLunarDate()` - 获取农历日期
+- `dateUtils.getSolarTerm()` - 获取节气
+- `dateUtils.getFullDateTimeInfo()` - 获取完整日期信息
 
 ## 开发指南
 
@@ -495,11 +487,6 @@ function getLunarDate() {
 3. 在 `js/pages/` 目录下创建对应的 JavaScript 文件
 4. 在 HTML 文件中引入必要的 CSS 和 JavaScript 文件
 
-### 修改现有功能
-
-1. 确定需要修改的功能所在的文件
-2. 修改相应的 HTML、CSS 或 JavaScript 代码
-3. 在浏览器中测试修改效果
 
 ### 添加聊天助手到新页面
 

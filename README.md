@@ -205,9 +205,16 @@ shaanxi-heritage-ai-platform/
 │   ├── pages/                # HTML页面
 │   ├── js/                   # JavaScript
 │   │   ├── agent/            # Agent交互
+│   │   ├── api/              # API封装
 │   │   ├── common/           # 通用模块
+│   │   ├── components/       # 可复用组件
+│   │   ├── modules/          # 功能模块
 │   │   └── pages/            # 页面脚本
-│   └── css/                  # 样式文件
+│   ├── css/                  # 样式文件
+│   │   ├── agent/            # Agent样式
+│   │   ├── components/       # 组件样式
+│   │   └── pages/            # 页面样式
+│   └── lib/                  # 第三方库
 ```
 
 ---
@@ -307,7 +314,6 @@ LLM_MODEL=gpt-4o
 | [Agent README](Agent/README.md) | Agent系统详细文档 |
 | [Backend README](backend/README.md) | 后端服务详细文档 |
 | [Frontend README](frontend/README.md) | 前端服务详细文档 |
-| [数据库结构](backend/complete_database_schema.md) | 数据库表结构 |
 ---
 
 ## 联系方式
