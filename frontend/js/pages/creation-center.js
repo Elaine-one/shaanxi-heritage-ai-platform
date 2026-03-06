@@ -511,26 +511,40 @@ class CreationCenter {
             return;
         }
 
-        container.innerHTML = this.favorites.map(favorite => `
-            <div class="favorite-item">
-                <div class="favorite-preview">
-                    ${this.renderMedia(favorite.creation)}
-                </div>
-                <div class="favorite-info">
-                    <h4 class="favorite-title">${favorite.creation.title}</h4>
-                    <p class="favorite-author">作者：${favorite.creation.author.display_name}</p>
-                    <div class="favorite-meta">
-                        <span class="favorite-date">收藏时间：${this.formatDate(favorite.created_at)}</span>
-                        <span class="favorite-views"><i class="fas fa-eye"></i> ${favorite.creation.view_count || 0}</span>
-                        <span class="favorite-likes"><i class="fas fa-heart"></i> ${favorite.creation.like_count || 0}</span>
+        container.innerHTML = this.favorites.filter(favorite => favorite && favorite.creation).map(favorite => {
+            // 安全获取作者名称
+            let authorName = '未知作者';
+            if (favorite.creation.author && favorite.creation.author.display_name) {
+                authorName = favorite.creation.author.display_name;
+            } else if (favorite.creation.user && favorite.creation.user.display_name) {
+                authorName = favorite.creation.user.display_name;
+            } else if (favorite.creation.author && favorite.creation.author.username) {
+                authorName = favorite.creation.author.username;
+            } else if (favorite.creation.user && favorite.creation.user.username) {
+                authorName = favorite.creation.user.username;
+            }
+            
+            return `
+                <div class="favorite-item">
+                    <div class="favorite-preview">
+                        ${this.renderMedia(favorite.creation)}
+                    </div>
+                    <div class="favorite-info">
+                        <h4 class="favorite-title">${favorite.creation.title || '无标题'}</h4>
+                        <p class="favorite-author">作者：${authorName}</p>
+                        <div class="favorite-meta">
+                            <span class="favorite-date">收藏时间：${this.formatDate(favorite.created_at)}</span>
+                            <span class="favorite-views"><i class="fas fa-eye"></i> ${favorite.creation.view_count || 0}</span>
+                            <span class="favorite-likes"><i class="fas fa-heart"></i> ${favorite.creation.like_count || 0}</span>
+                        </div>
+                    </div>
+                    <div class="favorite-actions">
+                        <button class="action-btn view" onclick="creationCenter.viewCreation(${favorite.creation.id})"><i class="fas fa-eye"></i> 查看</button>
+                        <button class="action-btn unfavorite" onclick="creationCenter.unfavorite(${favorite.id})"><i class="fas fa-heart-broken"></i> 取消收藏</button>
                     </div>
                 </div>
-                <div class="favorite-actions">
-                    <button class="action-btn view" onclick="creationCenter.viewCreation(${favorite.creation.id})"><i class="fas fa-eye"></i> 查看</button>
-                    <button class="action-btn unfavorite" onclick="creationCenter.unfavorite(${favorite.id})"><i class="fas fa-heart-broken"></i> 取消收藏</button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     switchTab(tabName) {
@@ -783,13 +797,21 @@ class CreationCenter {
                 // 从列表中移除
                 this.creations = this.creations.filter(creation => creation.id !== creationId);
                 this.renderCreations();
-                alert('创作删除成功');
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.success('创作删除成功');
+                } else {
+                    alert('创作删除成功');
+                }
             } else {
                 throw new Error('删除失败');
             }
         } catch (error) {
             console.error('删除创作失败:', error);
-            alert('删除失败，请稍后重试');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('删除失败，请稍后重试');
+            } else {
+                alert('删除失败，请稍后重试');
+            }
         }
     }
 
@@ -820,7 +842,11 @@ class CreationCenter {
             }
         } catch (error) {
             console.error('获取评论失败:', error);
-            alert('获取评论失败，请稍后重试');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('获取评论失败，请稍后重试');
+            } else {
+                alert('获取评论失败，请稍后重试');
+            }
         }
     }
 
@@ -957,14 +983,22 @@ class CreationCenter {
             if (response.ok) {
                 // 重新加载评论列表
                 await this.viewComments(creationId);
-                alert('评论删除成功');
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.success('评论删除成功');
+                } else {
+                    alert('评论删除成功');
+                }
             } else {
                 const errorData = await response.json();
                 throw new Error(errorData.error || '删除评论失败');
             }
         } catch (error) {
             console.error('删除评论失败:', error);
-            alert('删除评论失败，请稍后重试');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('删除评论失败，请稍后重试');
+            } else {
+                alert('删除评论失败，请稍后重试');
+            }
         }
     }
 
@@ -986,32 +1020,65 @@ class CreationCenter {
             if (response.ok) {
                 this.viewHistory = [];
                 this.renderViewHistory();
-                alert('浏览历史已清空');
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.success('浏览历史已清空');
+                } else {
+                    alert('浏览历史已清空');
+                }
             } else {
                 throw new Error('清空失败');
             }
         } catch (error) {
             console.error('清空浏览历史失败:', error);
-            alert('清空失败，请稍后重试');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('清空失败，请稍后重试');
+            } else {
+                alert('清空失败，请稍后重试');
+            }
         }
     }
 
     async unfavorite(favoriteId) {
         try {
-            const response = await fetch(`/api/favorites/${favoriteId}/`, {
-                method: 'DELETE'
+            console.log('取消收藏，favoriteId:', favoriteId);
+            
+            // 获取CSRF token
+            const csrfToken = window.getCsrfToken ? window.getCsrfToken() : 
+                             document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                             document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+            
+            if (!csrfToken) {
+                console.error('CSRF token未找到');
+                throw new Error('CSRF token缺失');
+            }
+            
+            const response = await fetch(`/api/creation-favorites/${favoriteId}/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
             });
 
             if (response.ok) {
                 // 从列表中移除
                 this.favorites = this.favorites.filter(favorite => favorite.id !== favoriteId);
                 this.renderFavorites();
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.success('取消收藏成功');
+                }
             } else {
+                console.error("取消收藏失败: " + response.status + " " + response.statusText);
+                const errorText = await response.text();
+                console.error("取消收藏失败响应: " + errorText);
                 throw new Error('取消收藏失败');
             }
         } catch (error) {
             console.error('取消收藏失败:', error);
-            alert('取消收藏失败，请稍后重试');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('取消收藏失败，请稍后重试');
+            } else {
+                alert('取消收藏失败，请稍后重试');
+            }
         }
     }
 
@@ -1031,7 +1098,11 @@ class CreationCenter {
             }
         } catch (error) {
             console.error('导出数据失败:', error);
-            alert('导出数据失败，请稍后重试');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('导出数据失败，请稍后重试');
+            } else {
+                alert('导出数据失败，请稍后重试');
+            }
         }
     }
 
@@ -1046,14 +1117,22 @@ class CreationCenter {
             });
 
             if (response.ok) {
-                alert('创作账户已删除');
+                if (typeof NotificationManager !== 'undefined') {
+                    NotificationManager.success('创作账户已删除');
+                } else {
+                    alert('创作账户已删除');
+                }
                 this.redirectToLogin();
             } else {
                 throw new Error('删除账户失败');
             }
         } catch (error) {
             console.error('删除账户失败:', error);
-            alert('删除账户失败，请稍后重试');
+            if (typeof NotificationManager !== 'undefined') {
+                NotificationManager.error('删除账户失败，请稍后重试');
+            } else {
+                alert('删除账户失败，请稍后重试');
+            }
         }
     }
 

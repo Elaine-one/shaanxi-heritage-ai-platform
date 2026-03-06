@@ -27,6 +27,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // 从API获取详情数据
     heritageAPI.getItemDetail(itemId)
         .then(item => {
+            console.log('API返回的完整数据:', item);
+            console.log('main_image_url:', item.main_image_url);
+            console.log('gallery_image_urls:', item.gallery_image_urls);
+            console.log('images字段存在:', 'images' in item);
+            
             if (!item) {
                 showErrorMessage('未找到该非遗项目');
                 return;
@@ -94,11 +99,8 @@ function renderHeritageDetail(item) {
         return;
     }
     
-    // 使用基本路径，不指定具体文件名
-    // 从 API 返回的 images 数组中查找主图片
-    const mainImageObj = item.images && item.images.find(img => img.is_main);
-    // 使用 API 提供的完整 URL，如果找不到主图或没有图片，则使用空字符串
-    const mainImagePath = mainImageObj ? mainImageObj.image : '';
+    // 使用新的API数据结构
+    const mainImagePath = item.main_image_url || '/static/common/default-heritage.jpg';
     
     // 构建HTML结构
     let detailHTML = `
@@ -183,9 +185,10 @@ function loadGalleryImages(item) {
     galleryContainer.style.maxWidth = '1000px';
     galleryContainer.style.margin = '20px auto';
     
-    // 使用 API 返回的包含完整 URL 的 images 数组
-    if (item.images && item.images.length > 0) {
-        item.images.forEach(imageObj => {
+    // 使用新的API数据结构 - gallery_image_urls 数组
+    const imageUrls = item.gallery_image_urls || [];
+    if (imageUrls.length > 0) {
+        imageUrls.forEach((imgUrl, index) => {
             // 创建gallery-item容器
             const galleryItem = document.createElement('div');
             galleryItem.className = 'gallery-item';
@@ -199,8 +202,6 @@ function loadGalleryImages(item) {
             imgContainer.style.aspectRatio = '4/3';
             imgContainer.style.backgroundColor = '#f5f5f5';
             
-            // imageObj.image 已经是完整的 URL
-            const imgUrl = imageObj.image;
             const imgElement = document.createElement('img');
             imgElement.src = imgUrl;
             imgElement.alt = item.name;
@@ -266,7 +267,7 @@ function loadGalleryImages(item) {
             // 添加图片说明文字
             const caption = document.createElement('div');
             caption.className = 'gallery-caption';
-            caption.textContent = imageObj.description || `${item.name}图片${item.images.indexOf(imageObj) + 1}`;
+            caption.textContent = `${item.name}图片${index + 1}`;
             caption.style.padding = '10px 5px';
             caption.style.textAlign = 'center';
             caption.style.fontWeight = '500';

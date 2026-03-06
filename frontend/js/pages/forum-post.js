@@ -151,30 +151,6 @@ class ForumPostManager {
             e.preventDefault();
             this.submitReport();
         });
-        
-        // 登录模态框
-        const loginModal = document.getElementById('loginModal');
-        const closeLoginModal = document.getElementById('closeLoginModal');
-        const cancelLogin = document.getElementById('cancelLogin');
-        const goToLogin = document.getElementById('goToLogin');
-        
-        closeLoginModal.addEventListener('click', () => {
-            this.hideLoginModal();
-        });
-        
-        cancelLogin.addEventListener('click', () => {
-            this.hideLoginModal();
-        });
-        
-        goToLogin.addEventListener('click', () => {
-            window.location.href = '/pages/login.html';
-        });
-        
-        loginModal.addEventListener('click', (e) => {
-            if (e.target === loginModal) {
-                this.hideLoginModal();
-            }
-        });
     }
     
     bindToolbarEvents() {
@@ -957,13 +933,15 @@ class ForumPostManager {
     }
     
     showLoginModal() {
-        const modal = document.getElementById('loginModal');
-        modal.classList.add('show');
-    }
-    
-    hideLoginModal() {
-        const modal = document.getElementById('loginModal');
-        modal.classList.remove('show');
+        if (typeof LoginModal !== 'undefined') {
+            LoginModal.show({
+                title: '需要登录',
+                message: '您需要登录后才能进行此操作',
+                autoRedirect: true
+            });
+        } else {
+            console.warn('LoginModal not available');
+        }
     }
     
     async copyShareLink() {
@@ -1209,9 +1187,10 @@ class ForumPostManager {
         return this.formatDateTime(dateString);
     }
     
-    // 使用全局api-utils中的showErrorMessage函数
     showError(message) {
-        if (window.apiUtils && window.apiUtils.showErrorMessage) {
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.error(message);
+        } else if (window.apiUtils && window.apiUtils.showErrorMessage) {
             window.apiUtils.showErrorMessage('错误: ' + message);
         } else {
             alert('错误: ' + message);
@@ -1219,8 +1198,11 @@ class ForumPostManager {
     }
     
     showSuccess(message) {
-        // 简单的成功提示，可以替换为更好的UI组件
-        alert('成功: ' + message);
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.success(message);
+        } else {
+            alert('成功: ' + message);
+        }
     }
     
     async updateUserIcon() {

@@ -701,18 +701,35 @@ async function loadHeritageData() {
     console.log('[loadHeritageData] Attempting to fetch heritage data from API...');
     try {
         if (window.API && window.API.heritage && typeof window.API.heritage.getAllItems === 'function') {
-            const response = await window.API.heritage.getAllItems(); // getAllItems returns { count, results }
-            // Assuming we need the results array
-            const data = response.results;
-            console.log('[loadHeritageData] Successfully fetched data:', data ? data.length + ' items' : 'null or empty');
-            return data;
+            let allItems = [];
+            let page = 1;
+            let hasMore = true;
+            
+            while (hasMore) {
+                const response = await window.API.heritage.getAllItems({ page: page, page_size: 12 });
+                console.log(`[loadHeritageData] Fetched page ${page}:`, response ? response.results.length + ' items' : 'null or empty');
+                
+                if (response && response.results && response.results.length > 0) {
+                    allItems = allItems.concat(response.results);
+                    
+                    if (response.results.length < 12 || allItems.length >= response.count) {
+                        hasMore = false;
+                    } else {
+                        page++;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            }
+            
+            console.log(`[loadHeritageData] Successfully fetched all data: ${allItems.length} total items`);
+            return allItems;
         } else {
             console.error('[loadHeritageData] window.API.heritage.getAllItems is not available.');
             throw new Error('window.API.heritage.getAllItems is not available.');
         }
     } catch (error) {
         console.error('[loadHeritageData] Error fetching heritage data:', error);
-        // Propagate the error so it can be handled by the caller
         throw new Error(`获取非遗数据失败: ${error.message}`);
     }
 }

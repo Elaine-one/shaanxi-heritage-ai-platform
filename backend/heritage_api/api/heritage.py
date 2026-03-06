@@ -8,16 +8,16 @@ from django.utils import timezone
 from datetime import timedelta
 import logging
 
-from ..models import Heritage, HeritageImage, UserFavorite, News, Policy
+from ..models import Heritage, UserFavorite, News, Policy
 from ..creation_models import (
-    UserCreation, CreationLike, CreationComment, CreationTag,
-    CreationReport, CreationViewHistory, CreationFavorite, CreationShare
+    UserCreation, CreationLike, CreationComment,
+    CreationViewHistory, CreationFavorite
 )
 from ..serializers.heritage import (
-    HeritageSerializer, HeritageImageSerializer, UserFavoriteSerializer, 
+    HeritageSerializer, UserFavoriteSerializer, 
     NewsSerializer, PolicySerializer, UserCreationSerializer, CreationLikeSerializer,
-    CreationCommentSerializer, CreationTagSerializer, CreationReportSerializer,
-    CreationViewHistorySerializer, CreationFavoriteSerializer, CreationShareSerializer
+    CreationCommentSerializer,
+    CreationViewHistorySerializer, CreationFavoriteSerializer
 )
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from ..redis_utils import redis_client
@@ -27,8 +27,23 @@ logger = logging.getLogger(__name__)
 
 # Create your views here.
 class HeritageViewSet(viewsets.ModelViewSet):
-    """非遗项目视图集"""
-    queryset = Heritage.objects.all().order_by('id') # 添加默认排序
+    """
+    非遗项目视图集
+    
+    提供非遗项目的增删改查功能，包括：
+    - 列表查询（支持分页、筛选、搜索）
+    - 详情查看
+    - 类别、级别、地区筛选
+    - ID列表筛选
+    
+    筛选参数：
+    - category: 按类别筛选
+    - level: 按级别筛选
+    - region: 按地区筛选
+    - search/keyword: 按名称搜索
+    - ids: 按ID列表筛选（格式：1,2,3）
+    """
+    queryset = Heritage.objects.all().order_by('id')
     serializer_class = HeritageSerializer
     
     def get_queryset(self):
@@ -115,9 +130,23 @@ class HeritageViewSet(viewsets.ModelViewSet):
 
 
 class UserFavoriteViewSet(viewsets.ModelViewSet):
+    """
+    用户收藏视图集
+    
+    管理用户的非遗项目收藏，包括：
+    - 查看收藏列表
+    - 添加收藏
+    - 取消收藏
+    - 检查收藏状态
+    
+    需要用户登录才能操作。
+    
+    排序参数：
+    - sort: 排序方式（date-desc/默认, date-asc, name-asc, name-desc）
+    """
     queryset = UserFavorite.objects.all()
     serializer_class = UserFavoriteSerializer
-    permission_classes = [IsAuthenticated] # 只有登录用户才能操作收藏
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         # 只返回当前登录用户的收藏
@@ -185,7 +214,19 @@ class UserFavoriteViewSet(viewsets.ModelViewSet):
 
 
 class NewsViewSet(viewsets.ModelViewSet):
-    """非遗资讯视图集"""
+    """
+    非遗资讯视图集
+    
+    提供非遗相关新闻资讯的管理，包括：
+    - 资讯列表查询（支持分页、搜索）
+    - 资讯详情查看（自动增加浏览量）
+    - 按标签筛选
+    - 搜索建议
+    
+    筛选参数：
+    - search: 搜索关键词（标题、摘要、内容、标签）
+    - tag: 按标签筛选
+    """
     queryset = News.objects.filter(is_active=True).order_by('-publish_date')
     serializer_class = NewsSerializer
     
@@ -266,15 +307,30 @@ class NewsViewSet(viewsets.ModelViewSet):
 
 
 # 创作相关视图
-class CreationTagViewSet(viewsets.ModelViewSet):
-    """创作标签视图集"""
-    queryset = CreationTag.objects.all().order_by('name')
-    serializer_class = CreationTagSerializer
-    permission_classes = [IsAuthenticated]
-
-
 class UserCreationViewSet(viewsets.ModelViewSet):
-    """用户创作视图集"""
+    """
+    用户创作视图集
+    
+    管理用户的非遗创作内容，包括：
+    - 创作列表查询（支持分页、筛选）
+    - 创作详情查看（自动增加浏览量）
+    - 创建、编辑、删除创作
+    - 发布/取消发布创作
+    - 精选/推荐管理（管理员）
+    
+    权限说明：
+    - 列表、详情查看：公开访问
+    - 创建、编辑、删除：需要登录
+    
+    筛选参数：
+    - user_id: 按用户ID筛选
+    - category/creation_type: 按创作类型筛选
+    - status: 按状态筛选（draft/published）
+    - tag: 按标签筛选
+    - search: 搜索关键词（标题、描述）
+    - is_featured: 是否精选（true/false）
+    - is_public: 是否公开（true/false）
+    """
     queryset = UserCreation.objects.all().order_by('-created_at')
     serializer_class = UserCreationSerializer
     
@@ -588,7 +644,16 @@ class UserCreationViewSet(viewsets.ModelViewSet):
 
 
 class CreationLikeViewSet(viewsets.ModelViewSet):
-    """创作点赞视图集"""
+    """
+    创作点赞视图集
+    
+    管理用户对创作的点赞，包括：
+    - 查看点赞列表
+    - 切换点赞状态（点赞/取消点赞）
+    - 检查点赞状态
+    
+    需要用户登录才能操作。
+    """
     queryset = CreationLike.objects.all().order_by('-created_at')
     serializer_class = CreationLikeSerializer
     permission_classes = [IsAuthenticated]
@@ -647,7 +712,21 @@ class CreationLikeViewSet(viewsets.ModelViewSet):
 
 
 class CreationCommentViewSet(viewsets.ModelViewSet):
-    """创作评论视图集"""
+    """
+    创作评论视图集
+    
+    管理用户对创作的评论，包括：
+    - 查看评论列表（支持按创作、用户筛选）
+    - 发表评论
+    - 点赞评论
+    - 删除评论（评论者、创作作者、管理员可删除）
+    
+    需要用户登录才能发表评论。
+    
+    筛选参数：
+    - creation_id: 按创作ID筛选评论
+    - user_id: 按用户ID筛选评论
+    """
     queryset = CreationComment.objects.all().order_by('-created_at')
     serializer_class = CreationCommentSerializer
     permission_classes = [IsAuthenticated]
@@ -722,7 +801,16 @@ class CreationCommentViewSet(viewsets.ModelViewSet):
 
 
 class CreationViewHistoryViewSet(viewsets.ModelViewSet):
-    """创作浏览历史视图集"""
+    """
+    创作浏览历史视图集
+
+    管理用户的创作浏览历史，包括：
+    - 查看浏览历史列表
+    - 记录浏览行为
+    - 清除浏览历史
+
+    需要用户登录才能操作。
+    """
     queryset = CreationViewHistory.objects.all().order_by('-viewed_at')
     serializer_class = CreationViewHistorySerializer
     permission_classes = [IsAuthenticated]
@@ -779,14 +867,29 @@ class CreationViewHistoryViewSet(viewsets.ModelViewSet):
 
 
 class CreationFavoriteViewSet(viewsets.ModelViewSet):
-    """创作收藏视图集"""
+    """
+    创作收藏视图集
+
+    管理用户对创作的收藏，包括：
+    - 查看收藏列表
+    - 切换收藏状态（收藏/取消收藏）
+    - 检查收藏状态
+
+    需要用户登录才能操作。
+    """
     queryset = CreationFavorite.objects.all().order_by('-created_at')
     serializer_class = CreationFavoriteSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         # 只返回当前登录用户的收藏，并按创建时间降序排序
-        return CreationFavorite.objects.filter(user=self.request.user).order_by('-created_at')
+        # 使用select_related优化查询，避免N+1问题
+        return CreationFavorite.objects.filter(
+            user=self.request.user
+        ).select_related(
+            'creation', 
+            'creation__author'
+        ).order_by('-created_at')
 
     def perform_create(self, serializer):
         # 创建收藏时，自动将当前登录用户设置为收藏者
@@ -831,78 +934,22 @@ class CreationFavoriteViewSet(viewsets.ModelViewSet):
         return Response({'favorited': is_favorited})
 
 
-class CreationShareViewSet(viewsets.ModelViewSet):
-    """创作分享视图集"""
-    queryset = CreationShare.objects.all()
-    serializer_class = CreationShareSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        # 只返回当前登录用户的分享记录
-        return CreationShare.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        # 创建分享记录时，自动将当前登录用户设置为分享者
-        serializer.save(user=self.request.user)
-
-
-class CreationReportViewSet(viewsets.ModelViewSet):
-    """创作举报视图集"""
-    queryset = CreationReport.objects.all()
-    serializer_class = CreationReportSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        # 普通用户只能看到自己的举报记录
-        if not self.request.user.is_staff:
-            return CreationReport.objects.filter(user=self.request.user)
-        # 管理员可以看到所有举报记录
-        return CreationReport.objects.all()
-
-    def perform_create(self, serializer):
-        # 创建举报时，自动将当前登录用户设置为举报者
-        serializer.save(user=self.request.user)
-
-    @action(detail=True, methods=['post'])
-    def process(self, request, pk=None):
-        """处理举报"""
-        if not request.user.is_staff:
-            return Response({'error': '没有权限处理举报'}, status=status.HTTP_403_FORBIDDEN)
-        
-        report = self.get_object()
-        status_value = request.data.get('status')
-        feedback = request.data.get('feedback', '')
-        
-        if status_value not in ['pending', 'processing', 'resolved', 'rejected']:
-            return Response({'error': '无效的状态值'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        report.status = status_value
-        report.feedback = feedback
-        report.processed_by = request.user
-        report.processed_at = timezone.now()
-        report.save()
-        
-        serializer = self.get_serializer(report)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'])
-    def search_suggestions(self, request):
-        """获取搜索建议"""
-        query = request.query_params.get('q', '').strip()
-        if not query or len(query) < 2:
-            return Response([])
-        
-        try:
-            search_service = SearchService()
-            suggestions = search_service.get_search_suggestions(query, 'policy')
-            return Response(suggestions)
-        except Exception as e:
-            logger.error(f"获取政策搜索建议失败: {e}")
-            return Response([])
-
-
 class PolicyViewSet(viewsets.ModelViewSet):
-    """相关政策视图集"""
+    """
+    政策法规视图集
+
+    提供非遗相关政策法规的管理，包括：
+    - 政策列表查询（支持分页、搜索）
+    - 政策详情查看（自动增加浏览量）
+    - 按政策类型、发布机构筛选
+    - 按标签筛选
+
+    筛选参数：
+    - search: 搜索关键词（标题、摘要、内容、政策编号、发布机构、标签）
+    - policy_type: 按政策类型筛选
+    - authority: 按发布机构筛选
+    - tag: 按标签筛选
+    """
     queryset = Policy.objects.filter(is_active=True).order_by('-publish_date')
     serializer_class = PolicySerializer
     
@@ -997,7 +1044,17 @@ class PolicyViewSet(viewsets.ModelViewSet):
 
 # 旅游规划导出视图
 class TravelPlanExportView(APIView):
-    """旅游规划导出API"""
+    """
+    旅游规划导出API
+
+    导出用户的非遗旅游规划，支持CSV和JSON格式。
+
+    请求参数：
+    - item_ids: 非遗项目ID列表
+    - format: 导出格式（csv/json，默认csv）
+
+    需要用户登录才能导出。
+    """
     permission_classes = [IsAuthenticated]
     
     def post(self, request):

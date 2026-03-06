@@ -237,27 +237,6 @@ class ForumReport(models.Model):
         return f"{self.reporter.username} 举报了 {target}"
 
 
-class ForumAnnouncement(models.Model):
-    """论坛公告模型"""
-    title = models.CharField(max_length=200, verbose_name="标题")
-    content = models.TextField(verbose_name="内容")
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='announcements', verbose_name="发布者")
-    
-    is_active = models.BooleanField(default=True, verbose_name="是否启用")
-    is_pinned = models.BooleanField(default=False, verbose_name="是否置顶")
-    
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
-    
-    class Meta:
-        ordering = ['-is_pinned', '-created_at']
-        verbose_name = "论坛公告"
-        verbose_name_plural = "论坛公告"
-    
-    def __str__(self):
-        return self.title
-
-
 class ForumUserStats(models.Model):
     """用户论坛统计模型"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='forum_stats', verbose_name="用户")

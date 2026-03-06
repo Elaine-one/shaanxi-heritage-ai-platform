@@ -144,30 +144,6 @@ class PostDetailManager {
             e.preventDefault();
             this.submitReport();
         });
-        
-        // 登录模态框
-        const loginModal = document.getElementById('loginModal');
-        const closeLoginModal = document.getElementById('closeLoginModal');
-        const cancelLogin = document.getElementById('cancelLogin');
-        const goToLogin = document.getElementById('goToLogin');
-        
-        closeLoginModal.addEventListener('click', () => {
-            this.hideLoginModal();
-        });
-        
-        cancelLogin.addEventListener('click', () => {
-            this.hideLoginModal();
-        });
-        
-        goToLogin.addEventListener('click', () => {
-            window.location.href = '/pages/login.html';
-        });
-        
-        loginModal.addEventListener('click', (e) => {
-            if (e.target === loginModal) {
-                this.hideLoginModal();
-            }
-        });
     }
     
     // 绑定工具栏事件
@@ -843,12 +819,15 @@ class PostDetailManager {
     
     // 显示登录模态框
     showLoginModal() {
-        document.getElementById('loginModal').style.display = 'flex';
-    }
-    
-    // 隐藏登录模态框
-    hideLoginModal() {
-        document.getElementById('loginModal').style.display = 'none';
+        if (typeof LoginModal !== 'undefined') {
+            LoginModal.show({
+                title: '需要登录',
+                message: '您需要登录后才能进行此操作',
+                autoRedirect: true
+            });
+        } else {
+            console.warn('LoginModal not available');
+        }
     }
     
     // 初始化返回顶部按钮
@@ -1034,36 +1013,44 @@ class PostDetailManager {
     
     // 显示错误消息
     showError(message) {
-        const notification = document.getElementById('notification');
-        const notificationMessage = document.getElementById('notificationMessage');
-        
-        notificationMessage.textContent = '错误: ' + message;
-        notification.classList.add('error');
-        notification.classList.add('show');
-        
-        setTimeout(() => {
-            notification.classList.remove('show');
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.error(message);
+        } else {
+            const notification = document.getElementById('notification');
+            const notificationMessage = document.getElementById('notificationMessage');
+            
+            notificationMessage.textContent = '错误: ' + message;
+            notification.classList.add('error');
+            notification.classList.add('show');
+            
             setTimeout(() => {
-                notification.classList.remove('error');
-            }, 300);
-        }, 3000);
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    notification.classList.remove('error');
+                }, 300);
+            }, 3000);
+        }
     }
     
     // 显示成功消息
     showSuccess(message) {
-        const notification = document.getElementById('notification');
-        const notificationMessage = document.getElementById('notificationMessage');
-        
-        notificationMessage.textContent = '成功: ' + message;
-        notification.classList.add('success');
-        notification.classList.add('show');
-        
-        setTimeout(() => {
-            notification.classList.remove('show');
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.success(message);
+        } else {
+            const notification = document.getElementById('notification');
+            const notificationMessage = document.getElementById('notificationMessage');
+            
+            notificationMessage.textContent = '成功: ' + message;
+            notification.classList.add('success');
+            notification.classList.add('show');
+            
             setTimeout(() => {
-                notification.classList.remove('success');
-            }, 300);
-        }, 3000);
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    notification.classList.remove('success');
+                }, 300);
+            }, 3000);
+        }
     }
 }
 

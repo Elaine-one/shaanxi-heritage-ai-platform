@@ -207,6 +207,10 @@ class RedisClient:
         Returns:
             新的尝试次数，如果失败返回None
         """
+        # 如果配置了禁用登录失败次数限制，不增加计数
+        if getattr(settings, 'DISABLE_LOGIN_RATE_LIMIT', False):
+            return 0
+        
         if not self.is_available():
             return None
             
@@ -292,6 +296,10 @@ class RedisClient:
         Returns:
             锁定状态字典，包含locked和remaining_minutes字段
         """
+        # 如果配置了禁用登录失败次数限制，直接返回未锁定
+        if getattr(settings, 'DISABLE_LOGIN_RATE_LIMIT', False):
+            return {'locked': False, 'remaining_minutes': 0}
+        
         if not self.is_available():
             return {'locked': False, 'remaining_minutes': 0}
             

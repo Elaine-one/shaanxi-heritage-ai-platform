@@ -17,6 +17,17 @@ from django.http import HttpResponse
 import json
 
 class UserProfileViewSet(viewsets.ModelViewSet):
+    """
+    用户资料视图集
+
+    管理用户个人资料，包括：
+    - 查看个人资料
+    - 更新个人资料
+    - 上传头像
+    - 清除头像
+
+    需要用户登录才能操作。
+    """
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
@@ -81,7 +92,19 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
 
 class UserAnalyticsView(APIView):
-    """用户分析和数据管理视图"""
+    """
+    用户分析和数据管理视图
+
+    提供用户数据分析和导出功能，包括：
+    - 获取用户创作分析数据
+    - 导出用户数据
+    - 删除用户账户
+
+    需要用户登录才能操作。
+
+    查询参数：
+    - range: 时间范围（天数，默认7天）
+    """
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
@@ -317,7 +340,18 @@ class UserAnalyticsView(APIView):
 
 # 添加用户统计数据视图
 class UserStatsView(APIView):
-    """获取用户统计数据"""
+    """
+    用户统计数据视图
+
+    获取用户的各项统计数据，包括：
+    - 创作数量
+    - 点赞数量
+    - 评论数量
+    - 收藏数量
+    - 浏览历史数量
+
+    需要用户登录才能访问。
+    """
     permission_classes = [IsAuthenticated]
     
     def get(self, request):

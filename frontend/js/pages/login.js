@@ -156,15 +156,20 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // 保存用户信息到本地存储
             localStorage.setItem('user', JSON.stringify({
-                username: data.username,
-                userId: data.id // Assuming data.id is the user ID
+                id: data.id, // 使用id字段，与后端返回的数据格式一致
+                username: data.username
             }));
             // 不再使用token认证，完全依赖session认证
             console.log('登录成功，使用session认证');
             
-            // 延迟后跳转到首页
+            // 使用AuthRedirect处理登录成功后的跳转
             setTimeout(() => {
-                window.location.href = '../index.html';
+                if (typeof AuthRedirect !== 'undefined') {
+                    AuthRedirect.handleLoginSuccess();
+                } else {
+                    // 降级方案：跳转到首页
+                    window.location.href = '../index.html';
+                }
             }, 1500);
         })
         .catch(error => {

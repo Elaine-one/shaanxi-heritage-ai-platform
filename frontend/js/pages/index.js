@@ -184,13 +184,9 @@ async function initFeaturedItems(data) {
                 // 为每个ID单独获取数据
                 const apiPromises = featuredIds.map(async id => {
                     try {
-                        const response = await window.API.heritage.getAllItems({ id: id });
-                        // 处理API返回的两种可能格式：单个对象或包含results数组的对象
-                        if (response && response.results && response.results.length > 0) {
-                            return response.results[0];
-                        } else if (response && response.id) {
-                            // 直接返回单个项目对象
-                            return response;
+                        const item = await window.API.heritage.getItemDetail(id);
+                        if (item && item.id) {
+                            return item;
                         }
                         return null;
                     } catch (err) {
@@ -235,16 +231,9 @@ async function initFeaturedItems(data) {
             if (item.main_image_url) {
                 imageUrl = item.main_image_url;
             } 
-            // 如果有images数组，查找主图
-            else if (item.images && Array.isArray(item.images) && item.images.length > 0) {
-                // 查找标记为主图的图片
-                const mainImage = item.images.find(img => img && img.is_main);
-                if (mainImage && mainImage.image) {
-                    imageUrl = mainImage.image;
-                } else if (item.images[0] && item.images[0].image) {
-                    // 如果没有主图标记，使用第一张图片
-                    imageUrl = item.images[0].image;
-                }
+            // 如果有gallery_image_urls数组，使用第一张图片
+            else if (item.gallery_image_urls && Array.isArray(item.gallery_image_urls) && item.gallery_image_urls.length > 0) {
+                imageUrl = item.gallery_image_urls[0];
             }
             
             // 确保图片URL是绝对路径或相对于后端的路径

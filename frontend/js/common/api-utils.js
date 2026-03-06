@@ -85,6 +85,66 @@ function showErrorMessage(message, containerId = null) {
     }, 5000);
 }
 
+// 显示成功消息
+function showSuccess(message, options = {}) {
+    if (typeof NotificationManager !== 'undefined') {
+        return NotificationManager.success(message, options);
+    }
+    
+    // 降级方案：使用旧的错误消息显示方式
+    console.log('[Success]', message);
+}
+
+// 显示错误消息（新版本）
+function showError(message, options = {}) {
+    if (typeof NotificationManager !== 'undefined') {
+        return NotificationManager.error(message, options);
+    }
+    
+    // 降级方案：使用旧的错误消息显示方式
+    showErrorMessage(message);
+}
+
+// 显示警告消息
+function showWarning(message, options = {}) {
+    if (typeof NotificationManager !== 'undefined') {
+        return NotificationManager.warning(message, options);
+    }
+    
+    // 降级方案：使用旧的错误消息显示方式
+    console.warn('[Warning]', message);
+}
+
+// 显示信息消息
+function showInfo(message, options = {}) {
+    if (typeof NotificationManager !== 'undefined') {
+        return NotificationManager.info(message, options);
+    }
+    
+    // 降级方案：使用旧的错误消息显示方式
+    console.info('[Info]', message);
+}
+
+// 显示登录必需提示
+function showLoginRequired(action, options = {}) {
+    if (typeof NotificationManager !== 'undefined') {
+        return NotificationManager.loginRequired(action, options);
+    }
+    
+    // 降级方案：使用旧的模态框显示方式
+    console.warn('[Login Required]', action);
+}
+
+// 显示登录模态框
+function showLoginModal(options = {}) {
+    if (typeof ModalManager !== 'undefined') {
+        return ModalManager.showLoginModal(options);
+    }
+    
+    // 降级方案：使用旧的模态框显示方式
+    console.warn('[Login Modal]', options);
+}
+
 // 显示加载中
 function showLoading(containerId = null) {
     if (containerId) {
@@ -113,6 +173,12 @@ const apiUtils = {
     initAPI,
     initHeritageAPI,
     showErrorMessage,
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
+    showLoginRequired,
+    showLoginModal,
     showLoading,
     hideLoading
 };

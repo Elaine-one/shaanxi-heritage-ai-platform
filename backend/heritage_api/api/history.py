@@ -8,6 +8,17 @@ from ..serializers.heritage import HeritageSerializer, UserHistorySerializer
 from django.utils import timezone
 
 class UserHistoryViewSet(viewsets.ModelViewSet):
+    """
+    用户浏览历史视图集
+
+    管理用户的非遗项目浏览历史，包括：
+    - 查看浏览历史列表
+    - 添加浏览记录
+    - 清除所有浏览历史
+    - 删除特定浏览记录
+
+    需要用户登录才能操作。
+    """
     permission_classes = [IsAuthenticated]
     serializer_class = UserHistorySerializer
     
@@ -67,11 +78,16 @@ class UserHistoryViewSet(viewsets.ModelViewSet):
             'message': f'已清除 {deleted_count} 条浏览历史记录'
         })
     
-    @action(detail=True, methods=['delete'])
-    def remove(self, request, pk=None):
+    @action(detail=False, methods=['delete'])
+    def remove(self, request):
         """删除特定的浏览历史记录"""
+        heritage_id = request.data.get('heritage_id')
+        
+        if not heritage_id:
+            return Response({'error': '缺少heritage_id参数'}, status=status.HTTP_400_BAD_REQUEST)
+            
         try:
-            history_record = self.get_queryset().get(heritage_id=pk)
+            history_record = self.get_queryset().get(heritage=heritage_id)
             history_record.delete()
             return Response({'message': '浏览历史记录已删除'})
         except UserHistory.DoesNotExist:

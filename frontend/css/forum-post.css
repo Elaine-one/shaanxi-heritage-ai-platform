@@ -31,66 +31,111 @@ html, body {
     min-height: 100vh;
 }
 
-/* 帖子导航区域 */
+/* 帖子导航区域 - 专业设计 */
 .post-navigation {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
-    padding: 1rem 0;
-    border-bottom: 1px solid var(--border-color);
+    padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    color: #343a40;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(201, 56, 56, 0.1);
 }
 
-/* 面包屑导航 */
+.post-navigation::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #c93838, #e74c3c, #c93838);
+}
+
+/* 面包屑导航 - 专业设计 */
 .breadcrumb {
-    padding: 1rem 0;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-/* 返回论坛按钮 */
-.back-to-forum-btn {
+    font-size: 0.95rem;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    background: var(--primary-gradient);
-    color: white;
-    border: none;
-    border-radius: var(--border-radius);
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-}
-
-.back-to-forum-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.back-to-forum-btn:active {
-    transform: translateY(0);
+    gap: 0.25rem;
 }
 
 .breadcrumb a {
-    color: var(--primary-color);
+    color: #c93838;
     text-decoration: none;
+    transition: all 0.3s ease;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-weight: 500;
 }
 
 .breadcrumb a:hover {
-    text-decoration: underline;
+    color: #a62c2c;
+    background-color: rgba(201, 56, 56, 0.1);
+    transform: translateY(-1px);
 }
 
 .breadcrumb .separator {
-    margin: 0 0.5rem;
-    color: var(--border-color);
+    margin: 0 0.25rem;
+    color: #6c757d;
+    font-weight: 500;
 }
 
 .breadcrumb .current {
-    color: var(--text-primary);
-    font-weight: 500;
+    color: #343a40;
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    background: rgba(201, 56, 56, 0.1);
+    border-radius: 6px;
+}
+
+/* 返回论坛按钮 - 专业设计 */
+.back-to-forum-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #c93838 0%, #a62c2c 100%);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(201, 56, 56, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.back-to-forum-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.6s ease;
+}
+
+.back-to-forum-btn:hover {
+    background: linear-gradient(135deg, #a62c2c 0%, #8b2020 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(201, 56, 56, 0.4);
+}
+
+.back-to-forum-btn:hover::before {
+    left: 100%;
+}
+
+.back-to-forum-btn:active {
+    transform: translateY(-1px);
 }
 
 /* 重置main元素的flex布局，确保不影响内部布局 */

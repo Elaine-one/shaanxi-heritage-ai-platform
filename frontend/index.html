@@ -4,16 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>陕西非物质文化遗产展示平台</title>
-     <!-- Font Awesome图标库 -->
+    <!-- Font Awesome图标库 -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="shortcut icon" href="/static/common/favicon.ico">
-    <link rel="stylesheet" href="/css/common.css">
-    <link rel="stylesheet" href="/css/pages/index.css">
+    <link rel="stylesheet" type="text/css" href="/css/common.css">
+    <link rel="stylesheet" type="text/css" href="/css/pages/index.css">
+    <!-- 新增：统一组件样式 -->
+    <link rel="stylesheet" href="/css/components/modal.css">
+    <link rel="stylesheet" href="/css/components/notification.css">
     <!-- 先加载API相关脚本 -->
     <script src="/js/common/api.js" defer></script>
     <script src="/js/common/heritage-api.js" defer></script>
     <!-- 用户认证脚本 -->
     <script src="/js/common/auth.js" defer></script>
+    <!-- 新增：统一组件脚本 -->
+    <script src="/js/common/auth-redirect.js" defer></script>
+    <script src="/js/common/modal-manager.js" defer></script>
+    <script src="/js/common/notification-manager.js" defer></script>
+    <script src="/js/components/login-modal.js" defer></script>
     <!-- 用户资料API -->
     <script src="/js/api/user-profile-api.js" defer></script>
     <!-- Markdown处理库 -->

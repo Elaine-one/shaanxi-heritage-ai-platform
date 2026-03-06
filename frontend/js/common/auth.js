@@ -66,10 +66,15 @@ async function updateUserIcon() {
         // 尝试从API获取用户头像
         let hasAvatar = false;
         try {
-            // 获取用户详细信息
-            const response = await fetch('/api/profile/me/', {
+            // 获取用户详细信息，添加时间戳避免缓存
+            const response = await fetch('/api/profile/me/?t=' + new Date().getTime(), {
                 method: 'GET',
-                credentials: 'include'
+                credentials: 'include',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
             });
             
             if (response.ok) {
@@ -82,6 +87,12 @@ async function updateUserIcon() {
                     if (avatarUrl.startsWith('/media/')) {
                         avatarUrl = window.location.origin + avatarUrl;
                     }
+                    // 添加时间戳避免浏览器缓存
+                    if (avatarUrl.includes('?')) {
+                        avatarUrl += '&t=' + new Date().getTime();
+                    } else {
+                        avatarUrl += '?t=' + new Date().getTime();
+                    }
                     userIcon.style.backgroundImage = `url(${avatarUrl})`;
                     userIcon.style.backgroundSize = 'cover';
                     userIcon.style.backgroundPosition = 'center';
@@ -89,6 +100,11 @@ async function updateUserIcon() {
                     userIcon.style.backgroundColor = '';
                     userIcon.style.color = '';
                     hasAvatar = true;
+                    
+                    // 更新本地存储中的头像信息
+                    const userFromStorage = JSON.parse(localStorage.getItem('user')) || {};
+                    userFromStorage.avatar = userData.profile.avatar;
+                    localStorage.setItem('user', JSON.stringify(userFromStorage));
                 }
             }
         } catch (error) {

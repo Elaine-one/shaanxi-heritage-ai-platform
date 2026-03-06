@@ -338,6 +338,36 @@ path('custom/', CustomView.as_view(), name='custom'),
 2. 创建迁移文件: `python manage.py makemigrations`
 3. 执行迁移: `python manage.py migrate`
 
+## 版本更新日志
+
+### v1.2.0 (2026-03-04)
+
+#### 数据库优化
+- **清理废弃表**: 删除 5 个未使用的数据库表
+  - `HeritageImage` - 非遗图片表（Heritage模型已用JSON字段存储图片）
+  - `CreationTag` - 创作标签表（UserCreation已用JSON字段存储标签）
+  - `CreationShare` - 创作分享表（API中未使用）
+  - `CreationReport` - 创作举报表（API中未使用）
+  - `ForumAnnouncement` - 论坛公告表（未在URL中注册）
+
+
+#### API文档优化
+- **中文化API文档**: 更新所有ViewSet的docstring为中文
+  - 非遗相关接口
+  - 用户相关接口
+  - 认证相关接口
+  - 论坛相关接口
+  - 资讯政策接口
+
+### v1.1.0 (2025-12-XX)
+
+#### 初始版本
+- 完成基础功能开发
+- 用户认证系统
+- 非遗数据管理
+- 论坛系统
+- Agent服务代理
+
 ## 版权声明
 
 **© 2025 版权所有** - 本项目仅用于个人作品集展示，禁止任何形式的使用、修改、分发或商业利用。
