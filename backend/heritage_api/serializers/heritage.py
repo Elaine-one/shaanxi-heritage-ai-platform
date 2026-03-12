@@ -103,15 +103,28 @@ class NewsSerializer(serializers.ModelSerializer):
     publish_date_formatted = serializers.SerializerMethodField()
     # 标签列表
     tag_list = serializers.SerializerMethodField()
+    # 实时浏览量（Redis + 数据库）
+    view_count = serializers.SerializerMethodField()
     
     class Meta:
         model = News
         fields = [
             'id', 'title', 'summary', 'content', 'author', 'source', 'source_url',
             'image_url', 'publish_date', 'publish_date_formatted', 'created_at', 
-            'updated_at', 'is_active', 'view_count', 'tags', 'tag_list'
+            'updated_at', 'is_active', 'is_featured', 'view_count', 'tags', 'tag_list'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'view_count']
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def get_view_count(self, obj):
+        """获取实时浏览量（数据库值 + Redis增量）"""
+        try:
+            from ..redis_utils import redis_client
+            redis_increment = redis_client.get_view_count('news', obj.id)
+            if redis_increment is not None:
+                return (obj.view_count or 0) + redis_increment
+        except Exception:
+            pass
+        return obj.view_count or 0
     
     def get_publish_date_formatted(self, obj):
         """返回格式化的发布时间"""
@@ -411,6 +424,8 @@ class PolicySerializer(serializers.ModelSerializer):
     policy_type_display = serializers.CharField(source='get_policy_type_display', read_only=True)
     # 标签列表
     tag_list = serializers.SerializerMethodField()
+    # 实时浏览量（Redis + 数据库）
+    view_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Policy
@@ -420,7 +435,18 @@ class PolicySerializer(serializers.ModelSerializer):
             'publish_date', 'publish_date_formatted', 'source_url', 'attachment_url',
             'created_at', 'updated_at', 'is_active', 'view_count', 'tags', 'tag_list'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'view_count']
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def get_view_count(self, obj):
+        """获取实时浏览量（数据库值 + Redis增量）"""
+        try:
+            from ..redis_utils import redis_client
+            redis_increment = redis_client.get_view_count('policy', obj.id)
+            if redis_increment is not None:
+                return (obj.view_count or 0) + redis_increment
+        except Exception:
+            pass
+        return obj.view_count or 0
     
     def get_publish_date_formatted(self, obj):
         """返回格式化的发布时间"""

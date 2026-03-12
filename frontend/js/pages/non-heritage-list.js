@@ -56,7 +56,7 @@ let actualTotalPages = 1; // 新增：存储实际总页数
     document.addEventListener('DOMContentLoaded', function() {
         // 加载浏览历史模块
         const historyScript = document.createElement('script');
-        historyScript.src = '../js/common/browsing-history.js';
+        historyScript.src = '../utils/browsing-history.js';
         document.head.appendChild(historyScript);
         
         // 初始化页面
@@ -71,6 +71,12 @@ async function initPage() {
         
         // 加载筛选选项
         await loadFilterOptions();
+        
+        // 加载统计数据
+        loadStatistics();
+        
+        // 加载用户收藏列表
+        await loadUserFavorites();
         
         // 设置事件监听器
         setupEventListeners();
@@ -96,6 +102,39 @@ async function initPage() {
     } catch (error) {
         console.error('页面初始化失败:', error);
         showErrorMessage('加载数据失败，请刷新页面重试');
+    }
+}
+
+// 加载统计数据
+async function loadStatistics() {
+    try {
+        if (!window.API || !window.API.heritage) {
+            return;
+        }
+        
+        // 获取总数
+        const response = await window.API.heritage.getAllItems({ page: 1, page_size: 1 });
+        const totalCount = response.count || 0;
+        
+        // 获取类别数
+        const categories = await window.API.heritage.getCategories();
+        const categoryCount = Array.isArray(categories) ? categories.length : 0;
+        
+        // 获取地区数
+        const regions = await window.API.heritage.getRegions();
+        const regionCount = Array.isArray(regions) ? regions.length : 0;
+        
+        // 更新显示
+        const totalEl = document.getElementById('totalCount');
+        const categoryEl = document.getElementById('categoryCount');
+        const regionEl = document.getElementById('regionCount');
+        
+        if (totalEl) totalEl.textContent = totalCount;
+        if (categoryEl) categoryEl.textContent = categoryCount;
+        if (regionEl) regionEl.textContent = regionCount;
+        
+    } catch (error) {
+        console.error('加载统计数据失败:', error);
     }
 }
 
@@ -520,45 +559,25 @@ function updatePaginationButtons() {
     }
 }
 
-// 渲染非遗项目列表
 function renderHeritageList(items) {
     const listContainer = document.getElementById('heritage-list');
-    
-    // 清空容器
     listContainer.innerHTML = '';
     
-    // 检查是否有结果
     if (!items || items.length === 0) {
         listContainer.innerHTML = '<div class="no-results">没有找到符合条件的非遗项目</div>';
         return;
     }
     
-    // 直接使用API返回的结果，不再进行额外的切片操作
-    console.log(`显示 ${items.length} 个项目`);
-    
-    // 获取当前搜索关键词（如果有）
-    const searchText = document.getElementById('search-input').value.trim();
-    
-    // 渲染每个项目
     items.forEach(item => {
         const itemElement = createHeritageItem(item);
         listContainer.appendChild(itemElement);
     });
     
-    // 添加搜索结果提示信息
-    const messageElement = document.createElement('div');
-    messageElement.className = 'list-message';
-    
-    if (searchText) {
-        messageElement.textContent = `搜索"${searchText}"：找到 ${items.length} 个项目`;
-    } else if (items.length < itemsPerPage) {
-        messageElement.textContent = `当前条件下共有 ${items.length} 个项目`;
-    } else {
-        messageElement.textContent = `当前页显示 ${items.length} 个项目（共${actualTotalPages}页）`;
-    }
-    
-    listContainer.appendChild(messageElement);
-
+    // 添加列表消息
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'list-message';
+    messageDiv.textContent = `当前页显示 ${items.length} 个项目（共${actualTotalPages}页）`;
+    listContainer.appendChild(messageDiv);
 }
 
 // 创建非遗项目元素
@@ -582,31 +601,71 @@ function getDisplayableString(value, defaultValue = '未知') {
     return defaultValue;
 }
 
-// 添加收藏功能
+// 切换收藏状态功能
 async function addToFavorites(itemId) {
-    // 检查用户是否已登录
     const userString = localStorage.getItem('user');
     const user = userString ? JSON.parse(userString) : null;
     
     if (!user || !user.username) {
-        // 用户未登录，显示登录提示
         showLoginPrompt();
         return;
     }
 
     try {
-        await window.API.heritage.addFavorite(itemId);
-        showToast('已添加到收藏');
-        const button = document.querySelector(`.favorite-btn[data-id="${itemId}"]`);
-        if (button) {
-            button.classList.add('favorited');
-            button.textContent = '已收藏';
-            button.title = '取消收藏';
+        const button = document.querySelector(`.favorite-btn[onclick="addToFavorites(${itemId})"]`);
+        const isFavorited = button && button.classList.contains('favorited');
+        
+        if (isFavorited) {
+            await window.API.heritage.removeFavorite(itemId);
+            // 更新缓存
+            userFavoritesCache = userFavoritesCache.filter(id => id !== parseInt(itemId));
+            if (button) {
+                button.classList.remove('favorited');
+                button.innerHTML = '<i class="fa fa-star-o"></i>';
+                button.title = '收藏';
+            }
+            showToast('已取消收藏');
+        } else {
+            await window.API.heritage.addFavorite(itemId);
+            // 更新缓存
+            userFavoritesCache.push(parseInt(itemId));
+            if (button) {
+                button.classList.add('favorited');
+                button.innerHTML = '<i class="fa fa-star"></i>';
+                button.title = '取消收藏';
+            }
+            showToast('已添加到收藏');
         }
     } catch (error) {
-        console.error('添加到收藏失败:', error);
-        showToast(error.message || '添加到收藏失败');
+        console.error('收藏操作失败:', error);
+        showToast(error.message || '操作失败，请稍后重试');
     }
+}
+
+// 显示提示消息
+function showToast(message) {
+    // 创建临时提示
+    const toast = document.createElement('div');
+    toast.className = 'toast-message';
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 10000;
+        animation: fadeIn 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
 }
 
 /**
@@ -650,6 +709,36 @@ function showLoginPrompt() {
     }
 }
 
+// 用户收藏列表缓存
+let userFavoritesCache = [];
+
+// 加载用户收藏列表
+async function loadUserFavorites() {
+    const userString = localStorage.getItem('user');
+    const user = userString ? JSON.parse(userString) : null;
+    
+    if (!user || !user.username) {
+        userFavoritesCache = [];
+        return;
+    }
+    
+    try {
+        if (window.API && window.API.heritage && window.API.heritage.getUserCollections) {
+            const favorites = await window.API.heritage.getUserCollections();
+            userFavoritesCache = Array.isArray(favorites) ? favorites.map(f => f.heritage_id || f.id) : [];
+            console.log('加载用户收藏列表:', userFavoritesCache);
+        }
+    } catch (error) {
+        console.error('加载用户收藏列表失败:', error);
+        userFavoritesCache = [];
+    }
+}
+
+// 检查项目是否已收藏
+function isItemFavorited(itemId) {
+    return userFavoritesCache.includes(parseInt(itemId));
+}
+
 function createHeritageItem(item) {
     const itemElement = document.createElement('div');
     itemElement.className = 'heritage-item';
@@ -689,12 +778,18 @@ function createHeritageItem(item) {
     const categoryName = getDisplayableString(item.category, '未知类别');
     const regionName = getDisplayableString(item.region, '未知地区');
     
+    // 检查是否已收藏
+    const isFavorited = isItemFavorited(item.id);
+    const favoriteIcon = isFavorited ? 'fa-star' : 'fa-star-o';
+    const favoriteTitle = isFavorited ? '取消收藏' : '收藏';
+    const favoriteClass = isFavorited ? 'favorited' : '';
+    
     // 设置HTML内容
     itemElement.innerHTML = `
         <div class="heritage-image-container">
             <img src="/static/common/default-heritage.jpg" data-src="${imageUrl}" alt="${item.name}" class="heritage-image" loading="lazy">
-            <button class="favorite-btn" onclick="addToFavorites(${item.id})" title="收藏">
-                <i class="fa fa-heart-o"></i>
+            <button class="favorite-btn ${favoriteClass}" onclick="addToFavorites(${item.id})" title="${favoriteTitle}">
+                <i class="fa ${favoriteIcon}"></i>
             </button>
         </div>
         <div class="heritage-content">
@@ -712,37 +807,24 @@ function createHeritageItem(item) {
     const img = itemElement.querySelector('.heritage-image');
     const container = itemElement.querySelector('.heritage-image-container');
     
-    container.classList.add('loading');
-    
-    // 图片加载完成处理
-    img.onload = function() {
-        container.classList.remove('loading');
-    };
-    
-    // 图片加载错误处理
-    img.onerror = function() {
-        container.classList.remove('loading');
-        // 使用默认图片
-        this.src = '/static/common/default-heritage.jpg';
-    };
-    
     // 初始化懒加载
     if ('IntersectionObserver' in window) {
-        // 如果浏览器支持IntersectionObserver，使用它来触发图片加载
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    const lazyImage = entry.target;
-                    lazyImage.src = lazyImage.dataset.src;
-                    observer.unobserve(lazyImage);
+                    const img = entry.target;
+                    const src = img.dataset.src;
+                    if (src && src !== img.src) {
+                        img.src = src;
+                    }
+                    observer.unobserve(img);
                 }
             });
-        });
-        
+        }, { rootMargin: '50px' });
         observer.observe(img);
     } else {
-        // 降级方案：立即加载所有图片
-        img.src = img.dataset.src;
+        // 不支持IntersectionObserver，直接设置src
+        img.src = imageUrl;
     }
     
     // 添加点击事件

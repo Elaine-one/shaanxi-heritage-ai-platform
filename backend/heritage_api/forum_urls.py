@@ -20,6 +20,9 @@ def forum_root(request):
         'endpoints': {
             'posts': request.build_absolute_uri('posts/'),
             'tags': request.build_absolute_uri('tags/'),
+            'announcements': request.build_absolute_uri('announcements/'),
+            'rules': request.build_absolute_uri('rules/'),
+            'hot-tags': request.build_absolute_uri('hot-tags/'),
             'users': {
                 'search': request.build_absolute_uri('users/search/'),
                 'active': request.build_absolute_uri('users/active/'),
@@ -62,6 +65,11 @@ urlpatterns = [
     
     # 标签
     path('tags/', forum_views.ForumTagListView.as_view(), name='tag-list'),
+    
+    # 论坛配置（公告、版规、热门标签）
+    path('announcements/', forum_views.forum_announcements, name='announcements'),
+    path('rules/', forum_views.forum_rules, name='rules'),
+    path('hot-tags/', forum_views.forum_hot_tags, name='hot-tags'),
     
     # 用户相关
     path('users/<int:user_id>/follow-status/', forum_views.check_user_follow_status, name='check-user-follow-status'),

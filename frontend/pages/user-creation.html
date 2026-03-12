@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>用户创作 - 陕西非物质文化遗产展示平台</title>
     <link rel="shortcut icon" href="../static/common/favicon.ico">
-    <link rel="stylesheet" href="../css/common.css">
-    <link rel="stylesheet" href="../css/pages/user-creation.css">
+    <link rel="stylesheet" href="../css/base/common.css">
+    <link rel="stylesheet" href="../css/pages/user/user-creation.css">
     <!-- 新增：统一组件样式 -->
     <link rel="stylesheet" href="../css/components/modal.css">
     <link rel="stylesheet" href="../css/components/notification.css">
@@ -14,20 +14,22 @@
     <!-- 视频播放器 -->
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
     <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+    <!-- 农历日期转换库 -->
+    <script src="../js/lib/LunarSolarConverter.js" defer></script>
     <!-- API相关脚本 -->
-    <script src="../js/common/date-utils.js" defer></script>
-    <script src="../js/common/utils.js" defer></script>
-    <script src="../js/common/api.js" defer></script>
+    <script src="../js/utils/date-utils.js" defer></script>
+    <script src="../js/utils/utils.js" defer></script>
+    <script src="../js/core/api.js" defer></script>
     <!-- 新增：统一组件脚本 -->
-    <script src="../js/common/auth-redirect.js" defer></script>
-    <script src="../js/common/modal-manager.js" defer></script>
-    <script src="../js/common/notification-manager.js" defer></script>
+    <script src="../js/core/auth-redirect.js" defer></script>
+    <script src="../js/components/modal-manager.js" defer></script>
+    <script src="../js/components/notification-manager.js" defer></script>
     <script src="../js/components/login-modal.js" defer></script>
-    <script src="../js/common/auth.js" defer></script>
+    <script src="../js/core/auth.js" defer></script>
     <!-- 用户资料API -->
     <script src="../js/api/user-profile-api.js" defer></script>
     <!-- 非遗项目API -->
-    <script src="../js/common/heritage-api.js" defer></script>
+    <script src="../js/api/heritage-api.js" defer></script>
 </head>
 <body>
     <header>
@@ -304,11 +306,9 @@
     </footer>
 
     <!-- 脚本引入 -->
-    <!-- 农历日期转换库 -->
-    <script src="../js/lib/LunarSolarConverter.js" defer></script>
     
     <script src="../lib/third-party-embed.js" defer></script>
-    <script src="../js/pages/user-creation.js" defer></script>
+    <script src="../js/pages/user/user-creation.js" defer></script>
     <script src="../lib/maxkb_embed.js" defer></script>
 </body>
 </html>

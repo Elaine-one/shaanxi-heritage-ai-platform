@@ -35,7 +35,9 @@ class RedisClient:
     def is_available(self) -> bool:
         """检查Redis是否可用"""
         if not self.redis_client:
-            self._connect()  # 尝试连接Redis
+            self._connect()
+        if not self.redis_client:
+            return False
         try:
             self.redis_client.ping()
             return True

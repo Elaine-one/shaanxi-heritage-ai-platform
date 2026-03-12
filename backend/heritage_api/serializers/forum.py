@@ -5,7 +5,7 @@ from django.utils import timezone
 from ..forum_models import (
     ForumPost, ForumComment, ForumTag, ForumPostLike, ForumCommentLike,
     ForumPostFavorite, ForumUserFollow, ForumReport,
-    ForumUserStats
+    ForumUserStats, ForumAnnouncement, ForumRule
 )
 from ..user_models import UserProfile
 
@@ -382,6 +382,22 @@ class ForumFollowSerializer(serializers.Serializer):
     """关注操作序列化器"""
     is_followed = serializers.BooleanField(read_only=True)
     follower_count = serializers.IntegerField(read_only=True)
+
+
+class ForumAnnouncementSerializer(serializers.ModelSerializer):
+    """论坛公告序列化器"""
+    class Meta:
+        model = ForumAnnouncement
+        fields = ['id', 'title', 'content', 'link', 'is_active', 'is_pinned', 'order', 'publish_date']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ForumRuleSerializer(serializers.ModelSerializer):
+    """论坛版规序列化器"""
+    class Meta:
+        model = ForumRule
+        fields = ['id', 'content', 'is_active', 'order']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class ForumSearchSerializer(serializers.Serializer):

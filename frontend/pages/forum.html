@@ -4,24 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>非遗论坛 - 陕西非物质文化遗产保护平台</title>
-    <link rel="stylesheet" href="../css/common.css">
-    <link rel="stylesheet" href="../css/forum.css">
+    <link rel="stylesheet" href="../css/base/common.css">
+    <link rel="stylesheet" href="../css/pages/forum/forum.css?v=2">
     <!-- 新增：统一组件样式 -->
     <link rel="stylesheet" href="../css/components/modal.css">
     <link rel="stylesheet" href="../css/components/notification.css">
+    <link rel="stylesheet" href="../css/components/post-editor.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- 富文本编辑器 -->
     <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js" defer></script>
     <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
     <!-- API相关脚本 -->
-    <script src="../js/common/utils.js" defer></script>
-    <script src="../js/common/api.js" defer></script>
+    <script src="../js/utils/utils.js" defer></script>
+    <script src="../js/core/api.js" defer></script>
     <!-- 新增：统一组件脚本 -->
-    <script src="../js/common/auth-redirect.js" defer></script>
-    <script src="../js/common/modal-manager.js" defer></script>
-    <script src="../js/common/notification-manager.js" defer></script>
+    <script src="../js/core/auth-redirect.js" defer></script>
+    <script src="../js/components/modal-manager.js" defer></script>
+    <script src="../js/components/notification-manager.js" defer></script>
     <script src="../js/components/login-modal.js" defer></script>
-    <script src="../js/common/auth.js" defer></script>
+    <script src="../js/core/auth.js" defer></script>
     <script src="../js/api/forum-api.js" defer></script>
     <script src="../js/api/user-profile-api.js" defer></script>
 </head>
@@ -83,14 +84,6 @@
                     <div class="filter-search">
                         <select class="tag-filter" id="tagFilter" aria-label="选择标签过滤">
                             <option value="">全部标签</option>
-                            <option value="传统技艺">传统技艺</option>
-                            <option value="民俗文化">民俗文化</option>
-                            <option value="传统音乐">传统音乐</option>
-                            <option value="传统舞蹈">传统舞蹈</option>
-                            <option value="传统戏剧">传统戏剧</option>
-                            <option value="传统美术">传统美术</option>
-                            <option value="传统医药">传统医药</option>
-                            <option value="民间文学">民间文学</option>
                         </select>
                         <div class="search-box">
                             <input type="text" id="searchInput" placeholder="搜索帖子标题或内容...">
@@ -148,30 +141,16 @@
                 <!-- 置顶公告区 -->
                 <div class="sidebar-section announcements">
                     <h3><i class="fas fa-bullhorn"></i> 置顶公告</h3>
-                    <div class="announcement-list">
-                        <div class="announcement-item">
-                            <a href="#">欢迎来到非遗论坛！请遵守社区规则</a>
-                            <span class="announcement-date">2024-01-15</span>
-                        </div>
-                        <div class="announcement-item">
-                            <a href="#">论坛功能升级通知</a>
-                            <span class="announcement-date">2024-01-10</span>
-                        </div>
+                    <div class="announcement-list" id="announcementList">
+                        <!-- 动态加载 -->
                     </div>
                 </div>
 
                 <!-- 热门标签云 -->
                 <div class="sidebar-section tag-cloud">
                     <h3><i class="fas fa-tags"></i> 热门标签</h3>
-                    <div class="tags">
-                        <a href="#" class="tag-item" data-tag="传统技艺">传统技艺</a>
-                        <a href="#" class="tag-item" data-tag="民俗文化">民俗文化</a>
-                        <a href="#" class="tag-item" data-tag="传统音乐">传统音乐</a>
-                        <a href="#" class="tag-item" data-tag="传统舞蹈">传统舞蹈</a>
-                        <a href="#" class="tag-item" data-tag="传统戏剧">传统戏剧</a>
-                        <a href="#" class="tag-item" data-tag="传统美术">传统美术</a>
-                        <a href="#" class="tag-item" data-tag="传统医药">传统医药</a>
-                        <a href="#" class="tag-item" data-tag="民间文学">民间文学</a>
+                    <div class="tags" id="hotTagsList">
+                        <!-- 动态加载 -->
                     </div>
                 </div>
 
@@ -187,12 +166,8 @@
                 <div class="sidebar-section forum-rules">
                     <h3><i class="fas fa-gavel"></i> 版规摘要</h3>
                     <div class="rules-content">
-                        <ul>
-                            <li>尊重他人，文明讨论</li>
-                            <li>禁止发布违法违规内容</li>
-                            <li>保护非遗文化，传承传统</li>
-                            <li>鼓励原创，拒绝抄袭</li>
-                            <li>积极参与，共建社区</li>
+                        <ul id="rulesList">
+                            <!-- 动态加载 -->
                         </ul>
                         <a href="#" class="view-full-rules">查看社区规范</a>
                     </div>
@@ -200,100 +175,6 @@
             </div>
         </div>
     </main>
-
-    <!-- 发布新帖模态框 -->
-    <div class="modal" id="newPostModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>发布新帖</h2>
-                <button class="close-btn" id="closeModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="newPostForm">
-                    <div class="form-group">
-                        <label for="postTitle">帖子标题</label>
-                        <input type="text" id="postTitle" name="title" required maxlength="100" placeholder="请输入帖子标题...">
-                        <div class="char-count"><span id="titleCount">0</span>/100</div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="postTags">标签</label>
-                        <div class="tag-selector">
-                            <select id="postTags" name="tags" multiple aria-label="选择帖子标签">
-                                <option value="传统技艺">传统技艺</option>
-                                <option value="民俗文化">民俗文化</option>
-                                <option value="传统音乐">传统音乐</option>
-                                <option value="传统舞蹈">传统舞蹈</option>
-                                <option value="传统戏剧">传统戏剧</option>
-                                <option value="传统美术">传统美术</option>
-                                <option value="传统医药">传统医药</option>
-                                <option value="民间文学">民间文学</option>
-                            </select>
-                            <small>最多选择3个标签</small>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="postContent">帖子内容</label>
-                        <div id="postEditor" style="height: 300px;"></div>
-                        <div class="char-count"><span id="contentCount">0</span>/5000</div>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn-cancel" id="cancelPost" aria-label="取消发布">取消</button>
-                        <button type="submit" class="btn-submit" aria-label="发布帖子">发布</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- 编辑帖子模态框 -->
-    <div class="modal" id="editPostModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>编辑帖子</h2>
-                <button class="close-btn" id="closeEditModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="editPostForm">
-                    <div class="form-group">
-                        <label for="editPostTitle">帖子标题</label>
-                        <input type="text" id="editPostTitle" name="title" required maxlength="100" placeholder="请输入帖子标题...">
-                        <div class="char-count"><span id="editTitleCount">0</span>/100</div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editPostTags">标签</label>
-                        <div class="tag-selector">
-                            <select id="editPostTags" name="tags" multiple aria-label="选择帖子标签">
-                                <option value="传统技艺">传统技艺</option>
-                                <option value="民俗文化">民俗文化</option>
-                                <option value="传统音乐">传统音乐</option>
-                                <option value="传统舞蹈">传统舞蹈</option>
-                                <option value="传统戏剧">传统戏剧</option>
-                                <option value="传统美术">传统美术</option>
-                                <option value="传统医药">传统医药</option>
-                                <option value="民间文学">民间文学</option>
-                            </select>
-                            <small>最多选择3个标签</small>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editPostContent">帖子内容</label>
-                        <div id="editPostContent" style="height: 300px;"></div>
-                        <div class="char-count"><span id="editContentCount">0</span>/5000</div>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn-cancel" id="cancelEditPost" aria-label="取消编辑">取消</button>
-                        <button type="submit" class="btn-submit" aria-label="保存修改">保存修改</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <!-- 返回顶部按钮 -->
     <button class="back-to-top" id="backToTop" aria-label="返回顶部">
@@ -303,9 +184,10 @@
     <!-- 农历日期转换库 -->
     <script src="../js/lib/LunarSolarConverter.js" defer></script>
     <!-- 日期时间工具模块 -->
-    <script src="../js/common/date-utils.js" defer></script>
-    
+    <script src="../js/utils/date-utils.js" defer></script>
+    <!-- 帖子发布编辑器组件 -->
+    <script src="../js/components/post-editor.js" defer></script>
     <!-- 论坛JavaScript -->
-    <script src="../js/pages/forum.js" defer></script>
+    <script src="../js/pages/forum/forum.js?v=6" defer></script>
 </body>
 </html>

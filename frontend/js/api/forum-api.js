@@ -195,14 +195,29 @@ const forumAPI = {
         return await apiRequest('/forum/tags/popular/');
     },
     
-    // 获取活跃用户
-    getActiveUsers: async (period = 'week') => {
-        return await apiRequest(`/forum/users/active/?period=${period}`);
+    // 获取热门标签
+    getHotTags: async () => {
+        return await apiRequest('/forum/hot-tags/');
+    },
+    
+    // 获取所有标签（用于筛选）
+    getTags: async () => {
+        return await apiRequest('/forum/tags/');
     },
     
     // 获取公告列表
     getAnnouncements: async () => {
         return await apiRequest('/forum/announcements/');
+    },
+    
+    // 获取版规列表
+    getRules: async () => {
+        return await apiRequest('/forum/rules/');
+    },
+    
+    // 获取活跃用户
+    getActiveUsers: async (period = 'week') => {
+        return await apiRequest(`/forum/users/active/?period=${period}`);
     },
     
     // 搜索用户（用于@功能）

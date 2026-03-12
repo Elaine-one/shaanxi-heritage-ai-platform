@@ -5,24 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>非遗名录 - 陕西非物质文化遗产展示平台</title>
     <link rel="shortcut icon" href="../static/common/favicon.ico">
-    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/base/common.css">
     <link rel="stylesheet" href="../css/pages/non-heritage-list.css">
+    <!-- Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- 新增：统一组件样式 -->
     <link rel="stylesheet" href="../css/components/modal.css">
     <link rel="stylesheet" href="../css/components/notification.css">
     <!-- API客户端 Core -->
-    <script src="../js/common/api.js" defer></script>
+    <script src="../js/core/api.js" defer></script>
     <!-- 用户资料API -->
     <script src="../js/api/user-profile-api.js" defer></script>
     <!-- 用户认证脚本 -->
-    <script src="../js/common/auth.js" defer></script>
+    <script src="../js/core/auth.js" defer></script>
     <!-- 新增：统一组件脚本 -->
-    <script src="../js/common/auth-redirect.js" defer></script>
-    <script src="../js/common/modal-manager.js" defer></script>
-    <script src="../js/common/notification-manager.js" defer></script>
+    <script src="../js/core/auth-redirect.js" defer></script>
+    <script src="../js/components/modal-manager.js" defer></script>
+    <script src="../js/components/notification-manager.js" defer></script>
     <script src="../js/components/login-modal.js" defer></script>
+    <!-- 农历日期转换库 -->
+    <script src="../js/lib/LunarSolarConverter.js" defer></script>
     <!-- 日期时间工具模块 -->
-    <script src="../js/common/date-utils.js" defer></script>
+    <script src="../js/utils/date-utils.js" defer></script>
 </head>
 <body>
     <header>
@@ -52,6 +56,31 @@
     </nav>
     
     <main class="list-main">
+        <!-- 页面标题区域 -->
+        <section class="page-header">
+            <div class="header-content">
+                <h1 class="page-title">
+                    <i class="fas fa-landmark"></i>
+                    非遗名录
+                </h1>
+                <p class="page-subtitle">探索陕西丰富的非物质文化遗产</p>
+            </div>
+            <div class="header-stats">
+                <div class="stat-item">
+                    <span class="stat-number" id="totalCount">--</span>
+                    <span class="stat-label">非遗项目</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="categoryCount">--</span>
+                    <span class="stat-label">类别</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="regionCount">--</span>
+                    <span class="stat-label">地区</span>
+                </div>
+            </div>
+        </section>
+        
         <div class="filter-section">
             <div class="filter-group">
                 <label for="level-filter">级别筛选：</label>
@@ -152,13 +181,11 @@
         </div>
     </footer>
     
-    <script src="../js/common/utils.js" defer></script>
-<script src="../js/common/heritage-api.js" defer></script>
+    <script src="../js/utils/utils.js" defer></script>
+<script src="../js/api/heritage-api.js" defer></script>
 
-<!-- 农历日期转换库 -->
-<script src="../js/lib/LunarSolarConverter.js" defer></script>
 <!-- API工具模块 -->
-<script src="../js/common/api-utils.js" defer></script>
+<script src="../js/core/api-utils.js" defer></script>
     
     <script src="../lib/third-party-embed.js" defer></script>
 <script src="../js/pages/non-heritage-list.js" defer></script>

@@ -13,6 +13,9 @@ class ProgressManager {
         this.eventSource = null;
         this.simulationInterval = null;
         this.lastRealProgress = 0;
+        this.simulationStopped = false; // 模拟停止标志
+        this.lastLogTime = 0; // 日志节流
+        this.logInterval = 500; // 每500毫秒输出一次日志
     }
     
     /**
@@ -23,6 +26,8 @@ class ProgressManager {
             clearInterval(this.simulationInterval);
         }
         
+        this.simulationStopped = false; // 重置停止标志
+        this.lastLogTime = 0; // 重置日志时间
         let simProgress = this.lastRealProgress || 2;
         console.log('[模拟进度] 开始模拟，从', simProgress, '% 开始');
         
@@ -34,12 +39,23 @@ class ProgressManager {
             }
             
             simProgress += 1;
-            console.log('[模拟进度] 更新到', simProgress, '%');
+            this.throttledLog('[模拟进度] 更新到', simProgress, '%');
             this.updateProgressBar(simProgress);
             
             // 更新步骤列表（使用进度百分比判断）
             this.updateStepsByProgress(simProgress);
         }, 100); // 每100ms增加1%
+    }
+    
+    /**
+     * 节流日志输出
+     */
+    throttledLog(...args) {
+        const now = Date.now();
+        if (now - this.lastLogTime >= this.logInterval) {
+            console.log(...args);
+            this.lastLogTime = now;
+        }
     }
     
     /**
@@ -168,6 +184,11 @@ class ProgressManager {
      * 停止模拟进度
      */
     stopSimulation() {
+        if (this.simulationStopped) {
+            console.log('[停止模拟] 模拟已经停止，跳过重复操作');
+            return;
+        }
+        
         console.log('[停止模拟] 开始停止模拟，simulationInterval:', this.simulationInterval);
         if (this.simulationInterval) {
             clearInterval(this.simulationInterval);
@@ -176,6 +197,8 @@ class ProgressManager {
         } else {
             console.log('[停止模拟] 没有正在运行的模拟');
         }
+        
+        this.simulationStopped = true;
     }
     
     /**
@@ -190,6 +213,10 @@ class ProgressManager {
             this.eventSource.close();
             this.eventSource = null;
         }
+        
+        // 重置停止标志，允许下次重新启动模拟
+        this.simulationStopped = false;
+        
         console.log('[停止监控] 进度监控已完全停止');
     }
     
@@ -203,8 +230,10 @@ class ProgressManager {
         const newProgress = progressData.progress;
         this.lastRealProgress = newProgress;
         
-        // 收到真实进度，停止模拟
-        this.stopSimulation();
+        // 只在模拟正在运行时停止它
+        if (this.simulationInterval && !this.simulationStopped) {
+            this.stopSimulation();
+        }
         
         // 立即更新到真实进度
         this.updateProgressBar(newProgress);
