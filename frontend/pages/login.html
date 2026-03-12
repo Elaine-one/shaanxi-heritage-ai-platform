@@ -5,22 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 - 陕西非物质文化遗产展示平台</title>
     <link rel="shortcut icon" href="../static/common/favicon.ico">
-    <link rel="stylesheet" href="../css/common.css">
-    <link rel="stylesheet" href="../css/pages/login.css">
+    <link rel="stylesheet" href="../css/base/common.css">
+    <link rel="stylesheet" href="../css/pages/user/login.css">
     <!-- 新增：统一组件样式 -->
     <link rel="stylesheet" href="../css/components/modal.css">
     <link rel="stylesheet" href="../css/components/notification.css">
     <!-- 先加载API相关脚本 -->
-    <script src="../js/common/api.js" defer></script>
-    <script src="../js/common/heritage-api.js" defer></script>
+    <script src="../js/core/api.js" defer></script>
+    <script src="../js/api/heritage-api.js" defer></script>
     <!-- 新增：统一组件脚本 -->
-    <script src="../js/common/auth-redirect.js" defer></script>
-    <script src="../js/common/modal-manager.js" defer></script>
-    <script src="../js/common/notification-manager.js" defer></script>
+    <script src="../js/core/auth-redirect.js" defer></script>
+    <script src="../js/components/modal-manager.js" defer></script>
+    <script src="../js/components/notification-manager.js" defer></script>
     <!-- 工具函数 -->
-    <script src="../js/common/utils.js" defer></script>
+    <script src="../js/utils/utils.js" defer></script>
+    <!-- 农历日期转换库 -->
+    <script src="../js/lib/LunarSolarConverter.js" defer></script>
+    <!-- 日期时间工具模块 -->
+    <script src="../js/utils/date-utils.js" defer></script>
     <!-- 用户认证脚本 -->
-    <script src="../js/common/auth.js" defer></script>
+    <script src="../js/core/auth.js" defer></script>
     <!-- 用户资料API -->
     <script src="../js/api/user-profile-api.js" defer></script>
 </head>
@@ -138,7 +142,7 @@
         </div>
     </footer>
     
-    <script src="../js/pages/login.js" defer></script>
+    <script src="../js/pages/user/login.js" defer></script>
     <!-- 第三方聊天机器人工具模块（暂时禁用） -->
     <!-- <script src="../lib/maxkb_embed.js" defer></script> -->
 </body>

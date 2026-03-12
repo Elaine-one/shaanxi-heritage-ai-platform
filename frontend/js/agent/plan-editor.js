@@ -12,13 +12,21 @@ class PlanEditor {
         this.eventsBound = false;
         this.isSending = false;
         this.renderThrottleTimer = null;
+        this.isMinimized = false;
+        this.apiUrls = {}; // API URL缓存
         this.init();
     }
 
     async getApiBaseUrl(apiType = 'agent') {
+        // 检查缓存
+        if (this.apiUrls[apiType]) {
+            return this.apiUrls[apiType];
+        }
+        
         // 获取 API 服务地址
         const apiUrl = `/api/agent/api/${apiType}`;
         console.log(`使用代理API URL (${apiType}):`, apiUrl);
+        this.apiUrls[apiType] = apiUrl;
         return apiUrl;
     }
 
@@ -35,6 +43,7 @@ class PlanEditor {
                 <div id="plan-editor-header" class="editor-header">
                     <div class="header-title"><i class="fas fa-robot me-2"></i>AI 智能规划师</div>
                     <div class="header-controls">
+                        <button type="button" class="ctrl-btn" id="minimize-btn" title="最小化">−</button>
                         <button type="button" class="ctrl-btn" id="zoom-out-btn" title="缩小">-</button>
                         <button type="button" class="ctrl-btn" id="zoom-in-btn" title="放大">+</button>
                         <button type="button" class="close-btn" id="plan-editor-close" title="关闭">&times;</button>
@@ -54,6 +63,14 @@ class PlanEditor {
                 <div class="editor-footer">
                     <button type="button" class="footer-btn btn-secondary" id="plan-editor-close-btn">关闭</button>
                     <button type="button" class="footer-btn btn-success" id="apply-changes-btn" disabled><i class="fas fa-check me-1"></i> 应用修改</button>
+                </div>
+            </div>
+            <div id="plan-editor-minibar" class="plan-editor-minibar" style="display: none;">
+                <div class="minibar-icon"><i class="fas fa-robot"></i></div>
+                <div class="minibar-title">AI 智能规划师</div>
+                <div class="minibar-controls">
+                    <button type="button" class="minibar-btn" id="restore-btn" title="恢复">□</button>
+                    <button type="button" class="minibar-btn close" id="minibar-close-btn" title="关闭">&times;</button>
                 </div>
             </div>
         `;
@@ -132,18 +149,34 @@ class PlanEditor {
             .send-btn:hover { opacity: 0.9; }
 
             .editor-footer {
-                padding: 12px 20px; background: white; border-top: 1px solid #eee;
+                padding: 12px 20px; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #ffffff 100%);
                 display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;
             }
             .footer-btn {
                 padding: 8px 20px; border-radius: 20px; border: none; cursor: pointer;
                 font-weight: 500; display: flex; align-items: center; justify-content: center;
-                transition: transform 0.1s;
+                transition: all 0.3s ease;
             }
             .footer-btn:active { transform: scale(0.98); }
-            .btn-secondary { background: #e2e6ea; color: #333; }
-            .btn-success { background: linear-gradient(135deg, #28a745, #218838); color: white; }
-            .btn-success:disabled { background: #ccc; cursor: not-allowed; opacity: 0.7; }
+            .footer-btn.btn-secondary { 
+                background: linear-gradient(135deg, #7A8A9A 0%, #5A6A7A 100%); 
+                color: white; 
+                box-shadow: 0 2px 8px rgba(122, 138, 154, 0.3);
+            }
+            .footer-btn.btn-secondary:hover { 
+                background: linear-gradient(135deg, #6A7A8A 0%, #4A5A6A 100%);
+                transform: translateY(-1px);
+            }
+            .footer-btn.btn-success { 
+                background: linear-gradient(135deg, #5AAC7F 0%, #3D8B6A 100%); 
+                color: white;
+                box-shadow: 0 2px 8px rgba(90, 172, 127, 0.3);
+            }
+            .footer-btn.btn-success:hover { 
+                background: linear-gradient(135deg, #4A9A6A 0%, #2D7A5A 100%);
+                transform: translateY(-1px);
+            }
+            .footer-btn.btn-success:disabled { background: #ccc; cursor: not-allowed; opacity: 0.7; transform: none; }
 
             .chat-message { margin-bottom: 15px; display: flex; align-items: flex-start; animation: fadeIn 0.3s ease; }
             .chat-message.user-message { flex-direction: row-reverse; }
@@ -172,6 +205,71 @@ class PlanEditor {
             @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
             @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
             .typing-cursor { display: inline-block; width: 2px; height: 1em; background: currentColor; margin-left: 2px; animation: blink 1s infinite; vertical-align: middle; }
+            
+            /* 最小化栏样式 */
+            .plan-editor-minibar {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #C1302E 0%, #8B0000 100%);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 30px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                box-shadow: 0 4px 20px rgba(193, 48, 46, 0.4);
+                z-index: 10001;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                animation: slideInRight 0.3s ease;
+            }
+            .plan-editor-minibar:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 25px rgba(193, 48, 46, 0.5);
+            }
+            .minibar-icon {
+                width: 36px;
+                height: 36px;
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+            }
+            .minibar-title {
+                font-weight: 600;
+                font-size: 14px;
+            }
+            .minibar-controls {
+                display: flex;
+                gap: 8px;
+            }
+            .minibar-btn {
+                background: rgba(255, 255, 255, 0.2);
+                border: none;
+                color: white;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                transition: background 0.2s;
+            }
+            .minibar-btn:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+            .minibar-btn.close:hover {
+                background: rgba(255, 0, 0, 0.5);
+            }
+            @keyframes slideInRight {
+                from { opacity: 0; transform: translateX(100px); }
+                to { opacity: 1; transform: translateX(0); }
+            }
         `;
         document.head.appendChild(style);
     }
@@ -187,6 +285,10 @@ class PlanEditor {
             if (target.closest('#plan-editor-close') || target.closest('#plan-editor-close-btn')) this.hideEditor();
             if (target.closest('#zoom-in-btn')) this.zoomIn();
             if (target.closest('#zoom-out-btn')) this.zoomOut();
+            if (target.closest('#minimize-btn')) this.minimize();
+            if (target.closest('#restore-btn')) this.restore();
+            if (target.closest('#minibar-close-btn')) this.hideEditor();
+            if (target.closest('.plan-editor-minibar') && !target.closest('button')) this.restore();
         });
 
         document.addEventListener('keydown', (e) => {
@@ -227,7 +329,10 @@ class PlanEditor {
     showEditor() {
         this.createEditorUI();
         const modal = document.getElementById('plan-editor-modal');
+        const minibar = document.getElementById('plan-editor-minibar');
         modal.style.display = 'flex';
+        if (minibar) minibar.style.display = 'none';
+        this.isMinimized = false;
         // 确保显示时触发一次布局计算，避免动画异常
         requestAnimationFrame(() => {
             modal.style.opacity = '1';
@@ -237,7 +342,10 @@ class PlanEditor {
     
     hideEditor() {
         const modal = document.getElementById('plan-editor-modal');
+        const minibar = document.getElementById('plan-editor-minibar');
         if (modal) modal.style.display = 'none';
+        if (minibar) minibar.style.display = 'none';
+        this.isMinimized = false;
     }
 
     /**
@@ -263,6 +371,37 @@ class PlanEditor {
         if (modal) {
             modal.style.width = '800px';
             modal.style.height = '650px';
+        }
+    }
+    
+    /**
+     * 最小化到右下角
+     */
+    minimize() {
+        const modal = document.getElementById('plan-editor-modal');
+        const minibar = document.getElementById('plan-editor-minibar');
+        if (modal && minibar) {
+            modal.style.display = 'none';
+            minibar.style.display = 'flex';
+            this.isMinimized = true;
+        }
+    }
+    
+    /**
+     * 从最小化恢复
+     */
+    restore() {
+        const modal = document.getElementById('plan-editor-modal');
+        const minibar = document.getElementById('plan-editor-minibar');
+        if (modal && minibar) {
+            modal.style.display = 'flex';
+            minibar.style.display = 'none';
+            this.isMinimized = false;
+            // 恢复后聚焦输入框
+            setTimeout(() => {
+                const input = document.getElementById('chat-input');
+                if (input) input.focus();
+            }, 100);
         }
     }
 
@@ -373,7 +512,20 @@ class PlanEditor {
             let pendingRender = false;
 
             const renderMessage = () => {
-                const html = marked.parse(fullMessage);
+                let html;
+                try {
+                    if (typeof window.marked !== 'undefined' && window.marked.parse) {
+                        html = window.marked.parse(fullMessage);
+                    } else if (typeof window.markdownit !== 'undefined') {
+                        const md = window.markdownit();
+                        html = md.render(fullMessage);
+                    } else {
+                        html = fullMessage.replace(/\n/g, '<br>');
+                    }
+                } catch (e) {
+                    console.warn('Markdown渲染失败:', e);
+                    html = fullMessage.replace(/\n/g, '<br>');
+                }
                 document.getElementById(messageId).innerHTML = html;
                 this.scrollToBottom();
                 pendingRender = false;
@@ -437,7 +589,21 @@ class PlanEditor {
 
         } catch (error) {
             console.error('发送消息失败:', error);
-            this.addChatMessage('ai', '网络请求失败，请稍后重试。', false);
+            
+            // 更详细的错误信息
+            let errorMessage = '网络请求失败，请稍后重试。';
+            
+            if (error.name === 'TypeError') {
+                errorMessage = '请求参数错误，请检查输入内容。';
+            } else if (error.message && error.message.includes('Failed to fetch')) {
+                errorMessage = '网络连接失败，请检查网络连接。';
+            } else if (error.message && error.message.includes('HTTP')) {
+                errorMessage = `服务器错误: ${error.message}`;
+            } else if (error.message) {
+                errorMessage = `请求失败: ${error.message}`;
+            }
+            
+            this.addChatMessage('ai', errorMessage, false);
         } finally {
             this.isSending = false;
             sendBtn.disabled = false;

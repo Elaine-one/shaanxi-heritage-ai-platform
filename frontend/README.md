@@ -59,27 +59,31 @@ frontend/
 │   ├── agent/               # Agent相关样式
 │   │   ├── plan-editor.css     # 规划编辑器样式
 │   │   └── travel-planning.css  # 旅游规划样式
+│   ├── base/                # 基础样式
+│   │   └── common.css          # 通用样式
 │   ├── components/          # 组件样式
 │   │   ├── modal.css           # 模态框样式
 │   │   └── notification.css    # 通知样式
-│   ├── pages/               # 页面特定样式
-│   │   ├── creation-center.css  # 创作中心样式
-│   │   ├── heritage-detail.css  # 详情页样式
-│   │   ├── heritage-map.css     # 地图页样式
-│   │   ├── heritage-map-overlay.css  # 地图覆盖层样式
-│   │   ├── heritage-statistics.css  # 统计页面样式
-│   │   ├── index.css            # 首页样式
-│   │   ├── login.css            # 登录页样式
-│   │   ├── non-heritage-list.css  # 列表页样式
-│   │   ├── profile.css            # 个人中心样式
-│   │   └── user-creation.css     # 用户创作样式
-│   ├── common.css           # 通用样式
-│   ├── forum.css            # 论坛样式
-│   ├── forum-post.css       # 论坛帖子样式
-│   ├── forum-post-header.css # 论坛帖子头部样式
-│   ├── news.css             # 新闻页样式
-│   ├── policy.css           # 政策页样式
-│   └── post-detail.css      # 帖子详情样式
+│   └── pages/               # 页面特定样式
+│       ├── forum/              # 论坛相关样式
+│       │   ├── forum.css          # 论坛样式
+│       │   ├── forum-post.css     # 论坛帖子样式
+│       │   ├── forum-post-header.css # 论坛帖子头部样式
+│       │   ├── forum-post-optimized.css # 论坛帖子优化样式
+│       │   └── post-detail.css    # 帖子详情样式
+│       ├── heritage/           # 非遗相关样式
+│       │   ├── heritage-detail.css  # 详情页样式
+│       │   ├── heritage-map.css     # 地图页样式
+│       │   └── heritage-map-overlay.css  # 地图覆盖层样式
+│       ├── user/               # 用户相关样式
+│       │   ├── creation-center.css  # 创作中心样式
+│       │   ├── login.css            # 登录页样式
+│       │   ├── profile.css          # 个人中心样式
+│       │   └── user-creation.css    # 用户创作样式
+│       ├── index.css            # 首页样式
+│       ├── news.css             # 新闻页样式
+│       ├── non-heritage-list.css  # 列表页样式
+│       └── policy.css           # 政策页样式
 ├── js/                 # JavaScript 文件
 │   ├── agent/             # AI智能体相关脚本
 │   │   ├── agent-core.js        # 规划核心功能
@@ -91,23 +95,20 @@ frontend/
 │   │   └── travel-planning.js   # 旅游规划主脚本
 │   ├── api/                 # API相关脚本
 │   │   ├── forum-api.js         # 论坛API
+│   │   ├── heritage-api.js      # 非遗API
 │   │   └── user-profile-api.js  # 用户资料API
-│   ├── common/           # 通用脚本
+│   ├── components/        # 可复用组件
+│   │   ├── avatar-cache.js      # 头像缓存组件
+│   │   ├── bg-image-handler.js  # 背景图片处理
+│   │   ├── heritage-ui.js       # 非遗UI工具函数
+│   │   ├── login-modal.js       # 登录模态框组件
+│   │   ├── modal-manager.js     # 模态框管理器
+│   │   └── notification-manager.js  # 通知管理
+│   ├── core/              # 核心脚本
 │   │   ├── api.js               # 统一API请求封装
 │   │   ├── api-utils.js         # API工具函数
 │   │   ├── auth.js              # 认证相关
-│   │   ├── auth-redirect.js     # 认证重定向
-│   │   ├── bg-image-handler.js  # 背景图片处理
-│   │   ├── browsing-history.js  # 浏览历史
-│   │   ├── date-utils.js        # 日期时间工具
-│   │   ├── heritage-api.js      # 非遗API
-│   │   ├── heritage-ui.js       # 非遗UI工具函数
-│   │   ├── modal-manager.js     # 模态框管理器
-│   │   ├── notification-manager.js  # 通知管理器
-│   │   ├── tracker.js           # 埋点追踪
-│   │   └── utils.js             # 工具函数
-│   ├── components/        # 可复用组件
-│   │   └── login-modal.js       # 登录模态框组件
+│   │   └── auth-redirect.js     # 认证重定向
 │   ├── lib/               # 工具库
 │   │   └── LunarSolarConverter.js  # 农历阳历转换
 │   ├── modules/          # 模块脚本
@@ -116,24 +117,31 @@ frontend/
 │   │   ├── profile-settings.js   # 个人中心设置模块
 │   │   └── profile-utils.js      # 个人中心工具函数
 │   ├── pages/           # 页面特定脚本
-│   │   ├── creation-center.js   # 创作中心脚本
-│   │   ├── forgot-password.js   # 忘记密码脚本
-│   │   ├── forum.js             # 论坛脚本
-│   │   ├── forum-post.js        # 论坛帖子脚本
-│   │   ├── heritage-detail.js   # 详情页脚本
-│   │   ├── heritage-filters.js  # 筛选功能脚本
-│   │   ├── heritage-map.js      # 地图页脚本
-│   │   ├── heritage-map-sidebar.js # 地图侧边栏脚本
+│   │   ├── forum/              # 论坛相关脚本
+│   │   │   ├── forum.js           # 论坛脚本
+│   │   │   ├── forum-post.js      # 论坛帖子脚本
+│   │   │   └── post-detail.js     # 帖子详情脚本
+│   │   ├── heritage/           # 非遗相关脚本
+│   │   │   ├── heritage-detail.js # 详情页脚本
+│   │   │   ├── heritage-filters.js # 筛选功能脚本
+│   │   │   ├── heritage-map.js    # 地图页脚本
+│   │   │   ├── heritage-map-sidebar.js # 地图侧边栏脚本
+│   │   │   └── heritage-map-toolbar.js # 地图工具栏脚本
+│   │   ├── user/               # 用户相关脚本
+│   │   │   ├── creation-center.js # 创作中心脚本
+│   │   │   ├── forgot-password.js # 忘记密码脚本
+│   │   │   ├── login.js           # 登录脚本
+│   │   │   ├── profile.js         # 个人中心脚本
+│   │   │   ├── register.js        # 注册脚本
+│   │   │   ├── reset-password.js  # 密码重置脚本
+│   │   │   └── user-creation.js   # 用户创作脚本
 │   │   ├── index.js             # 首页脚本
-│   │   ├── login.js             # 登录脚本
+│   │   ├── news.js              # 新闻页脚本
 │   │   ├── non-heritage-list.js # 列表页脚本
-│   │   ├── post-detail.js       # 帖子详情脚本
-│   │   ├── profile.js           # 个人中心脚本
-│   │   ├── register.js          # 注册脚本
-│   │   ├── reset-password.js    # 密码重置脚本
-│   │   └── user-creation.js     # 用户创作脚本
-│   ├── news.js             # 新闻页脚本
-│   └── policy.js           # 政策页脚本
+│   │   └── policy.js            # 政策页脚本
+│   └── utils/            # 工具函数
+│       ├── date-utils.js        # 日期时间工具
+│       └── utils.js             # 通用工具函数
 ├── lib/                # 第三方库
 │   ├── dify_chatbot_embed.js  # AI聊天助手嵌入脚本
 │   ├── maxkb_embed.js         # 知识库嵌入脚本
@@ -233,24 +241,24 @@ frontend/
 
 ### 收藏功能相关文件
 
-- **js/common/heritage-api.js**: 封装了收藏相关的 API 调用
+- **js/api/heritage-api.js**: 封装了收藏相关的 API 调用
   - `addFavorite(heritageId)`: 添加收藏（POST `/favorites/add/`）
   - `removeFavorite(heritageId)`: 移除收藏（POST `/favorites/remove/`）
   - `checkFavoriteStatus(heritageId)`: 检查收藏状态（GET `/favorites/check/`）
   - `getUserFavorites(sort)`: 获取用户收藏列表（GET `/favorites/`）
   - `heritageEvents`: 收藏状态事件总线
 
-- **js/pages/heritage-detail.js**: 详情页收藏功能
+- **js/pages/heritage/heritage-detail.js**: 详情页收藏功能
   - 集成收藏API，支持添加/移除收藏
   - 实时更新收藏按钮状态
   - 显示收藏状态视觉反馈
 
-- **js/pages/heritage-map-sidebar.js**: 地图页收藏功能
+- **js/pages/heritage/heritage-map-sidebar.js**: 地图页收藏功能
   - 地图标记点的收藏操作
   - 侧边栏列表的收藏状态同步
   - 本地存储与后端数据同步
 
-- **js/pages/profile.js**: 个人中心收藏管理
+- **js/pages/user/profile.js**: 个人中心收藏管理
   - 展示用户收藏列表
   - 支持批量取消收藏
   - 支持按时间/名称排序
@@ -284,13 +292,13 @@ frontend/
 
 - **后端**: `/api/auth/captcha/generate/` - 生成验证码
 - **后端**: `/api/auth/captcha/verify/` - 验证验证码
-- **前端**: `js/pages/register.js` - 验证码显示和刷新
+- **前端**: `js/pages/user/register.js` - 验证码显示和刷新
 
 ## 通知系统
 
 全局通知系统用于显示操作结果、错误提示等信息。
 
-- **js/common/notification-manager.js**: 通知管理器
+- **js/components/notification-manager.js**: 通知管理器
 - **css/components/notification.css**: 通知样式
 
 使用方式：`NotificationManager.success('操作成功！')` / `error()` / `warning()` / `info()`
@@ -299,7 +307,7 @@ frontend/
 
 统一模态框管理，支持确认框、提示框等。
 
-- **js/common/modal-manager.js**: 模态框管理器
+- **js/components/modal-manager.js**: 模态框管理器
 - **css/components/modal.css**: 模态框样式
 - **js/components/login-modal.js**: 登录模态框组件
 
@@ -446,8 +454,8 @@ Nginx 配置文件位于项目根目录的 `nginx.conf`，主要配置包括：
 
 前端通过 Fetch API 与后端通信，API请求封装在以下文件中：
 
-- **js/common/api.js**: 统一API请求封装，自动注入CSRF Token
-- **js/common/heritage-api.js**: 非遗相关API（列表、详情、收藏等）
+- **js/core/api.js**: 统一API请求封装，自动注入CSRF Token
+- **js/api/heritage-api.js**: 非遗相关API（列表、详情、收藏等）
 - **js/api/forum-api.js**: 论坛相关API（帖子、评论、点赞、关注等）
 - **js/api/user-profile-api.js**: 用户资料API（头像、资料更新等）
 
@@ -471,7 +479,7 @@ API.userProfile.uploadUserAvatar(file)  // 上传头像
 
 ## 日期时间工具
 
-`js/common/date-utils.js` 提供日期时间处理功能：
+`js/utils/date-utils.js` 提供日期时间处理功能：
 
 - `dateUtils.getFormattedDateTime()` - 格式化日期时间
 - `dateUtils.getLunarDate()` - 获取农历日期
@@ -498,25 +506,29 @@ API.userProfile.uploadUserAvatar(file)  // 上传头像
 
 ## 最新更新记录
 
-### v1.3.0 (2026-03-06)
+### v1.3.0 (2026-03-11)
 
-#### 创作者中心全面优化
+#### 全面UI更新
+- 🎨 论坛页面UI全面优化，提升视觉体验和交互流畅度
 - 🎨 创作者中心UI/UX全面升级，采用现代化设计语言
+- 🎨 新闻页面UI优化，改善信息展示和阅读体验
+- 🎨 政策页面UI优化，提升内容可读性
+- 🎨 遗产详情页面UI优化，增强视觉吸引力
+- 🎨 非遗产列表页面UI优化，改善浏览体验
+- 🎨 遗产地图页面UI优化，提升交互体验
+- 🎨 个人中心页面UI优化，完善用户信息展示
 - 🎨 新增渐变色彩系统和视觉层次优化
 - 🎨 优化卡片布局、间距和阴影效果
 - 🎨 添加流畅的交互动画和过渡效果
 - 🎨 完善响应式设计，适配多种屏幕尺寸
-
-#### 关注功能完善
-- � 修复关注按钮在本人帖子上的显示问题
-- 🔄 统一用户ID字段命名规范（id vs userId）
-- � 修复用户创作中心关注API端点错误
-- 🔄 实现论坛与用户创作中心关注状态同步
-- � 修复重复关注/取消关注的问题
-
-#### 代码质量提升
-- ✅ 完善错误处理和用户反馈提示
-- ✅ 提升代码可维护性和一致性
+- 🎨 统一页面风格和交互体验
+- 🎨 优化表单和按钮样式
+- 🎨 新增通用CSS组件库
+- 🎨 新增高级图片查看器
+- 🎨 新增头像缓存管理
+- 🎨 新增图片增强功能
+- 🎨 新增帖子编辑器组件
+- 🎨 新增遗产地图工具栏组件
 
 ### v1.2.5 (2026-03-01)
 

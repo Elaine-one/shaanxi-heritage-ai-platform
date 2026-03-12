@@ -3,6 +3,7 @@ from rest_framework import viewsets, status, generics, mixins
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q, Count
 from django.utils import timezone
 from datetime import timedelta
@@ -24,6 +25,12 @@ from ..redis_utils import redis_client
 from ..services.search import SearchService
 
 logger = logging.getLogger(__name__)
+
+class CustomPagination(PageNumberPagination):
+    """自定义分页器"""
+    page_size = 12
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 # Create your views here.
 class HeritageViewSet(viewsets.ModelViewSet):
@@ -229,9 +236,16 @@ class NewsViewSet(viewsets.ModelViewSet):
     """
     queryset = News.objects.filter(is_active=True).order_by('-publish_date')
     serializer_class = NewsSerializer
+    pagination_class = CustomPagination
     
     def get_queryset(self):
         queryset = News.objects.filter(is_active=True)
+        
+        # 精选筛选
+        is_featured = self.request.query_params.get('is_featured')
+        if is_featured is not None:
+            if is_featured.lower() in ['true', '1', 'yes']:
+                queryset = queryset.filter(is_featured=True)
         
         # 搜索功能 - 使用新的搜索服务
         search = self.request.query_params.get('search')
@@ -265,7 +279,7 @@ class NewsViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         # 使用通用函数处理浏览量增加
-        from .utils import handle_view_count_increase
+        from ..utils import handle_view_count_increase
         handle_view_count_increase(instance, 'news')
         
         serializer = self.get_serializer(instance)
@@ -952,6 +966,7 @@ class PolicyViewSet(viewsets.ModelViewSet):
     """
     queryset = Policy.objects.filter(is_active=True).order_by('-publish_date')
     serializer_class = PolicySerializer
+    pagination_class = CustomPagination
     
     def get_queryset(self):
         queryset = Policy.objects.filter(is_active=True)
@@ -1000,7 +1015,7 @@ class PolicyViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         # 使用通用函数处理浏览量增加
-        from .utils import handle_view_count_increase
+        from ..utils import handle_view_count_increase
         handle_view_count_increase(instance, 'policy')
         
         serializer = self.get_serializer(instance)

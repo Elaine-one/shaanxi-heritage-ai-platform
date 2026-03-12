@@ -276,3 +276,50 @@ class ForumUserStats(models.Model):
         self.experience += points
         self.calculate_level()
         self.save(update_fields=['experience'])
+
+
+class ForumAnnouncement(models.Model):
+    """论坛公告模型"""
+    title = models.CharField(max_length=200, verbose_name="标题")
+    content = models.TextField(verbose_name="内容")
+    link = models.URLField(max_length=500, blank=True, null=True, verbose_name="链接地址")
+    
+    # 状态
+    is_active = models.BooleanField(default=True, verbose_name="是否启用")
+    is_pinned = models.BooleanField(default=True, verbose_name="是否置顶")
+    
+    # 排序
+    order = models.PositiveIntegerField(default=0, verbose_name="排序", help_text="数字越小越靠前")
+    
+    # 时间字段
+    publish_date = models.DateTimeField(default=timezone.now, verbose_name="发布时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    
+    class Meta:
+        ordering = ['order', '-publish_date']
+        verbose_name = "论坛公告"
+        verbose_name_plural = "论坛公告"
+    
+    def __str__(self):
+        return self.title
+
+
+class ForumRule(models.Model):
+    """论坛版规模型"""
+    content = models.CharField(max_length=200, verbose_name="规则内容", 
+        help_text="简短的规则描述，如：尊重他人，文明讨论")
+    
+    is_active = models.BooleanField(default=True, verbose_name="是否启用")
+    order = models.PositiveIntegerField(default=0, verbose_name="排序", help_text="数字越小越靠前")
+    
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    
+    class Meta:
+        ordering = ['order', 'id']
+        verbose_name = "论坛版规"
+        verbose_name_plural = "论坛版规"
+    
+    def __str__(self):
+        return self.content[:50] if len(self.content) > 50 else self.content

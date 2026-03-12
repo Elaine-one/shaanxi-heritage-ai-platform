@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>非遗地图 - 陕西非物质文化遗产展示平台</title>
-    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/base/common.css">
     <link rel="shortcut icon" href="/static/common/favicon.ico">
-    <link rel="stylesheet" href="/css/pages/heritage-map.css">
+    <!-- Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/pages/heritage/heritage-map.css">
     <!-- 新增：统一组件样式 -->
     <link rel="stylesheet" href="/css/components/modal.css">
     <link rel="stylesheet" href="/css/components/notification.css">
@@ -14,29 +16,27 @@
     <!-- 农历日期转换库 -->
     <script src="/js/lib/LunarSolarConverter.js" defer></script>
     <!-- 日期时间工具模块 -->
-    <script src="/js/common/date-utils.js" defer></script>
+    <script src="/js/utils/date-utils.js" defer></script>
     <!-- 基础工具和数据 (depends on date-utils) -->
-    <script src="/js/common/utils.js" defer></script>
+    <script src="/js/utils/utils.js" defer></script>
     <!-- API客户端 Core -->
-    <script src="/js/common/api.js" defer></script>
+    <script src="/js/core/api.js" defer></script>
     <!-- Heritage Specific API (may be used by api-utils or others) -->
-    <script src="/js/common/heritage-api.js" defer></script>
+    <script src="/js/api/heritage-api.js" defer></script>
     <!-- API Utilities (depends on heritage-api, potentially api.js) -->
-    <script src="/js/common/api-utils.js" defer></script>
+    <script src="/js/core/api-utils.js" defer></script>
     <!-- 用户认证脚本 -->
-    <script src="/js/common/auth.js" defer></script>
+    <script src="/js/core/auth.js" defer></script>
     <!-- 新增：统一组件脚本 -->
-    <script src="/js/common/auth-redirect.js" defer></script>
-    <script src="/js/common/modal-manager.js" defer></script>
-    <script src="/js/common/notification-manager.js" defer></script>
+    <script src="/js/core/auth-redirect.js" defer></script>
+    <script src="/js/components/modal-manager.js" defer></script>
+    <script src="/js/components/notification-manager.js" defer></script>
     <script src="/js/components/login-modal.js" defer></script>
-    <!-- 统计跟踪脚本 -->
-    <script src="/js/common/tracker.js" defer></script>
     <!-- 百度地图API将通过下方的loadBaiduMapsAPI函数加载 -->
     <!-- 用户资料API -->
     <script src="/js/api/user-profile-api.js" defer></script>
     
-    <link rel="stylesheet" href="/css/pages/heritage-map-overlay.css">
+    <link rel="stylesheet" href="/css/pages/heritage/heritage-map-overlay.css">
     <script type="text/javascript">
         // 百度地图AK通过后端API获取，避免在前端暴露
         window.BMAP_AUTHENTIC_KEY = null; // 将通过API获取
@@ -95,9 +95,15 @@
                     
                     if (window.MapCore && typeof window.MapCore.init === 'function') {
                         console.log('Initializing MapCore...');
+                        // 设置全局标记，避免备用初始化重复执行
+                        window.mapCoreInitializing = true;
+                        // 触发事件（用于日志记录）
+                        window.dispatchEvent(new CustomEvent('mapCoreInitializing'));
                         window.MapCore.init().then(success => {
                             if (success) {
                                 console.log('MapCore initialized successfully.');
+                                // 触发地图初始化完成事件
+                                window.dispatchEvent(new CustomEvent('mapCoreInitialized'));
                             } else {
                                 console.error('MapCore initialization failed.');
                                 showMapError('地图核心功能初始化失败。');
@@ -329,16 +335,19 @@
     <script src="../lib/maxkb_embed.js" defer></script>
     
     <!-- UI组件 -->
-    <script src="../js/common/heritage-ui.js" defer></script>
+    <script src="../js/components/heritage-ui.js" defer></script>
     
     <!-- 筛选功能 -->
-    <script src="../js/pages/heritage-filters.js" defer></script>
+    <script src="../js/pages/heritage/heritage-filters.js" defer></script>
     
     <!-- 地图核心功能 -->
-    <script src="/js/pages/heritage-map.js" defer></script>
+    <script src="/js/pages/heritage/heritage-map.js" defer></script>
+    
+    <!-- 地图工具栏 -->
+    <script src="/js/pages/heritage/heritage-map-toolbar.js" defer></script>
     
     <!-- 侧边栏功能 -->
-    <script src="/js/pages/heritage-map-sidebar.js" defer></script>
+    <script src="/js/pages/heritage/heritage-map-sidebar.js" defer></script>
     
     <!-- 应用初始化脚本 (逻辑已移至新的地图加载回调中) -->
     

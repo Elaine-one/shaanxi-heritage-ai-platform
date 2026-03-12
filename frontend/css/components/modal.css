@@ -51,19 +51,43 @@
 /* 模态框头部 */
 .modal-header {
     padding: 24px 28px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 2px solid #e5e7eb;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #fafafa;
+    background: linear-gradient(135deg, #C1302E 0%, #8B0000 100%);
+    position: relative;
 }
 
-.modal-header h2 {
+.modal-header::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #FFD700, #FFA500, #FFD700);
+}
+
+.modal-header h2,
+.modal-header h3 {
     margin: 0;
     font-size: 20px;
     font-weight: 600;
-    color: #333;
+    color: #ffffff;
     font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header h3 {
+    font-size: 1.25rem;
+}
+
+.modal-header h2 i,
+.modal-header h3 i {
+    margin-right: 8px;
+    color: #FFD700;
+    font-size: 1.1em;
 }
 
 /* 关闭按钮 */
@@ -127,26 +151,54 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* 主按钮 */
-.modal-footer button.primary {
-    background: var(--shaanxi-red, #c13030);
+/* 主按钮 - 使用.btn-primary类 */
+.modal-footer button.primary,
+.modal-footer .btn-primary {
+    background: linear-gradient(135deg, #D4605A 0%, #A8324A 100%);
     color: white;
+    box-shadow: 0 2px 8px rgba(212, 96, 90, 0.3);
 }
 
-.modal-footer button.primary:hover {
-    background: var(--accent-color, #8c2e2e);
+.modal-footer button.primary:hover,
+.modal-footer .btn-primary:hover {
+    background: linear-gradient(135deg, #B84A4A 0%, #8A2430 100%);
+    box-shadow: 0 4px 12px rgba(212, 96, 90, 0.4);
 }
 
-/* 次要按钮 */
-.modal-footer button:not(.primary) {
+/* 次要按钮 - 使用.btn-secondary类 */
+.modal-footer button:not(.primary):not(.btn-primary):not(.btn-secondary):not(.btn-success) {
     background: #f5f5f5;
     color: #333;
     border: 1px solid #e0e0e0;
 }
 
-.modal-footer button:not(.primary):hover {
+.modal-footer button:not(.primary):not(.btn-primary):not(.btn-secondary):not(.btn-success):hover {
     background: #e8e8e8;
     border-color: #d0d0d0;
+}
+
+/* 成功按钮 - 使用.btn-success类 */
+.modal-footer .btn-success {
+    background: linear-gradient(135deg, #5AAC7F 0%, #3D8B6A 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(90, 172, 127, 0.3);
+}
+
+.modal-footer .btn-success:hover {
+    background: linear-gradient(135deg, #4A9A6A 0%, #2D7A5A 100%);
+    box-shadow: 0 4px 12px rgba(90, 172, 127, 0.4);
+}
+
+/* 次要按钮 - 使用.btn-secondary类 */
+.modal-footer .btn-secondary {
+    background: linear-gradient(135deg, #7A8A9A 0%, #5A6A7A 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(122, 138, 154, 0.3);
+}
+
+.modal-footer .btn-secondary:hover {
+    background: linear-gradient(135deg, #6A7A8A 0%, #4A5A6A 100%);
+    box-shadow: 0 4px 12px rgba(122, 138, 154, 0.4);
 }
 
 /* 动画 */

@@ -75,6 +75,7 @@ class News(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
     is_active = models.BooleanField(default=True, verbose_name="是否启用")
+    is_featured = models.BooleanField(default=False, verbose_name="是否精选", help_text="标记为精选资讯，将在首页精选区展示")
     view_count = models.PositiveIntegerField(default=0, verbose_name="浏览次数")
     tags = models.CharField(max_length=200, verbose_name="标签", blank=True, null=True, help_text="多个标签用逗号分隔")
     

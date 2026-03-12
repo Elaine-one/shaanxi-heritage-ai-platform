@@ -2,38 +2,39 @@
 IP白名单中间件
 限制只有特定IP地址可以访问管理后台
 """
+import os
+import logging
 
-from django.http import HttpResponseForbidden
-from django.conf import settings
+logger = logging.getLogger(__name__)
+
 
 class IPWhitelistMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
-        # 允许访问管理后台的IP地址列表（只有您的IP可以访问）
-        self.allowed_ips = ['127.0.0.1', 'localhost']
-        # 需要限制的路径（管理后台）
+        self.allowed_ips = os.getenv('ADMIN_ALLOWED_IPS', '127.0.0.1,::1').split(',')
+        self.allowed_ips = [ip.strip() for ip in self.allowed_ips if ip.strip()]
         self.restricted_paths = ['/admin/', '/admin']
+        self.debug_mode = os.getenv('DEBUG', 'False').lower() == 'true'
 
     def __call__(self, request):
-        # 检查是否访问受限路径
         if any(request.path.startswith(path) for path in self.restricted_paths):
-            # 获取客户端真实IP
             client_ip = self.get_client_ip(request)
             
-            # 检查IP是否在白名单中
             if client_ip not in self.allowed_ips:
+                logger.warning(f"Admin access denied for IP: {client_ip}")
+                from django.http import HttpResponseForbidden
                 return HttpResponseForbidden(
-                    "访问被阻止：您没有权限访问此页面。\n"
-                    "请联系系统管理员获取访问权限。"
+                    "<h1>403 Forbidden</h1>"
+                    "<p>您没有权限访问此页面。</p>"
+                    "<p>如需访问管理后台，请联系系统管理员。</p>"
                 )
         
         return self.get_response(request)
 
     def get_client_ip(self, request):
-        """获取客户端真实IP地址"""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            ip = x_forwarded_for.split(',')[0].strip()
         else:
-            ip = request.META.get('REMOTE_ADDR')
+            ip = request.META.get('REMOTE_ADDR', '')
         return ip

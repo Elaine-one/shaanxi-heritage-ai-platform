@@ -18,13 +18,14 @@ import uuid
 from ..forum_models import (
     ForumPost, ForumComment, ForumTag, ForumPostLike, ForumCommentLike,
     ForumPostFavorite, ForumUserFollow, ForumReport,
-    ForumUserStats
+    ForumUserStats, ForumAnnouncement, ForumRule
 )
 from ..serializers.forum import (
     ForumPostListSerializer, ForumPostDetailSerializer, ForumPostCreateSerializer,
     ForumCommentSerializer, ForumTagSerializer,
     ForumReportSerializer, ForumUserStatsSerializer, ForumLikeSerializer,
-    ForumFavoriteSerializer, ForumFollowSerializer, ForumSearchSerializer
+    ForumFavoriteSerializer, ForumFollowSerializer, ForumSearchSerializer,
+    ForumAnnouncementSerializer, ForumRuleSerializer
 )
 
 
@@ -490,11 +491,8 @@ def increment_post_view(request, post_id):
     """增加帖子浏览量"""
     post = get_object_or_404(ForumPost, id=post_id, status='published')
     
-    # 防止重复计数（基于session）
-    session_key = f'viewed_post_{post_id}'
-    if not request.session.get(session_key):
-        post.increment_view_count()
-        request.session[session_key] = True
+    # 每次访问都增加浏览量
+    post.increment_view_count()
     
     return Response({
         'view_count': post.view_count,
@@ -848,3 +846,43 @@ def user_followers_list(request):
         })
     
     return paginator.get_paginated_response(followers_data)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def forum_announcements(request):
+    """获取论坛公告列表"""
+    announcements = ForumAnnouncement.objects.filter(
+        is_active=True
+    ).order_by('order', '-publish_date')[:5]
+    
+    serializer = ForumAnnouncementSerializer(announcements, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def forum_rules(request):
+    """获取论坛版规列表"""
+    rules = ForumRule.objects.filter(
+        is_active=True
+    ).order_by('order', 'id')
+    
+    serializer = ForumRuleSerializer(rules, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def forum_hot_tags(request):
+    """获取热门标签列表"""
+    from django.db.models import Count
+    
+    tags = ForumTag.objects.annotate(
+        post_count_calc=Count('posts', distinct=True)
+    ).filter(
+        post_count_calc__gt=0
+    ).order_by('-post_count_calc', 'name')[:10]
+    
+    serializer = ForumTagSerializer(tags, many=True)
+    return Response(serializer.data)

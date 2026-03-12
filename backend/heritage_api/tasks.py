@@ -43,7 +43,7 @@ def sync_news_view_counts(redis_counts: dict) -> int:
     """同步新闻浏览量
     
     Args:
-        redis_counts: Redis中的浏览量数据 {news_id: view_count}
+        redis_counts: Redis中的浏览量增量数据 {news_id: increment}
         
     Returns:
         更新的记录数
@@ -55,25 +55,24 @@ def sync_news_view_counts(redis_counts: dict) -> int:
     
     try:
         with transaction.atomic():
-            for news_id, redis_view_count in redis_counts.items():
+            for news_id, redis_increment in redis_counts.items():
                 try:
                     news = News.objects.get(id=news_id, is_active=True)
                     
-                    # 只有当Redis中的浏览量大于数据库中的浏览量时才更新
-                    if redis_view_count > news.view_count:
-                        # 计算增量
-                        increment = redis_view_count - news.view_count
+                    # Redis存储的是增量，需要加到数据库值上
+                    if redis_increment > 0:
+                        new_view_count = news.view_count + redis_increment
                         
                         # 更新数据库
                         News.objects.filter(id=news_id).update(
-                            view_count=redis_view_count
+                            view_count=new_view_count
                         )
                         
                         updated_count += 1
-                        logger.debug(f"新闻 {news_id} 浏览量更新: {news.view_count} -> {redis_view_count} (+{increment})")
+                        logger.debug(f"新闻 {news_id} 浏览量更新: {news.view_count} -> {new_view_count} (+{redis_increment})")
                         
-                        # 清除Redis缓存（可选，也可以保留一段时间）
-                        # redis_client.delete_view_count('news', news_id)
+                        # 同步后清除Redis增量缓存
+                        redis_client.delete_view_count('news', news_id)
                         
                 except News.DoesNotExist:
                     logger.warning(f"新闻 {news_id} 不存在，跳过同步")
@@ -93,7 +92,7 @@ def sync_policy_view_counts(redis_counts: dict) -> int:
     """同步政策浏览量
     
     Args:
-        redis_counts: Redis中的浏览量数据 {policy_id: view_count}
+        redis_counts: Redis中的浏览量增量数据 {policy_id: increment}
         
     Returns:
         更新的记录数
@@ -105,25 +104,24 @@ def sync_policy_view_counts(redis_counts: dict) -> int:
     
     try:
         with transaction.atomic():
-            for policy_id, redis_view_count in redis_counts.items():
+            for policy_id, redis_increment in redis_counts.items():
                 try:
                     policy = Policy.objects.get(id=policy_id, is_active=True)
                     
-                    # 只有当Redis中的浏览量大于数据库中的浏览量时才更新
-                    if redis_view_count > policy.view_count:
-                        # 计算增量
-                        increment = redis_view_count - policy.view_count
+                    # Redis存储的是增量，需要加到数据库值上
+                    if redis_increment > 0:
+                        new_view_count = policy.view_count + redis_increment
                         
                         # 更新数据库
                         Policy.objects.filter(id=policy_id).update(
-                            view_count=redis_view_count
+                            view_count=new_view_count
                         )
                         
                         updated_count += 1
-                        logger.debug(f"政策 {policy_id} 浏览量更新: {policy.view_count} -> {redis_view_count} (+{increment})")
+                        logger.debug(f"政策 {policy_id} 浏览量更新: {policy.view_count} -> {new_view_count} (+{redis_increment})")
                         
-                        # 清除Redis缓存（可选，也可以保留一段时间）
-                        # redis_client.delete_view_count('policy', policy_id)
+                        # 同步后清除Redis增量缓存
+                        redis_client.delete_view_count('policy', policy_id)
                         
                 except Policy.DoesNotExist:
                     logger.warning(f"政策 {policy_id} 不存在，跳过同步")

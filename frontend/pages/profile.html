@@ -5,29 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>个人中心 - 陕西非物质文化遗产展示平台</title>
     <link rel="shortcut icon" href="../static/common/favicon.ico">
-    <link rel="stylesheet" href="../css/common.css">
-    <link rel="stylesheet" href="../css/pages/profile.css">
+    <link rel="stylesheet" href="../css/base/common.css">
+    <link rel="stylesheet" href="../css/pages/user/profile.css">
     <link rel="stylesheet" href="../css/agent/travel-planning.css">
     <!-- 新增：统一组件样式 -->
     <link rel="stylesheet" href="../css/components/modal.css">
     <link rel="stylesheet" href="../css/components/notification.css">
     <!-- 先加载API相关脚本 -->
-    <script src="../js/common/api.js" defer></script>
-<script src="../js/common/heritage-api.js" defer></script>
+    <script src="../js/core/api.js" defer></script>
+<script src="../js/api/heritage-api.js" defer></script>
 <script src="../js/api/forum-api.js" defer></script>
 <!-- 用户认证脚本 -->
-<script src="../js/common/auth.js" defer></script>
+<script src="../js/core/auth.js" defer></script>
 <!-- 新增：统一组件脚本 -->
-<script src="../js/common/auth-redirect.js" defer></script>
-<script src="../js/common/modal-manager.js" defer></script>
-<script src="../js/common/notification-manager.js" defer></script>
+<script src="../js/core/auth-redirect.js" defer></script>
+<script src="../js/components/modal-manager.js" defer></script>
+<script src="../js/components/notification-manager.js" defer></script>
 <script src="../js/components/login-modal.js" defer></script>
 <!-- 用户资料API -->
 <script src="../js/api/user-profile-api.js" defer></script>
-<!-- Markdown处理库 -->
-<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js" defer></script>
+<!-- Markdown处理库 - 不使用defer，确保先加载 -->
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 <!-- 备用Markdown处理库 -->
-<script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js"></script>
 </head>
 <body>
     <header>
@@ -241,14 +241,14 @@
     <!-- 农历日期转换库 -->
     <script src="../js/lib/LunarSolarConverter.js" defer></script>
 <!-- 日期时间工具模块 -->
-<script src="../js/common/date-utils.js" defer></script>
+<script src="../js/utils/date-utils.js" defer></script>
 <!-- 工具函数模块 -->
-<script src="../js/common/utils.js" defer></script>
+<script src="../js/utils/utils.js" defer></script>
 <!-- 背景图片处理工具 -->
-<script src="../js/common/bg-image-handler.js" defer></script>
+<script src="../js/components/bg-image-handler.js" defer></script>
 <!-- API工具模块 -->
-<script src="../js/common/api-utils.js" defer></script>
-<script src="../js/pages/profile.js" defer></script>
+<script src="../js/core/api-utils.js" defer></script>
+<script src="../js/pages/user/profile.js" defer></script>
 <!-- 旅游规划Agent模块 -->
 <script src="../js/agent/dialog-manager.js" defer></script>
 <script src="../js/agent/agent-core.js" defer></script>
