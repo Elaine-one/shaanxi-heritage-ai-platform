@@ -8,6 +8,9 @@
 logs/
 logs/*
 
+# Agent 数据目录
+Agent/data/
+
 # Nginx 日志
 nginx_logs/
 # 脚本文件
@@ -58,3 +61,4 @@ ENV/
 .temp/
 
 nginx.conf
+.trae/
