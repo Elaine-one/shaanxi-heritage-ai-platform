@@ -1,6 +1,6 @@
 /**
  * 流式对话管理器
- * 支持真正的 SSE 流式输出
+ * 支持真正的 SSE 流式输出，支持状态反馈和不完整 Markdown 处理
  */
 
 class StreamingChatManager {
@@ -9,6 +9,7 @@ class StreamingChatManager {
         this.currentMessage = '';
         this.isStreaming = false;
         this.pendingRender = false;
+        this.statusCallback = null;
     }
 
     /**
@@ -18,8 +19,9 @@ class StreamingChatManager {
      * @param {function} onChunk 收到文本块时的回调
      * @param {function} onComplete 完成时的回调
      * @param {function} onError 错误时的回调
+     * @param {function} onStatus 状态变化时的回调（可选）
      */
-    async sendStreamMessage(message, sessionId, onChunk, onComplete, onError) {
+    async sendStreamMessage(message, sessionId, onChunk, onComplete, onError, onStatus = null) {
         if (this.isStreaming) {
             console.warn('已有流式请求正在进行');
             return;
@@ -27,13 +29,12 @@ class StreamingChatManager {
 
         this.isStreaming = true;
         this.currentMessage = '';
+        this.statusCallback = onStatus;
 
         try {
-            // 构建请求 URL
             const apiUrl = await this.getApiBaseUrl();
             const url = `${apiUrl}/agent/chat-stream`;
 
-            // 使用 fetch 发送 POST 请求
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -50,7 +51,6 @@ class StreamingChatManager {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            // 读取流式响应
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
 
@@ -58,7 +58,8 @@ class StreamingChatManager {
             let pendingRender = false;
 
             const renderMessage = () => {
-                const html = marked.parse(this.currentMessage);
+                const safeMessage = this._fixIncompleteMarkdown(this.currentMessage);
+                const html = marked.parse(safeMessage);
                 onChunk(this.currentMessage, html);
                 pendingRender = false;
             };
@@ -86,7 +87,11 @@ class StreamingChatManager {
                                 return;
                             }
 
-                            if (parsed.content) {
+                            if (parsed.status === 'thinking') {
+                                if (this.statusCallback) {
+                                    this.statusCallback('thinking', parsed.content || '正在思考...');
+                                }
+                            } else if (parsed.content) {
                                 this.currentMessage += parsed.content;
                                 
                                 if (!pendingRender) {
@@ -94,6 +99,10 @@ class StreamingChatManager {
                                     requestAnimationFrame(() => {
                                         renderMessage();
                                     });
+                                }
+                            } else if (parsed.done) {
+                                if (this.statusCallback) {
+                                    this.statusCallback('done', '');
                                 }
                             }
                         } catch (e) {
@@ -115,6 +124,39 @@ class StreamingChatManager {
             console.error('流式请求失败:', error);
             onError(error.message);
         }
+    }
+
+    /**
+     * 修复不完整的 Markdown 语法
+     * @param {string} text 原始文本
+     * @returns {string} 修复后的文本
+     */
+    _fixIncompleteMarkdown(text) {
+        if (!text) return '';
+        
+        let fixed = text;
+        
+        const boldCount = (fixed.match(/\*\*/g) || []).length;
+        if (boldCount % 2 !== 0) {
+            fixed += '**';
+        }
+        
+        const codeBlockMatches = fixed.match(/```/g);
+        if (codeBlockMatches && codeBlockMatches.length % 2 !== 0) {
+            fixed += '\n```';
+        }
+        
+        const codeMatches = fixed.match(/(?<!`)`(?!`)/g);
+        if (codeMatches && codeMatches.length % 2 !== 0) {
+            fixed += '`';
+        }
+        
+        const italicMatches = fixed.match(/(?<!\*)\*(?!\*)/g);
+        if (italicMatches && italicMatches.length % 2 !== 0) {
+            fixed += '*';
+        }
+        
+        return fixed;
     }
 
     /**
@@ -143,7 +185,6 @@ class StreamingChatManager {
     }
 }
 
-// 导出
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = StreamingChatManager;
 } else {

@@ -479,7 +479,7 @@ class TravelPlanningAgent {
             }
             
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000); // 设置120秒超时，适应更丰富的AI内容生成
+            const timeoutId = setTimeout(() => controller.abort(), 360000); // 设置120秒超时，适应更丰富的AI内容生成
             
             try {
                 const response = await fetch(exportUrl, {
