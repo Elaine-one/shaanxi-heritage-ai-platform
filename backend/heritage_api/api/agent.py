@@ -32,7 +32,7 @@ def get_http_client():
     """获取共享的 HTTP 客户端，使用连接池减少延迟"""
     global _http_client
     if _http_client is None:
-        _http_client = httpx.Client(timeout=120.0, verify=False, limits=httpx.Limits(max_keepalive_connections=10, max_connections=20))
+        _http_client = httpx.Client(timeout=420.0, verify=False, limits=httpx.Limits(max_keepalive_connections=10, max_connections=20))
     return _http_client
 
 
