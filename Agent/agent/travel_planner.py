@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 旅游规划核心模块
-负责整合各种信息，生成符合地理逻辑的旅游规划，移除生硬时间计算，增加行程节奏分析
+负责整合各种信息，生成符合地理逻辑的旅游规划，使用真实道路距离进行路线优化
 """
 
-import asyncio
-import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from loguru import logger
-from geopy.distance import geodesic
 from Agent.services.heritage_analyzer import get_heritage_analyzer
 from Agent.services.weather import get_weather_service
+from Agent.services.mcp_client import get_mcp_client
 from Agent.models.llm_model import get_llm_model
 
 class TravelPlanner:
@@ -33,32 +31,43 @@ class TravelPlanner:
     
     async def create_travel_plan(self, 
                                planning_request: Dict[str, Any],
-                               progress_callback: Optional[callable] = None) -> Dict[str, Any]:
-        """创建旅游规划"""
+                               progress_callback: Optional[callable] = None,
+                               skip_ai_suggestions: bool = False) -> Dict[str, Any]:
+        """创建旅游规划
+        
+        Args:
+            planning_request: 规划请求参数
+            progress_callback: 进度回调函数
+            skip_ai_suggestions: 是否跳过AI建议生成（简单规划模式）
+        """
         try:
             plan_id = planning_request.get('plan_id', f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-            logger.info(f"开始创建旅游规划: {plan_id}")
+            logger.info(f"开始创建旅游规划: {plan_id}, 简单模式: {skip_ai_suggestions}")
             
-            # 初始化进度
+            steps = [
+                '分析非遗项目',
+                '获取天气信息',
+                '路径规划计算',
+                '生成路书',
+                '完成'
+            ]
+            if not skip_ai_suggestions:
+                steps.insert(2, '生成AI建议')
+            
             self.planning_progress[plan_id] = {
                 'status': 'processing',
                 'progress': 0,
                 'current_step': '初始化',
-                'steps': [
-                    '分析非遗项目',
-                    '获取天气信息',
-                    '生成AI建议',
-                    '路径规划计算',
-                    '生成路书',
-                    '完成'
-                ],
-                'start_time': datetime.now().isoformat()
+                'steps': steps,
+                'start_time': datetime.now().isoformat(),
+                'simple_mode': skip_ai_suggestions
             }
             
             if progress_callback:
                 await progress_callback(plan_id, self.planning_progress[plan_id])
             
-            await self._update_progress(plan_id, 10, '分析非遗项目', progress_callback)
+            progress_step = 10
+            await self._update_progress(plan_id, progress_step, '分析非遗项目', progress_callback)
             heritage_analysis = await self.heritage_analyzer.analyze_heritage_items(
                 planning_request.get('heritage_ids', [])
             )
@@ -66,32 +75,33 @@ class TravelPlanner:
             if not heritage_analysis.get('success'):
                 return self._create_error_result(plan_id, '非遗项目分析失败', heritage_analysis.get('error'))
             
-            # 步骤2: 获取天气信息
-            await self._update_progress(plan_id, 30, '获取天气信息', progress_callback)
+            progress_step = 30
+            await self._update_progress(plan_id, progress_step, '获取天气信息', progress_callback)
             weather_data = await self._get_weather_for_locations(
                 heritage_analysis['heritage_items'],
                 planning_request.get('travel_days', 3)
             )
             
-            # 步骤3: 生成AI建议
-            await self._update_progress(plan_id, 50, '生成AI建议', progress_callback)
-            ai_suggestions = await self._generate_ai_suggestions(
-                heritage_analysis,
-                weather_data,
-                planning_request
-            )
+            ai_suggestions = {'suggestions': '', 'travel_tips': [], 'packing_list': []}
+            if not skip_ai_suggestions:
+                progress_step = 50
+                await self._update_progress(plan_id, progress_step, '生成AI建议', progress_callback)
+                ai_suggestions = await self._generate_ai_suggestions(
+                    heritage_analysis,
+                    weather_data,
+                    planning_request
+                )
             
-            # 步骤4: 优化路线规划
-            await self._update_progress(plan_id, 70, '优化路线规划', progress_callback)
-            # 使用 v2 版本的路径规划，强制考虑出发地
+            progress_step = 70 if skip_ai_suggestions else 70
+            await self._update_progress(plan_id, progress_step, '路径规划计算', progress_callback)
             optimized_route = await self._optimize_travel_route_v2(
                 heritage_analysis['heritage_items'],
                 weather_data,
                 planning_request
             )
             
-            # 步骤5: 生成完整方案
-            await self._update_progress(plan_id, 90, '生成路书', progress_callback)
+            progress_step = 90
+            await self._update_progress(plan_id, progress_step, '生成路书', progress_callback)
             complete_plan = await self._generate_complete_plan(
                 heritage_analysis,
                 weather_data,
@@ -100,10 +110,9 @@ class TravelPlanner:
                 planning_request
             )
             
-            # 确保返回数据中包含前端需要的 estimated_time
             complete_plan['estimated_time'] = "2-5分钟"
+            complete_plan['simple_mode'] = skip_ai_suggestions
 
-            # 步骤6: 完成规划
             await self._update_progress(plan_id, 100, '完成', progress_callback)
             
             # 更新最终状态
@@ -197,18 +206,22 @@ class TravelPlanner:
             heritage_items = heritage_analysis.get('heritage_items', [])
             heritage_names = ', '.join([item['name'] for item in heritage_items])
             
+            special_req_str = '、'.join(special_requirements) if special_requirements else '无'
+            
             prompt = get_ai_suggestions_prompt(
                 departure_location=departure_location,
                 travel_days=travel_days,
                 people_count=group_size,
                 budget_range=budget_range,
                 travel_mode=travel_mode,
-                heritage_names=heritage_names
+                heritage_names=heritage_names,
+                special_requirements=special_req_str,
+                current_date=datetime.now().strftime('%Y年%m月%d日')
             )
             
             ai_response = await self.llm_model._call_model(prompt)
             
-            logger.info(f"AI建议生成完成")
+            logger.info("AI建议生成完成")
             
             return {
                 'suggestions': ai_response.get('content', '请参考生成的深度路书'),
@@ -220,7 +233,8 @@ class TravelPlanner:
                     'travel_days': travel_days,
                     'group_size': group_size,
                     'budget_range': budget_range,
-                    'travel_mode': travel_mode
+                    'travel_mode': travel_mode,
+                    'special_requirements': special_requirements
                 }
             }
         except Exception as e:
@@ -250,137 +264,188 @@ class TravelPlanner:
                                       weather_data: Dict[str, Any],
                                       request: Dict[str, Any]) -> Dict[str, Any]:
         """
-        基于出发地的路径优化算法 (贪婪算法 + 距离加权)
-        解决"路线乱跳"和"回头路"问题
+        基于出发地的路径优化算法 (使用百度地图真实道路距离)
+        解决"路线乱跳"和"回头路"问题，提供准确的距离和时间估算
         """
         try:
             start_location = request.get('departure_location', '')
             travel_days = request.get('travel_days', 3)
+            travel_mode = request.get('travel_mode', 'driving')
             
-            # 确保天数至少为1天，防止除零错误
+            mode_map = {
+                '自驾': 'driving',
+                '公共交通': 'transit', 
+                '步行': 'walking',
+                '骑行': 'riding'
+            }
+            api_mode = mode_map.get(travel_mode, 'driving')
+            
             safe_travel_days = max(1, int(travel_days))
             
-            logger.info(f"开始路径规划，出发地: {start_location}, 项目数: {len(items)}, 天数: {safe_travel_days}")
+            logger.info(f"开始路径规划(真实道路距离)，出发地: {start_location}, 项目数: {len(items)}, 天数: {safe_travel_days}, 出行方式: {api_mode}")
             
             if not items:
                 return {'daily_itinerary': []}
 
-            # 1. 确定起点坐标
+            mcp_client = get_mcp_client()
+
             start_coords = await self._get_coordinates(start_location)
             
-            # 2. 准备所有待访问点
             unvisited = []
             for item in items:
                 try:
                     lat = float(item.get('latitude', 0))
                     lng = float(item.get('longitude', 0))
                     
-                    # 尝试补全坐标
                     if not lat or not lng:
                         addr = item.get('address') or item.get('region') or item.get('name')
                         c = await self._get_coordinates(addr)
                         if c:
                             lat, lng = c
-                            # 回填，方便后续使用
                             item['latitude'] = lat
                             item['longitude'] = lng
 
                     if lat and lng:
-                        # 确保 visit_duration 有默认值
                         item['visit_duration'] = float(item.get('visit_duration') or 2.0)
                         unvisited.append({
                             'id': item.get('id'),
                             'data': item,
-                            'coords': (lat, lng)
+                            'coords': (lat, lng),
+                            'location_str': f"{lat},{lng}"
                         })
                 except:
                     continue
             
-            # 如果没有坐标，就按原顺序返回（兜底）
             if not unvisited:
                 return self._fallback_itinerary(items, safe_travel_days)
 
-            # 3. 路径排序 (贪婪算法：每次找离当前点最近的点)
-            ordered_route = []
-            current_coords = start_coords
+            start_location_str = f"{start_coords[0]},{start_coords[1]}"
+            all_locations = [start_location_str] + [p['location_str'] for p in unvisited]
             
-            while unvisited:
-                # 寻找最近的下一个点
+            logger.info(f"计算距离矩阵: {len(all_locations)} 个位置")
+            
+            matrix_result = await mcp_client.map_distance_matrix(
+                origins=all_locations,
+                destinations=all_locations,
+                mode=api_mode
+            )
+            
+            if matrix_result.get('success') and matrix_result.get('matrix'):
+                distance_matrix = matrix_result['matrix']
+                logger.info("距离矩阵计算成功，使用真实道路距离")
+                use_real_distance = True
+            else:
+                logger.warning(f"距离矩阵计算失败: {matrix_result.get('error')}，使用直线距离")
+                use_real_distance = False
+                distance_matrix = None
+
+            ordered_route = []
+            current_idx = 0
+            remaining_indices = list(range(1, len(all_locations)))
+            
+            while remaining_indices:
                 nearest_idx = -1
                 min_dist = float('inf')
+                min_duration = 0
                 
-                for i, point in enumerate(unvisited):
-                    dist = geodesic(current_coords, point['coords']).kilometers
+                for idx in remaining_indices:
+                    if use_real_distance and distance_matrix:
+                        try:
+                            cell = distance_matrix[current_idx][idx]
+                            dist = cell.get('distance', float('inf'))
+                            duration = cell.get('duration', 0)
+                        except (IndexError, TypeError):
+                            from geopy.distance import geodesic as geo_geodesic
+                            coord1 = (float(all_locations[current_idx].split(',')[0]), 
+                                     float(all_locations[current_idx].split(',')[1]))
+                            coord2 = (float(all_locations[idx].split(',')[0]),
+                                     float(all_locations[idx].split(',')[1]))
+                            dist = geo_geodesic(coord1, coord2).kilometers * 1000
+                            duration = dist / 1000 / 60 * 3600
+                    else:
+                        from geopy.distance import geodesic as geo_geodesic
+                        coord1 = (float(all_locations[current_idx].split(',')[0]), 
+                                 float(all_locations[current_idx].split(',')[1]))
+                        coord2 = (float(all_locations[idx].split(',')[0]),
+                                 float(all_locations[idx].split(',')[1]))
+                        dist = geo_geodesic(coord1, coord2).kilometers * 1000
+                        duration = dist / 1000 / 60 * 3600
+                    
                     if dist < min_dist:
                         min_dist = dist
-                        nearest_idx = i
+                        min_duration = duration
+                        nearest_idx = idx
                 
                 if nearest_idx != -1:
-                    next_point = unvisited.pop(nearest_idx)
-                    # 加上路程信息
-                    dist_val = round(min_dist, 1)
-                    next_point['data']['distance_from_prev'] = dist_val
-                    # 简单估算车程 (60km/h)
-                    next_point['data']['travel_time_hours'] = round(dist_val / 60, 1)
+                    remaining_indices.remove(nearest_idx)
                     
-                    ordered_route.append(next_point['data'])
-                    current_coords = next_point['coords']
+                    point = unvisited[nearest_idx - 1]
+                    point_data = point['data'].copy()
+                    
+                    dist_km = round(min_dist / 1000, 1)
+                    duration_hours = round(min_duration / 3600, 1)
+                    
+                    point_data['distance_from_prev'] = dist_km
+                    point_data['travel_time_hours'] = duration_hours
+                    point_data['distance_type'] = '真实道路距离' if use_real_distance else '直线距离'
+                    
+                    ordered_route.append(point_data)
+                    current_idx = nearest_idx
                 else:
                     break
             
-            # 4. 按天分组 (考虑每天的容量)
             daily_itinerary = []
-            # 使用安全的天数变量
             items_per_day = len(ordered_route) / safe_travel_days
             
             current_item_idx = 0
             
-            # 获取全量天气位置映射
             weather_locations = weather_data.get('locations', {}) if weather_data.get('success') else {}
+            
+            from datetime import datetime, timedelta
+            today = datetime.now().date()
+            start_date = today + timedelta(days=1)
             
             for day in range(1, safe_travel_days + 1):
                 day_items = []
                 
-                # 计算当天应该分配到的索引范围
                 end_idx = int(round(items_per_day * day))
                 
                 while current_item_idx < end_idx and current_item_idx < len(ordered_route):
                     day_items.append(ordered_route[current_item_idx])
                     current_item_idx += 1
                 
-                # 如果是最后一天，把剩下的全塞进去
                 if day == safe_travel_days:
                     while current_item_idx < len(ordered_route):
                         day_items.append(ordered_route[current_item_idx])
                         current_item_idx += 1
 
-                # 注入当天特定地点的天气
+                day_date = start_date + timedelta(days=day - 1)
+                day_date_str = day_date.strftime('%Y年%m月%d日')
+                day_weekday = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][day_date.weekday()]
+
                 day_weather_info = None
                 if day_items and weather_locations:
-                    # 规则：以当天第一个景点作为该天的天气参考中心
                     representative_item = day_items[0].get('name')
-                    # 从天气库中查找对应的地点数据
                     specific_location_weather = weather_locations.get(representative_item)
                     
-                    # 兜底：如果没找到对应地点，尝试取第一个可用的位置
                     if not specific_location_weather:
                         specific_location_weather = list(weather_locations.values())[0] if weather_locations else None
                     
                     if specific_location_weather:
                         forecast_list = specific_location_weather.get('forecast', [])
-                        # 按天数索引提取匹配的预报（注意 day 从 1 开始，索引从 0 开始）
                         if forecast_list and (day - 1) < len(forecast_list):
                             w = forecast_list[day - 1]
                             day_weather_info = {
                                 'condition': w.get('weather_description', '未知'),
                                 'temperature': f"{w.get('min_temp', 0)}~{w.get('max_temp', 0)}°C",
                                 'suitability': w.get('travel_suitability', {}).get('level', '适宜'),
-                                'location_ref': representative_item  # 记录参考地点方便前端展示
+                                'location_ref': representative_item
                             }
 
-                # 生成当天的行程结构
                 day_plan = {
                     'day': day,
+                    'date': day_date_str,
+                    'weekday': day_weekday,
                     'theme': self._generate_day_theme(day_items),
                     'items': day_items,
                     'start_location': start_location if day == 1 else "上一个目的地",
@@ -390,14 +455,22 @@ class TravelPlanner:
                 }
                 daily_itinerary.append(day_plan)
             
+            total_distance = sum(item.get('distance_from_prev', 0) for item in ordered_route)
+            
             return {
                 'daily_itinerary': daily_itinerary,
-                'total_distance': 0, 
-                'optimization_notes': [f"路线已优化：从 {start_location} 出发，顺路游览"]
+                'total_distance': total_distance,
+                'optimization_notes': [
+                    f"路线已优化：从 {start_location} 出发，顺路游览",
+                    f"使用{'真实道路距离' if use_real_distance else '直线距离'}计算",
+                    f"出行方式：{travel_mode}"
+                ]
             }
             
         except Exception as e:
             logger.error(f"路径规划失败: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             return self._fallback_itinerary(items, request.get('travel_days', 3))
 
     def _analyze_pace_label(self, item_count):
@@ -470,21 +543,24 @@ class TravelPlanner:
                 'duration': f"{planning_request.get('travel_days', 3)}天",
                 'departure': planning_request.get('departure_location', ''),
                 'travel_mode': planning_request.get('travel_mode', '自驾'),
+                'travel_days': planning_request.get('travel_days', 3),
                 'group_size': planning_request.get('group_size', 2),
-                'budget_range': planning_request.get('budget_range', '中等')
+                'budget_range': planning_request.get('budget_range', '中等'),
+                'special_requirements': planning_request.get('special_requirements', [])
             },
             
             'heritage_items': heritage_analysis.get('heritage_items', []),
             'itinerary': itinerary,
-            'pace_analysis': pace_summary,  # 行程节奏分析
+            'pace_analysis': pace_summary,
             'weather_info': weather_data,
             'heritage_overview': {
-                'heritage_items': heritage_analysis.get('heritage_items', []) # 确保数据在 overview 里也有一份
+                'heritage_items': heritage_analysis.get('heritage_items', [])
             },
             'route_info': {
                 'total_distance': optimized_route.get('total_distance', 0),
                 'optimization_notes': optimized_route.get('optimization_notes', [])
             },
+            'special_requirements': planning_request.get('special_requirements', []),
             'export_info': {
                 'exportable': True,
                 'formats': ['PDF', 'CSV', 'JSON'],

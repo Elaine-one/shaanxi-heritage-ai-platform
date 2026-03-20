@@ -13,6 +13,9 @@ class MultiLocationRequest(BaseModel):
     locations: List[Dict[str, Any]]
     days: Optional[int] = 7
 
+    class Config:
+        arbitrary_types_allowed = True
+
 
 class LocationWeatherRequest(BaseModel):
     latitude: float

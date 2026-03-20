@@ -7,7 +7,7 @@ Redis会话池管理系统
 
 import json
 import asyncio
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 from dataclasses import asdict
 from loguru import logger
@@ -15,8 +15,15 @@ from loguru import logger
 from .session import SessionContext, SessionPool
 from Agent.config.settings import Config
 
-import redis
-from redis import Redis
+try:
+    import redis
+    from redis import Redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    redis = None
+    Redis = None
+    REDIS_AVAILABLE = False
+    logger.warning("Redis库未安装，Redis会话存储不可用")
 
 class RedisSessionPool(SessionPool):
     """

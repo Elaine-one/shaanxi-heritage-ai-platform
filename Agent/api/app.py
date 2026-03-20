@@ -11,10 +11,11 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from loguru import logger
 from contextlib import asynccontextmanager
+from cachetools import TTLCache
 
 import sys
 import os
@@ -30,40 +31,88 @@ current_dir = Path(__file__).resolve().parent
 if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 
-from Agent.main import get_agent
+from Agent.agent.agent import get_agent
 from Agent.agent.travel_planner import get_travel_planner
 from Agent.utils.logger_config import setup_logger
 from Agent.api.session_dependencies import get_current_user_from_session, TokenData
 from Agent.config.settings import Config
 
 # 导入路由
-from api.edit_endpoints import edit_router
-from api.weather_endpoints import router as weather_router
-from api.conversation_endpoints import router as conversation_router
+from Agent.api.edit_endpoints import edit_router
+from Agent.api.weather_endpoints import router as weather_router
+from Agent.api.conversation_endpoints import router as conversation_router
+from Agent.api.admin_endpoints import admin_router
 
 # 设置日志
 setup_logger()
 
-# 全局变量存储进度回调
-progress_callbacks = {}
+progress_callbacks = TTLCache(maxsize=1000, ttl=3600)
+_cleanup_task = None
+
+async def _progress_cache_cleanup():
+    """定期清理进度缓存的监控任务"""
+    while True:
+        await asyncio.sleep(300)
+        logger.debug(f"进度缓存当前大小: {len(progress_callbacks)}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info("智能旅游规划Agent API启动")
+    
+    from Agent.core.startup import get_startup_manager
+    from Agent.core.resource_manager import get_resource_manager
+    
+    startup_manager = get_startup_manager()
+    
+    init_results = await startup_manager.initialize_all()
+    
+    for name, result in init_results.items():
+        if not result['success']:
+            logger.warning(f"{name} 初始化失败: {result.get('error')}")
+    
+    sync_result = await startup_manager.auto_sync_heritage_data()
+    if sync_result.get('success'):
+        if sync_result.get('skipped'):
+            logger.info("数据同步跳过: 数据无变化")
+        else:
+            logger.info(f"数据同步完成: {sync_result.get('heritage_count', 0)} 条非遗")
+    else:
+        logger.warning(f"数据同步失败: {sync_result.get('error')}")
+    
     try:
         agent = get_agent()
         planner = get_travel_planner()
         logger.info("核心组件初始化完成")
+    except ValueError as e:
+        logger.error(f"LLM 模型初始化失败: {str(e)}")
+        raise SystemExit(1)
     except Exception as e:
         logger.error(f"核心组件初始化失败: {str(e)}")
+        raise SystemExit(1)
+    
+    resource_manager = get_resource_manager()
+    scheduler_task = asyncio.create_task(resource_manager.start_scheduler())
+    
+    global _cleanup_task
+    _cleanup_task = asyncio.create_task(_progress_cache_cleanup())
+    
     yield
+    
     logger.info("智能旅游规划Agent API关闭")
+    
+    scheduler_task.cancel()
+    _cleanup_task.cancel()
     try:
-        planner = get_travel_planner()
-        planner.cleanup_old_progress(hours=1)
-    except Exception:
+        await asyncio.wait_for(scheduler_task, timeout=5.0)
+    except (asyncio.CancelledError, asyncio.TimeoutError):
         pass
+    try:
+        await asyncio.wait_for(_cleanup_task, timeout=5.0)
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        pass
+    
+    await resource_manager.shutdown()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -96,6 +145,7 @@ app.add_middleware(
 app.include_router(edit_router)
 app.include_router(weather_router)
 app.include_router(conversation_router)
+app.include_router(admin_router)
 
 # 数据模型定义
 
@@ -149,7 +199,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """健康检查端点"""
-    from Agent.memory import get_session_pool
+    from Agent.memory.session import get_session_pool
     from Agent.memory.redis_session import RedisSessionPool
     
     health_info = {
@@ -219,7 +269,8 @@ async def create_travel_plan(request: TravelPlanRequest, background_tasks: Backg
 async def execute_travel_planning(request: Dict[str, Any], callback: callable):
     try:
         planner = get_travel_planner()
-        result = await planner.create_travel_plan(request, callback)
+        skip_ai = request.get('skip_ai_suggestions', True)
+        result = await planner.create_travel_plan(request, callback, skip_ai_suggestions=skip_ai)
         pid = request['plan_id']
         if pid in progress_callbacks:
             progress_callbacks[pid]['result'] = result
@@ -556,7 +607,7 @@ async def cleanup_temp_file(path: str):
 
 @app.post("/api/agent/chat-stream", summary="AI对话流式")
 async def agent_chat_stream(request: Dict[str, Any], current_user: TokenData = Depends(get_current_user_from_session)):
-    """与AI助手进行流式对话交互"""
+    """与AI助手进行流式对话交互，支持状态反馈"""
     try:
         msg = request.get('message', '')
         sid = request.get('session_id', str(uuid.uuid4()))
@@ -564,24 +615,17 @@ async def agent_chat_stream(request: Dict[str, Any], current_user: TokenData = D
         
         async def event_generator():
             try:
-                from Agent.agent import get_plan_editor
-                plan_editor = get_plan_editor()
-                
-                # 流式输出内容
-                async for chunk in agent.process_message_stream(msg, sid):
-                    yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
-                
-                # 流式输出完成后，获取会话信息并返回元数据
-                session_info = plan_editor.get_session_info(sid)
-                if session_info.get('success'):
-                    session_data = session_info.get('session_info', {})
-                    current_plan = session_data.get('current_plan', {})
+                async for event in agent.process_stream(msg, sid):
+                    event_type = event.get("type", "content")
                     
-                    # 发送元数据事件
-                    yield f"data: {json.dumps({'metadata': {'changes_made': False, 'updated_plan': current_plan}}, ensure_ascii=False)}\n\n"
-                
-                # 发送完成事件
-                yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
+                    if event_type == "status":
+                        yield f"data: {json.dumps({'status': event.get('status'), 'content': event.get('content', '')}, ensure_ascii=False)}\n\n"
+                    elif event_type == "thinking":
+                        yield f"data: {json.dumps({'status': 'thinking', 'content': event.get('content', '正在思考...')}, ensure_ascii=False)}\n\n"
+                    elif event_type == "content":
+                        yield f"data: {json.dumps({'content': event.get('content', '')}, ensure_ascii=False)}\n\n"
+                    elif event_type == "done":
+                        yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
                 
             except Exception as e:
                 logger.error(f"流式生成异常: {str(e)}")

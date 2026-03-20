@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="../css/base/common.css">
     <link rel="stylesheet" href="../css/pages/user/profile.css">
     <link rel="stylesheet" href="../css/agent/travel-planning.css">
+    <!-- Font Awesome图标库 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- 新增：统一组件样式 -->
     <link rel="stylesheet" href="../css/components/modal.css">
     <link rel="stylesheet" href="../css/components/notification.css">
@@ -250,13 +252,17 @@
 <script src="../js/core/api-utils.js" defer></script>
 <script src="../js/pages/user/profile.js" defer></script>
 <!-- 旅游规划Agent模块 -->
+<link rel="stylesheet" href="../css/agent/plan-editor.css">
 <script src="../js/agent/dialog-manager.js" defer></script>
 <script src="../js/agent/agent-core.js" defer></script>
 <script src="../js/agent/progress-manager.js" defer></script>
 <script src="../js/agent/result-renderer.js" defer></script>
+<!-- Plan Editor 模块化组件 (按依赖顺序加载) -->
+<script src="../js/agent/plan-editor-api.js" defer></script>
+<script src="../js/agent/plan-editor-chat.js" defer></script>
+<script src="../js/agent/plan-editor-ui.js" defer></script>
 <script src="../js/agent/plan-editor.js" defer></script>
 <script src="../js/agent/travel-planning.js" defer></script>
-<!-- 第三方聊天机器人工具模块 -->
 <script src="../lib/maxkb_embed.js" defer></script>
 </body>
 </html>

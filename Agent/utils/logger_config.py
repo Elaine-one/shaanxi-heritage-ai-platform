@@ -4,11 +4,9 @@
 配置loguru日志系统
 """
 
-import os
 import sys
 from pathlib import Path
 from loguru import logger
-from Agent.config import config
 
 _logger_initialized = False
 
@@ -23,19 +21,15 @@ def setup_logger():
     
     _logger_initialized = True
     
-    # 移除默认的日志处理器
     logger.remove()
     
-    # 创建日志目录 - 使用绝对路径
     project_root = Path(__file__).resolve().parent.parent
     log_dir = project_root / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     
-    # 日志文件路径
     log_file = log_dir / "agent.log"
     error_log_file = log_dir / "error.log"
     
-    # 控制台日志格式
     console_format = (
         "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
         "<level>{level: <8}</level> | "
@@ -43,7 +37,6 @@ def setup_logger():
         "<level>{message}</level>"
     )
     
-    # 文件日志格式
     file_format = (
         "{time:YYYY-MM-DD HH:mm:ss} | "
         "{level: <8} | "
@@ -51,15 +44,14 @@ def setup_logger():
         "{message}"
     )
     
-    # 添加控制台处理器
     logger.add(
         sys.stdout,
         format=console_format,
-        level="DEBUG",
-        colorize=True
+        level="INFO",
+        colorize=True,
+        filter=lambda record: record["name"].startswith("Agent")
     )
     
-    # 添加文件处理器
     logger.add(
         str(log_file),
         format=file_format,
@@ -69,7 +61,6 @@ def setup_logger():
         encoding="utf-8"
     )
     
-    # 添加错误日志文件
     logger.add(
         str(error_log_file),
         format=file_format,

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 地理编码服务模块
-统一管理地理位置坐标查询，支持百度地图API和本地缓存
+统一管理地理位置坐标查询，支持高德地图API和百度地图API
 """
 
 import asyncio
@@ -17,6 +17,7 @@ class GeocodingService:
     """
     地理编码服务
     提供地址到坐标的转换功能
+    支持高德地图和百度地图
     """
     
     _instance = None
@@ -30,14 +31,19 @@ class GeocodingService:
     def __init__(self):
         if self._initialized:
             return
-            
+        
+        self.provider = config.MAP_PROVIDER.lower()
+        
+        self.amap_key = config.AMAP_API_KEY
+        self.amap_url = (config.AMAP_API_URL or 'https://restapi.amap.com/v3').rstrip('/')
+        
         self.baidu_ak = config.BAIDU_MAP_AK
         self.baidu_api_url = (config.BAIDU_MAP_API_URL or '').rstrip('/')
         
         self._cache: Dict[str, Tuple[float, float]] = {}
         self._load_local_cache()
         self._initialized = True
-        logger.info(f"地理编码服务初始化完成，缓存数量: {len(self._cache)}")
+        logger.info(f"地理编码服务初始化完成，提供商: {self.provider}，缓存数量: {len(self._cache)}")
     
     def _load_local_cache(self):
         """加载本地坐标缓存文件"""
@@ -74,7 +80,11 @@ class GeocodingService:
             logger.debug(f"命中缓存: {location_key}")
             return self._cache[location_key]
         
-        coords = await self._query_from_baidu(location_key)
+        if self.provider == 'amap':
+            coords = await self._query_from_amap(location_key)
+        else:
+            coords = await self._query_from_baidu(location_key)
+        
         if coords:
             self._cache[location_key] = coords
             return coords
@@ -88,10 +98,55 @@ class GeocodingService:
         logger.warning(f"未找到坐标: {location_key}")
         return None
     
+    async def _query_from_amap(self, address: str) -> Optional[Tuple[float, float]]:
+        """
+        调用高德地图 Geocoding API 获取坐标
+        """
+        if not self.amap_key:
+            logger.debug("高德地图API未配置，跳过API查询")
+            return None
+        
+        clean_address = address.replace('中国', '').replace('陕西省', '')
+        
+        url = f"{self.amap_url}/geocode/geo"
+        params = {
+            'address': clean_address,
+            'output': 'json',
+            'key': self.amap_key,
+            'city': '陕西省'
+        }
+        
+        try:
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.request('GET', url, params=params) as response:
+                    if response.status == 200:
+                        data = await response.json(content_type=None)
+                        
+                        if data.get('status') == '1':
+                            geocodes = data.get('geocodes', [])
+                            if geocodes:
+                                location = geocodes[0].get('location', '')
+                                if location:
+                                    lng, lat = location.split(',')
+                                    coords = (float(lat), float(lng))
+                                    logger.info(f"高德地图定位成功: {clean_address} -> {coords}")
+                                    return coords
+                        else:
+                            logger.warning(f"高德地图API业务错误: {data.get('info', 'unknown')}")
+                    else:
+                        logger.warning(f"高德地图HTTP错误: {response.status}")
+                        
+        except asyncio.TimeoutError:
+            logger.warning(f"高德地图API超时: {clean_address}")
+        except Exception as e:
+            logger.error(f"调用高德地图API失败: {str(e)}")
+            
+        return None
+    
     async def _query_from_baidu(self, address: str) -> Optional[Tuple[float, float]]:
         """
         调用百度地图 Geocoding API 获取坐标
-        文档: https://lbsyun.baidu.com/index.php?title=webapi/guide/webservice-geocoding
         """
         if not self.baidu_ak or not self.baidu_api_url:
             logger.debug("百度地图API未配置，跳过API查询")
@@ -143,6 +198,8 @@ class GeocodingService:
         """获取缓存统计信息"""
         return {
             'total_cached': len(self._cache),
+            'provider': self.provider,
+            'has_amap_api': bool(self.amap_key),
             'has_baidu_api': bool(self.baidu_ak and self.baidu_api_url)
         }
 

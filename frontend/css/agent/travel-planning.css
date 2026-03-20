@@ -940,6 +940,65 @@
     border: 1px solid #bfdbfe;
 }
 
+/* 表格样式 - 新增 */
+.modal-body table,
+.result-section table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.95rem;
+    background: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.modal-body table thead,
+.result-section table thead {
+    background: linear-gradient(135deg, #DC143C 0%, #B91C1C 100%);
+    color: white;
+}
+
+.modal-body table th,
+.result-section table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.modal-body table td,
+.result-section table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #1f2937;
+}
+
+.modal-body table tbody tr:hover,
+.result-section table tbody tr:hover {
+    background-color: #fef2f2;
+}
+
+.modal-body table tbody tr:last-child td,
+.result-section table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* 表格响应式 */
+@media (max-width: 768px) {
+    .modal-body table,
+    .result-section table {
+        font-size: 0.85rem;
+    }
+    
+    .modal-body table th,
+    .modal-body table td,
+    .result-section table th,
+    .result-section table td {
+        padding: 8px 12px;
+    }
+}
+
 /* 动画效果 */
 @keyframes fadeIn {
     from {

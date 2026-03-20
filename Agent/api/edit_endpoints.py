@@ -2,7 +2,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from loguru import logger
-import traceback
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -14,10 +13,12 @@ sys.path.insert(0, str(project_root))
 
 from Agent.agent.plan_editor import PlanEditor
 from Agent.api.session_dependencies import get_current_user_from_session, TokenData
+from Agent.memory.session import get_session_pool
 
 edit_router = APIRouter(prefix='/api/agent', tags=['规划编辑'])
 
 plan_editor = PlanEditor()
+session_pool = get_session_pool()
 
 
 class StartEditSessionRequest(BaseModel):
@@ -66,14 +67,15 @@ async def start_edit_session(request: StartEditSessionRequest, current_user: Tok
         plan_data = request.plan_data
         plan_id = plan_data.get('plan_id', f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         
-        result = await plan_editor.start_edit_session(
+        session = await session_pool.create_session(
             plan_id=plan_id,
-            original_plan=plan_data
+            original_plan=plan_data,
+            user_id=current_user.user_id
         )
         
-        if result['success']:
-            return EditResponse(success=True, session_id=result['session_id'], message='编辑会话已启动')
-        raise HTTPException(status_code=500, detail=result.get('message', '启动失败'))
+        logger.info(f"编辑会话已创建: {session.session_id}, 出发地: {session.departure_location}, 人数: {session.group_size}")
+        
+        return EditResponse(success=True, session_id=session.session_id, message='编辑会话已启动')
     except Exception as e:
         logger.error(f"启动错误: {str(e)}")
         raise HTTPException(status_code=500, detail='服务器内部错误')
@@ -85,17 +87,12 @@ async def export_plan_pdf(request: ExportPdfRequest, current_user: TokenData = D
     try:
         logger.info(f"开始导出PDF，会话ID: {request.session_id}")
         
-        session_info_resp = plan_editor.get_session_info(request.session_id)
-        if not session_info_resp['success']:
+        session = session_pool.get_session(request.session_id)
+        if not session:
             raise HTTPException(status_code=404, detail="会话不存在或已过期")
         
-        session_data = session_info_resp['session_info']
-        current_plan = session_data.get('current_plan', {})
-        conversation_history = session_data.get('conversation_history', [])
-        
-        if not conversation_history and hasattr(plan_editor, 'active_sessions'):
-            if request.session_id in plan_editor.active_sessions:
-                conversation_history = plan_editor.active_sessions[request.session_id].get('conversation_history', [])
+        current_plan = session.current_plan
+        conversation_history = session.conversation_history
         
         logger.info(f"提取到对话历史: {len(conversation_history)} 条")
         
@@ -156,7 +153,7 @@ async def get_plan_summary(session_id: str):
 @edit_router.post('/end_edit_session', summary="结束编辑", response_model=EditResponse)
 async def end_edit_session(request: EndSessionRequest):
     """结束编辑会话"""
-    plan_editor.end_session(request.session_id)
+    session_pool.remove_session(request.session_id)
     return EditResponse(success=True, message='会话已结束')
 
 
