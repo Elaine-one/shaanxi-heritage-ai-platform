@@ -135,6 +135,44 @@ def geocoding_query(location_name: str) -> str:
     return _format_result(result)
 
 
+def poi_search(query: str, region: str = None, location: str = None, 
+               radius: int = 2000) -> str:
+    """
+    搜索周边兴趣点(POI)，如餐厅、酒店、景点、停车场等。
+    
+    输入: query(搜索关键词), region(城市名) 或 location(中心点坐标), radius(搜索半径)
+    输出: POI列表，包含名称、地址、坐标、距离等信息。
+    """
+    tool = get_tool_registry().get_tool("poi_search")
+    result = _run_async(tool.execute(
+        query=query,
+        region=region,
+        location=location,
+        radius=radius
+    ))
+    return _format_result(result)
+
+
+def traffic_query(model: str = "around", road_name: str = None,
+                  city: str = None, center: str = None, 
+                  radius: int = 500) -> str:
+    """
+    查询实时交通拥堵情况。
+    
+    输入: model(查询类型: road按道路名/around按坐标周边), road_name(道路名), city(城市), center(中心点坐标), radius(半径)
+    输出: 路况状态、拥堵程度等信息。
+    """
+    tool = get_tool_registry().get_tool("traffic_query")
+    result = _run_async(tool.execute(
+        model=model,
+        road_name=road_name,
+        city=city,
+        center=center,
+        radius=radius
+    ))
+    return _format_result(result)
+
+
 def get_langchain_tools() -> List:
     """
     获取所有工具函数列表
@@ -147,6 +185,8 @@ def get_langchain_tools() -> List:
         knowledge_base_qa,
         plan_edit,
         geocoding_query,
+        poi_search,
+        traffic_query,
     ]
 
 

@@ -6,7 +6,7 @@
 
 import os
 import platform
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 from loguru import logger
 
 

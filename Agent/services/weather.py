@@ -13,8 +13,7 @@ from Agent.config.settings import Config
 # 导入配置
 from .weather_config import (
     NETWORK_TIMEOUT, MAX_RETRIES, RETRY_DELAY, 
-    SSL_VERIFY, CACHE_ENABLED, CACHE_TTL, CACHE_MAX_SIZE,
-    ENVIRONMENT_CONFIG
+    SSL_VERIFY, ENVIRONMENT_CONFIG
 )
 
 class WeatherService:
@@ -27,6 +26,7 @@ class WeatherService:
         self.base_url = Config.WEATHER_API_URL
         self.current_weather_url = Config.WEATHER_API_URL
         self.session = None
+        self._session_loop = None
         
         # 从配置文件加载设置，或使用默认值
         self.environment = environment or self._detect_environment()
@@ -132,7 +132,14 @@ class WeatherService:
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """获取或创建HTTP会话，包含SSL配置"""
-        if self.session is None or self.session.closed:
+        current_loop = asyncio.get_running_loop()
+        if self.session is None or self.session.closed or self._session_loop != current_loop:
+            if self.session and not self.session.closed:
+                try:
+                    await self.session.close()
+                except:
+                    pass
+            
             # 配置SSL上下文
             ssl_context = None
             if self.ssl_verify:
@@ -170,6 +177,7 @@ class WeatherService:
                 connector=connector,
                 headers=headers
             )
+            self._session_loop = current_loop
         
         return self.session
     
@@ -571,30 +579,28 @@ class WeatherService:
         
         raise last_exception
     
-    async def get_current_weather(self, latitude: float, longitude: float) -> Dict[str, Any]:
+    async def get_current_weather(self, latitude: float, longitude: float, 
+                                   session_id: str = "default") -> Dict[str, Any]:
         """
         获取当前天气
         
         Args:
             latitude (float): 纬度
             longitude (float): 经度
+            session_id (str): 会话ID，用于缓存隔离
         
         Returns:
             Dict[str, Any]: 当前天气数据
         """
-        # 生成缓存键
-        cache_key = self._generate_cache_key(latitude, longitude, 0)  # 0表示当前天气
+        cache_key = self._generate_cache_key(latitude, longitude, 0)
         
-        # 尝试从缓存获取数据
-        cached_data = self._get_from_cache(cache_key)
+        cached_data = self._get_from_cache(session_id, cache_key)
         if cached_data:
             return cached_data
         
         try:
-            # 直接在这里实现请求逻辑，不使用嵌套函数
             session = await self._get_session()
             
-            # 构建请求参数
             params = {
                 "latitude": latitude,
                 "longitude": longitude,
@@ -604,16 +610,13 @@ class WeatherService:
             
             logger.info(f"获取当前天气: 纬度{latitude}, 经度{longitude}")
             
-            # 使用重试机制获取数据
-            result = await self._fetch_current_with_retry(session, self.current_weather_url, params, cache_key, latitude, longitude)
+            result = await self._fetch_current_with_retry(session, self.current_weather_url, params, session_id, cache_key, latitude, longitude)
             
-            # 定期清理过期缓存
             if len(self.cache) > self.cache_max_size:
                 self._clean_expired_cache()
             return result
         except Exception as e:
             logger.error(f"获取当前天气时发生错误: {str(e)}")
-            # 返回错误信息，不使用模拟数据
             return {
                 'success': False,
                 'error': f"无法获取当前天气数据: {str(e)}",
@@ -624,11 +627,10 @@ class WeatherService:
                 'current': {}
             }
     
-    async def _fetch_current_with_retry(self, session, url, params, cache_key, latitude, longitude):
+    async def _fetch_current_with_retry(self, session, url, params, session_id, cache_key, latitude, longitude):
         """带重试机制的获取当前天气方法"""
         last_exception = None
         
-        # 定义Windows和Ubuntu环境的User-Agent
         user_agents = [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -636,17 +638,14 @@ class WeatherService:
         
         for attempt in range(self.max_retries + 1):
             try:
-                # 每次尝试使用不同的User-Agent
                 user_agent_index = attempt % len(user_agents)
                 await self._update_session_headers({"User-Agent": user_agents[user_agent_index]})
                 
-                # 发送请求
                 async with session.request('GET', url, params=params) as response:
                     if response.status == 200:
                         data = await response.json()
                         result = self._process_current_weather(data, latitude, longitude)
-                        # 保存到缓存
-                        self._save_to_cache(cache_key, result)
+                        self._save_to_cache(session_id, cache_key, result)
                         return result
                     else:
                         logger.error(f"当前天气API请求失败，状态码: {response.status}")

@@ -5,14 +5,53 @@ Agent工具接口定义模块
 """
 
 import asyncio
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
 from abc import ABC, abstractmethod
+from functools import wraps
 from loguru import logger
+
+
+def require_knowledge_graph(func: Callable) -> Callable:
+    """
+    知识图谱连接检查装饰器
+    
+    自动检查知识图谱连接状态，并在连接失败时返回标准错误响应。
+    成功连接后，将 kg 实例作为参数传递给被装饰函数。
+    """
+    @wraps(func)
+    async def wrapper(self, **kwargs) -> Dict[str, Any]:
+        from Agent.memory.knowledge_graph import get_knowledge_graph
+        kg = get_knowledge_graph()
+        if not kg or not kg.is_connected():
+            return {"success": False, "error": "知识图谱未连接"}
+        return await func(self, kg=kg, **kwargs)
+    return wrapper
+
+
+def resolve_heritage_id(kg, heritage_id: int = None, heritage_name: str = None) -> Optional[int]:
+    """
+    解析 heritage_id，支持通过名称查找
+    
+    Args:
+        kg: 知识图谱实例
+        heritage_id: 非遗项目ID（优先使用）
+        heritage_name: 非遗项目名称（备选）
+    
+    Returns:
+        Optional[int]: 解析后的 heritage_id，或 None
+    """
+    if heritage_id:
+        return heritage_id
+    if heritage_name:
+        heritages = kg.query_heritage_by_conditions(name=heritage_name)
+        if heritages:
+            return heritages[0].get('id')
+    return None
 
 
 def _filter_ids_from_data(data: Any) -> Any:
     """
-    从数据中过滤掉ID字段，避免泄露给用户
+    从数据中过滤掉内部ID字段，但保留业务需要的ID
     
     Args:
         data: 原始数据（字典、列表或其他类型）
@@ -20,10 +59,12 @@ def _filter_ids_from_data(data: Any) -> Any:
     Returns:
         过滤后的数据
     """
+    INTERNAL_IDS = ['session_id', 'user_id', '_id']
+    
     if isinstance(data, dict):
         filtered = {}
         for key, value in data.items():
-            if key.lower() in ['id', 'session_id', 'plan_id', 'heritage_id', 'user_id']:
+            if key.lower() in INTERNAL_IDS:
                 continue
             filtered[key] = _filter_ids_from_data(value)
         return filtered
@@ -97,51 +138,81 @@ class HeritageSearchTool(BaseTool):
         }
 
     async def execute(self, heritage_id: int = None, category: str = None,
-                      region: str = None, keywords: str = None) -> Dict[str, Any]:
-        """执行非遗项目查询"""
+                      region: str = None, keywords: str = None,
+                      include_nearby: bool = True) -> Dict[str, Any]:
+        """执行非遗项目查询 - 使用知识图谱和向量数据库，支持返回邻近项目"""
         try:
-            import aiohttp
-            from Agent.config import config
+            from Agent.memory.heritage_query_service import get_heritage_query_service
+            from Agent.memory.knowledge_graph import get_knowledge_graph
             
-            backend_url = config.BACKEND_API_URL
+            query_service = get_heritage_query_service()
+            kg = get_knowledge_graph()
             
-            if heritage_id:
-                api_url = f"{backend_url}/items/?ids={heritage_id}"
-            else:
-                params = []
-                if keywords:
-                    params.append(f"search={keywords}")
-                if category:
-                    params.append(f"category={category}")
-                if region:
-                    params.append(f"region={region}")
-                
-                if params:
-                    api_url = f"{backend_url}/items/?{'&'.join(params)}"
-                else:
-                    api_url = f"{backend_url}/items/"
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(api_url) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        
-                        if isinstance(data, dict) and 'results' in data:
-                            items = data['results']
-                        elif isinstance(data, list):
-                            items = data
-                        else:
-                            items = []
-                        
-                        filtered_items = _filter_ids_from_data(items)
-                        
-                        return {
-                            'success': True,
-                            'heritage_items': filtered_items,
-                            'count': len(items)
-                        }
+            if heritage_id is not None:
+                if isinstance(heritage_id, str):
+                    if heritage_id.isdigit():
+                        heritage_id = int(heritage_id)
                     else:
-                        return {'success': False, 'error': f'API请求失败: {response.status}'}
+                        keywords = heritage_id
+                        heritage_id = None
+                        logger.info(f"heritage_id 是字符串，转为 keywords 搜索: {keywords}")
+                
+                if heritage_id is not None:
+                    heritage = query_service.query_by_id(heritage_id)
+                    if heritage:
+                        result = {
+                            'success': True,
+                            'heritage_items': [heritage],
+                            'count': 1
+                        }
+                        
+                        if include_nearby and kg and kg.is_connected():
+                            try:
+                                nearby = kg.query_nearby_heritages_by_id(heritage_id, limit=3)
+                                if nearby:
+                                    result['nearby_heritages'] = nearby
+                                    result['nearby_hint'] = f"发现{len(nearby)}个邻近非遗项目可顺访"
+                            except Exception as e:
+                                logger.debug(f"查询邻近项目失败: {e}")
+                        
+                        return result
+                    else:
+                        return {
+                            'success': False,
+                            'error': f'未找到ID为 {heritage_id} 的非遗项目'
+                        }
+            
+            if keywords and keywords.strip():
+                results = query_service.hybrid_query(keywords, region, category, top_k=10)
+            elif region and region.strip():
+                results = query_service.query_by_region(region, limit=10)
+            elif category and category.strip():
+                results = query_service.query_by_category(category, limit=10)
+            else:
+                return {
+                    'success': False,
+                    'error': '请提供至少一个有效的查询参数：heritage_id、keywords、region 或 category'
+                }
+            
+            result = {
+                'success': True,
+                'heritage_items': results,
+                'count': len(results)
+            }
+            
+            if include_nearby and results and kg and kg.is_connected():
+                first_item = results[0]
+                hid = first_item.get('id')
+                if hid:
+                    try:
+                        nearby = kg.query_nearby_heritages_by_id(hid, limit=3)
+                        if nearby:
+                            result['nearby_heritages'] = nearby
+                            result['nearby_hint'] = f"发现{len(nearby)}个邻近非遗项目可顺访"
+                    except Exception as e:
+                        logger.debug(f"查询邻近项目失败: {e}")
+            
+            return result
 
         except Exception as e:
             logger.error(f"非遗查询失败: {str(e)}")
@@ -229,82 +300,6 @@ class WeatherQueryTool(BaseTool):
         default = geocoding.get_default_coordinates()
         logger.warning(f"未找到城市'{city}'的坐标，使用默认坐标: {default}")
         return default
-
-
-class TravelRouteTool(BaseTool):
-    """旅游路线规划工具"""
-
-    @property
-    def name(self) -> str:
-        return "travel_route_planning"
-
-    @property
-    def description(self) -> str:
-        return "根据非遗项目ID列表和用户偏好，生成优化的旅游路线规划。注意：heritage_ids必须是整数ID数组（如[17,20]），不能是项目名称。如需通过名称查找项目，请先使用heritage_search工具获取ID。"
-
-    @property
-    def parameters(self) -> Dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "heritage_ids": {
-                    "type": "array",
-                    "items": {"type": "integer"},
-                    "description": "非遗项目ID数组（整数），如[17, 20]。必须是数字ID，不能是名称字符串"
-                },
-                "travel_days": {
-                    "type": "integer",
-                    "description": "旅行天数（整数），如3"
-                },
-                "departure_location": {
-                    "type": "string",
-                    "description": "出发地城市名称，如'西安'"
-                },
-                "travel_mode": {
-                    "type": "string",
-                    "description": "出行方式：自驾、公共交通"
-                },
-                "budget_range": {
-                    "type": "string",
-                    "description": "预算范围：经济型、中等、豪华型"
-                }
-            },
-            "required": ["heritage_ids", "travel_days"]
-        }
-
-    async def execute(self, heritage_ids: List[int], travel_days: int = 3,
-                      departure_location: str = "西安", travel_mode: str = "自驾",
-                      budget_range: str = "中等") -> Dict[str, Any]:
-        """执行路线规划"""
-        try:
-            from Agent.agent.travel_planner import get_travel_planner
-            planner = get_travel_planner()
-
-            planning_request = {
-                'heritage_ids': heritage_ids,
-                'travel_days': travel_days,
-                'departure_location': departure_location,
-                'travel_mode': travel_mode,
-                'budget_range': budget_range
-            }
-
-            result = await planner.create_travel_plan(planning_request)
-
-            if result.get('success'):
-                filtered_plan = _filter_ids_from_data(result.get('plan', {}))
-                filtered_route = _filter_ids_from_data(result.get('route', []))
-                
-                return {
-                    'success': True,
-                    'plan': filtered_plan,
-                    'route': filtered_route
-                }
-            else:
-                return {'success': False, 'error': result.get('error', '路线规划失败')}
-
-        except Exception as e:
-            logger.error(f"路线规划失败: {str(e)}")
-            return {'success': False, 'error': f"路线规划失败: {str(e)}"}
 
 
 class KnowledgeBaseTool(BaseTool):
@@ -454,35 +449,47 @@ class GeocodingTool(BaseTool):
         return {
             "type": "object",
             "properties": {
-                "location_name": {
+                "address": {
                     "type": "string",
                     "description": "地名、城市名或景点名称，如：西安、兵马俑、大雁塔等"
+                },
+                "location_name": {
+                    "type": "string",
+                    "description": "地名（同address，兼容参数）"
                 }
             },
-            "required": ["location_name"]
+            "required": []
         }
 
-    async def execute(self, location_name: str) -> Dict[str, Any]:
+    async def execute(self, address: str = None, location_name: str = None) -> Dict[str, Any]:
         """执行地理坐标查询"""
-        from ..services.geocoding import get_geocoding_service
-        
-        geocoding = get_geocoding_service()
-        coords = await geocoding.get_coordinates(location_name)
-        
-        if coords:
-            return {
-                'success': True,
-                'location': location_name,
-                'latitude': coords[0],
-                'longitude': coords[1],
-                'coordinates': {'latitude': coords[0], 'longitude': coords[1]}
-            }
-        
-        return {
-            'success': False,
-            'error': f"未找到'{location_name}'的坐标信息",
-            'default_coordinates': geocoding.get_default_coordinates()
-        }
+        try:
+            location = address or location_name
+            if not location:
+                return {'success': False, 'error': '请提供地址参数'}
+            
+            from ..services.geocoding import get_geocoding_service
+            geocoding = get_geocoding_service()
+            
+            coords = await geocoding.get_coordinates(location)
+            
+            if coords:
+                return {
+                    'success': True,
+                    'location': location,
+                    'latitude': coords[0],
+                    'longitude': coords[1],
+                    'coordinates': {'latitude': coords[0], 'longitude': coords[1]}
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f"未找到'{location}'的坐标信息"
+                }
+
+        except Exception as e:
+            logger.error(f"地理编码失败: {str(e)}")
+            return {'success': False, 'error': f"地理编码失败: {str(e)}"}
 
 
 class ToolRegistry:
@@ -494,13 +501,30 @@ class ToolRegistry:
 
     def _register_default_tools(self):
         """注册默认工具"""
+        from .mcp_tools import MCPPOISearchTool, MCPTrafficTool
+        from .knowledge_graph_tools import (
+            NearbyHeritageTool, 
+            RelatedHeritageTool, 
+            NearbyRegionTool, 
+            RouteHintTool
+        )
+        from .plan_tools import PlanQueryTool, RouteDistanceTool, RoutePreviewTool
+        
         default_tools = [
             HeritageSearchTool(),
             WeatherQueryTool(),
-            TravelRouteTool(),
             KnowledgeBaseTool(),
             PlanEditTool(),
-            GeocodingTool()
+            GeocodingTool(),
+            MCPPOISearchTool(),
+            MCPTrafficTool(),
+            NearbyHeritageTool(),
+            RelatedHeritageTool(),
+            NearbyRegionTool(),
+            RouteHintTool(),
+            PlanQueryTool(),
+            RouteDistanceTool(),
+            RoutePreviewTool()
         ]
 
         for tool in default_tools:

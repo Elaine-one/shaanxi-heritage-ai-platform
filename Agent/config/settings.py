@@ -93,6 +93,11 @@ class Config:
     BAIDU_MAP_AK = os.getenv('BAIDU_MAP_AK')
     BAIDU_MAP_API_URL = os.getenv('BAIDU_MAP_API_URL')
     
+    AMAP_API_KEY = os.getenv('AMAP_API_KEY')
+    AMAP_API_URL = os.getenv('AMAP_API_URL', 'https://restapi.amap.com/v3')
+    
+    MAP_PROVIDER = os.getenv('MAP_PROVIDER', 'amap').lower()
+    
     DATABASE_CONFIG = {
         'host': os.getenv('DB_HOST'),
         'port': int(os.getenv('DB_PORT', '0')),
@@ -134,6 +139,13 @@ class Config:
 
     SESSION_STORAGE_MODE = os.getenv('SESSION_STORAGE_MODE')
     
+    NEO4J_URI = os.getenv('NEO4J_URI')
+    NEO4J_USER = os.getenv('NEO4J_USER')
+    NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD')
+    
+    CHROMADB_PERSIST_DIRECTORY = os.getenv('CHROMADB_PERSIST_DIRECTORY')
+    EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL')
+    
     MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT')
     MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY')
     MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY')
@@ -145,6 +157,14 @@ class Config:
     PDF_RETENTION_DAYS = int(os.getenv('PDF_RETENTION_DAYS', '0'))
     MEDIA_RETENTION_DAYS = int(os.getenv('MEDIA_RETENTION_DAYS', '0'))
     AUTO_ARCHIVE_ENABLED = os.getenv('AUTO_ARCHIVE_ENABLED', '').lower() == 'true'
+    
+    HERITAGE_DATA_SYNC_ENABLED = os.getenv('HERITAGE_DATA_SYNC_ENABLED', 'true').lower() == 'true'
+    
+    MAX_CONCURRENT_PLANNING = int(os.getenv('MAX_CONCURRENT_PLANNING', '5'))
+    MAX_PLANNING_PER_USER = int(os.getenv('MAX_PLANNING_PER_USER', '2'))
+    CLEANUP_INTERVAL = int(os.getenv('CLEANUP_INTERVAL', '300'))
+    SESSION_MAX_AGE_HOURS = int(os.getenv('SESSION_MAX_AGE_HOURS', '12'))
+    PROGRESS_MAX_AGE_HOURS = int(os.getenv('PROGRESS_MAX_AGE_HOURS', '1'))
     
     def validate_config(self) -> Dict[str, Any]:
         errors = []

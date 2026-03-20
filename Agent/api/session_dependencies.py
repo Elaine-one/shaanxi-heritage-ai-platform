@@ -7,8 +7,6 @@ Django Session认证依赖项
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Request, Cookie
 from loguru import logger
-import sys
-from pathlib import Path
 import requests
 import asyncio
 from Agent.config.settings import Config

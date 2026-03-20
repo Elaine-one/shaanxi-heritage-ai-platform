@@ -4,25 +4,28 @@
 负责分析用户选择的非遗项目，获取详细信息并进行初步处理
 """
 
-import asyncio
-import aiohttp
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from loguru import logger
 from geopy.distance import geodesic
-from Agent.config import config
+
 
 class HeritageAnalyzer:
     """
     非遗项目分析器
     负责获取和分析非遗项目信息
+    优先从知识图谱和向量数据库查询，完全解耦 MySQL
     """
     
     def __init__(self):
-        """
-        初始化分析器
-        """
-        self.backend_api_url = config.BACKEND_API_URL
+        self.query_service = None
         logger.info("非遗项目分析器初始化完成")
+    
+    def _get_query_service(self):
+        """延迟加载查询服务"""
+        if self.query_service is None:
+            from Agent.memory.heritage_query_service import get_heritage_query_service
+            self.query_service = get_heritage_query_service()
+        return self.query_service
     
     async def analyze_heritage_items(self, heritage_ids: List[int]) -> Dict[str, Any]:
         """
@@ -37,25 +40,20 @@ class HeritageAnalyzer:
         try:
             logger.info(f"开始分析非遗项目: {heritage_ids}")
             
-            # 获取项目详细信息
             heritage_items = await self._fetch_heritage_details(heritage_ids)
             
             if not heritage_items:
                 return {
                     'success': False,
-                    'error': '无法获取非遗项目信息'
+                    'error': '无法获取非遗项目信息，请确保数据已同步到知识图谱'
                 }
             
-            # 进行地理分析
             geo_analysis = self._analyze_geography(heritage_items)
             
-            # 进行类别分析
             category_analysis = self._analyze_categories(heritage_items)
             
-            # 进行时间估算
             time_analysis = self._analyze_time_requirements(heritage_items)
             
-            # 生成推荐路线
             route_suggestions = self._generate_route_suggestions(heritage_items, geo_analysis)
             
             result = {
@@ -69,8 +67,8 @@ class HeritageAnalyzer:
                 },
                 'summary': {
                     'total_items': len(heritage_items),
-                    'regions_covered': len(set(item['region'] for item in heritage_items)),
-                    'categories_covered': len(set(item['category'] for item in heritage_items)),
+                    'regions_covered': len(set(item.get('region', '未知') for item in heritage_items)),
+                    'categories_covered': len(set(item.get('category', '未分类') for item in heritage_items)),
                     'estimated_days': time_analysis.get('recommended_days', 1)
                 }
             }
@@ -87,7 +85,8 @@ class HeritageAnalyzer:
     
     async def _fetch_heritage_details(self, heritage_ids: List[int]) -> List[Dict[str, Any]]:
         """
-        从后端API获取非遗项目详细信息
+        获取非遗项目详细信息
+        优先从知识图谱查询，完全解耦 MySQL
         
         Args:
             heritage_ids (List[int]): 项目ID列表
@@ -99,43 +98,27 @@ class HeritageAnalyzer:
             if not heritage_ids:
                 logger.warning("非遗项目ID列表为空")
                 return []
-                
-            logger.info(f"获取非遗项目信息: {heritage_ids}")
             
-            # 优化：直接使用 ids 参数查询指定项目，避免全量扫描
-            # 格式: ?ids=1,2,3
-            ids_str = ",".join(map(str, heritage_ids))
-            api_url = f"{self.backend_api_url}/items/?ids={ids_str}"
+            logger.info(f"从知识图谱获取非遗项目信息: {heritage_ids}")
             
-            all_items = []
+            query_service = self._get_query_service()
             
-            # 使用aiohttp调用后端API
-            async with aiohttp.ClientSession() as session:
-                async with session.get(api_url) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        
-                        # 检查API返回的数据结构
-                        if isinstance(data, dict) and 'results' in data:
-                            all_items = data['results']
-                            logger.info(f"成功获取{len(all_items)}个非遗项目信息")
-                        else:
-                            logger.warning(f"API返回数据结构异常: {data}")
-                            return []
-                    else:
-                        logger.error(f"API请求失败，状态码: {response.status}")
-                        return []
+            if query_service is None:
+                logger.error("查询服务不可用")
+                return []
             
-            return all_items
-                        
-        except aiohttp.ClientError as e:
-            logger.error(f"HTTP请求错误: {str(e)}")
-            return []
+            heritage_items = query_service.query_by_ids(heritage_ids)
+            
+            if heritage_items:
+                logger.info(f"从知识图谱获取了 {len(heritage_items)} 个非遗项目")
+            else:
+                logger.warning(f"知识图谱中未找到非遗项目: {heritage_ids}")
+            
+            return heritage_items
+            
         except Exception as e:
             logger.error(f"获取非遗项目信息失败: {str(e)}")
             return []
-    
-
     
     def _analyze_geography(self, heritage_items: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -150,28 +133,30 @@ class HeritageAnalyzer:
         if not heritage_items:
             return {}
         
-        # 提取有效的地理坐标
         locations = []
         for item in heritage_items:
-            if item.get('latitude') and item.get('longitude'):
-                locations.append({
-                    'name': item['name'],
-                    'lat': float(item['latitude']),
-                    'lng': float(item['longitude']),
-                    'region': item.get('region', '未知'),
-                    'category': item.get('category', '未分类')
-                })
+            lat = item.get('latitude')
+            lng = item.get('longitude')
+            if lat is not None and lng is not None:
+                try:
+                    locations.append({
+                        'name': item.get('name', '未知'),
+                        'lat': float(lat),
+                        'lng': float(lng),
+                        'region': item.get('region', '未知'),
+                        'category': item.get('category', '未分类')
+                    })
+                except (ValueError, TypeError):
+                    continue
         
         if not locations:
             return {
                 'error': '没有有效的地理坐标信息'
             }
         
-        # 计算中心点
         center_lat = sum(loc['lat'] for loc in locations) / len(locations)
         center_lng = sum(loc['lng'] for loc in locations) / len(locations)
         
-        # 计算距离矩阵
         distances = []
         for i, loc1 in enumerate(locations):
             for j, loc2 in enumerate(locations[i+1:], i+1):
@@ -185,7 +170,6 @@ class HeritageAnalyzer:
                     'distance_km': round(distance, 2)
                 })
         
-        # 计算总覆盖范围
         if distances:
             max_distance = max(d['distance_km'] for d in distances)
             avg_distance = sum(d['distance_km'] for d in distances) / len(distances)
@@ -227,7 +211,7 @@ class HeritageAnalyzer:
                     'items': []
                 }
             categories[category]['count'] += 1
-            categories[category]['items'].append(item['name'])
+            categories[category]['items'].append(item.get('name', '未知'))
         
         return {
             'distribution': categories,
@@ -249,19 +233,17 @@ class HeritageAnalyzer:
         time_details = []
         
         for item in heritage_items:
-            visit_duration = item.get('visit_duration', 2)  # 默认2小时
+            visit_duration = 2
             total_visit_time += visit_duration
             time_details.append({
-                'name': item['name'],
+                'name': item.get('name', '未知'),
                 'duration_hours': visit_duration,
-                'best_time': item.get('best_visit_time', '全年')
+                'best_time': '全年'
             })
         
-        # 考虑交通时间（估算）
-        travel_time_estimate = len(heritage_items) * 1.5  # 每个地点间平均1.5小时交通
+        travel_time_estimate = len(heritage_items) * 1.5
         total_time_with_travel = total_visit_time + travel_time_estimate
         
-        # 推荐天数（每天8小时有效时间）
         recommended_days = max(1, round(total_time_with_travel / 8))
         
         return {
@@ -294,7 +276,6 @@ class HeritageAnalyzer:
         
         locations = geo_analysis['locations']
         
-        # 简单的最近邻路线规划
         if len(locations) <= 1:
             return [{
                 'route_name': '单点游览',
@@ -303,7 +284,6 @@ class HeritageAnalyzer:
                 'description': '单个景点游览'
             }]
         
-        # 优化路线
         optimized_route = self._optimize_route(locations)
         
         return [{
@@ -332,7 +312,6 @@ class HeritageAnalyzer:
                 ).kilometers
             }
         
-        # 使用最近邻算法
         unvisited = locations[1:]
         route = [locations[0]]
         total_distance = 0
@@ -340,7 +319,6 @@ class HeritageAnalyzer:
         current = locations[0]
         
         while unvisited:
-            # 找到最近的未访问点
             nearest = min(unvisited, key=lambda loc: geodesic(
                 (current['lat'], current['lng']),
                 (loc['lat'], loc['lng'])
@@ -363,6 +341,7 @@ class HeritageAnalyzer:
 
 
 _heritage_analyzer_instance = None
+
 
 def get_heritage_analyzer() -> HeritageAnalyzer:
     """

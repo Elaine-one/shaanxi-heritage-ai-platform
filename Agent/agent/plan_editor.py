@@ -2,26 +2,27 @@
 # -*- coding: utf-8 -*-
 """
 旅游规划编辑器模块
-集成LangChain ReAct Agent，支持工具调用
+集成 LangGraph ReAct Agent，支持工具调用
+使用统一上下文管理
 """
 
 import json
-import os
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from datetime import datetime
 from loguru import logger
 from Agent.models.llm_model import get_llm_model
 from Agent.services.weather import get_weather_service
 from Agent.tools.base import get_tool_registry
-from Agent.agent.react_agent import get_react_agent
-from Agent.memory import get_session_pool
+from Agent.memory.session import get_session_pool
+from Agent.context import get_context_builder
+from .langchain_agent import get_langchain_agent_executor
 
-# PDF功能已整合到pdf_content_integrator.py中
 
 class PlanEditor:
     """
     简化的旅游规划编辑器
     专注于AI对话和规划内容展示
+    使用统一上下文管理
     """
     
     def __init__(self):
@@ -31,7 +32,15 @@ class PlanEditor:
         self.llm_model = get_llm_model()
         self.weather_service = get_weather_service()
         self.tool_registry = get_tool_registry()
-        self.react_agent = get_react_agent()
+        self._langchain_agent = None
+        self.context_builder = get_context_builder()
+    
+    @property
+    def langchain_agent(self):
+        """延迟加载 LangGraph Agent"""
+        if self._langchain_agent is None:
+            self._langchain_agent = get_langchain_agent_executor()
+        return self._langchain_agent
     
     async def start_edit_session(self, 
                                plan_id: str, 
@@ -41,7 +50,6 @@ class PlanEditor:
         try:
             session_pool = get_session_pool()
              
-            # 在会话池中创建会话
             session_context = await session_pool.create_session(
                 plan_id=plan_id,
                 original_plan=original_plan,
@@ -80,56 +88,40 @@ class PlanEditor:
     async def process_edit_request_stream(self, 
                                        session_id: str, 
                                        user_message: str):
-        """流式处理用户的对话请求"""
+        """流式处理用户的对话请求 - 使用统一上下文"""
         try:
             session_pool = get_session_pool()
             
-            # 检查会话是否存在
             session_context = session_pool.get_session(session_id)
             
             if not session_context:
                 yield "错误: 编辑会话不存在或已过期"
                 return
             
-            # 获取当前规划数据
-            current_plan = session_context.current_plan
+            context = self.context_builder.build_from_session(session_id)
             
-            # 初始化对话历史
-            if session_context.conversation_history is None:
-                session_context.conversation_history = []
+            context.detected_intent = self.context_builder.detect_intent(user_message, context)
             
-            # 记录用户消息
-            session_context.conversation_history.append({
-                'role': 'user',
-                'content': user_message,
-                'timestamp': datetime.now().isoformat()
-            })
+            logger.info("📦 上下文构建完成:")
+            logger.info(f"  - session_id: {context.session_id}")
+            logger.info(f"  - intent: {context.detected_intent}")
+            logger.info(f"  - heritages: {len(context.plan_data.heritage_items)} items")
+            logger.debug(f"  - heritage_ids: {context.plan_data.get_heritage_ids()}")
             
-            # 获取对话历史
-            conversation_history = session_context.conversation_history
+            context.add_conversation_turn('user', user_message)
             
-            # 构建规划摘要
-            plan_summary = self._build_plan_summary(current_plan)
-            
-            # 构建上下文
-            context = ""
-            if plan_summary:
-                context = f"""【当前用户规划信息 - 请务必参考】
-{plan_summary}
-
-"""
-            
-            if conversation_history:
-                history_context = self.react_agent._build_conversation_context(conversation_history)
-                if history_context:
-                    context += f"{history_context}\n"
-            
-            # 使用 ReAct Agent 流式运行
-            async for chunk in self.react_agent.run_stream(user_message, plan_summary, conversation_history):
+            full_response = ""
+            async for chunk in self.langchain_agent.run_stream(user_message, context):
+                full_response += chunk
                 yield chunk
             
-            # 注意：流式输出不更新会话历史，因为需要完整响应
-            # 如果需要记录完整响应，可以在流式结束后调用 process_edit_request
+            if full_response:
+                context.add_conversation_turn('assistant', full_response)
+                
+                last_turn = context.conversation_history[-1] if context.conversation_history else None
+                if last_turn and last_turn.role == 'assistant':
+                    session_pool.add_conversation(session_id, 'assistant', full_response)
+                logger.debug(f"会话 {session_id} AI响应已保存，长度: {len(full_response)}")
             
         except Exception as e:
             logger.error(f"流式处理编辑请求时发生错误: {str(e)}")
@@ -237,7 +229,7 @@ class PlanEditor:
             # 非遗项目
             heritage_items = plan.get('heritage_items', [])
             if heritage_items:
-                summary_parts.append(f"\n已选择的非遗项目:")
+                summary_parts.append("\n已选择的非遗项目:")
                 for i, item in enumerate(heritage_items, 1):
                     name = item.get('name', item.get('title', '未知项目'))
                     location = item.get('location', item.get('region', '未知地点'))
@@ -448,8 +440,7 @@ class PlanEditor:
             }
             session_context.conversation_history.append(apply_message)
             
-            # 更新会话上下文
-            session_pool.update_session_context(session_id, session_context)
+            session_pool.update_session(session_id, final_plan)
             
             logger.info(f"规划修改已成功应用，会话ID: {session_id}")
             

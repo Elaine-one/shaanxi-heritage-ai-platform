@@ -2,16 +2,29 @@
 """
 内容提取器模块
 负责从原始数据中提取各种信息
+不使用正则表达式，使用字符串方法和JSON解析
 """
 
-import json
-import re
 from typing import Dict, List, Any
 from loguru import logger
+
+
+DESTINATION_KEYWORDS = [
+    '去', '到', '前往', '目的地', '游览', '参观', '游玩',
+    'travel to', 'visit', 'go to'
+]
+
+DESTINATION_STOP_WORDS = [
+    '想', '要', '准备', '计划', '打算', '希望', '可以', '能',
+    '怎么', '如何', '什么', '为什么', '哪', '吗', '呢', '啊',
+    '一下', '看看', '问问', '查查'
+]
+
 
 class ContentExtractor:
     """
     内容提取器，负责从原始数据中提取各种信息
+    不使用正则表达式
     """
     
     def __init__(self):
@@ -29,15 +42,46 @@ class ContentExtractor:
             
             history = self.extract_conversation_history_list(result)
             for msg in history:
-                content = str(msg.get('content', '')).lower()
-                if '去' in content and len(content) < 20:
-                    match = re.search(r'去([\u4e00-\u9fa5]{2,5})', content)
-                    if match:
-                        return match.group(1)
+                content = str(msg.get('content', ''))
+                destination = self._extract_destination_from_text(content)
+                if destination:
+                    return destination
+            
             return "非遗文化之旅"
         except Exception as e:
             logger.error(f"提取目的地失败: {str(e)}")
             return "未指定目的地"
+    
+    def _extract_destination_from_text(self, text: str) -> str:
+        """从文本中提取目的地（不使用正则）"""
+        if not text or len(text) > 50:
+            return ""
+        
+        for keyword in DESTINATION_KEYWORDS:
+            if keyword in text:
+                idx = text.find(keyword)
+                after_keyword = text[idx + len(keyword):].strip()
+                
+                destination = ""
+                for char in after_keyword:
+                    if self._is_chinese_char(char):
+                        destination += char
+                        if len(destination) >= 5:
+                            break
+                    elif destination:
+                        break
+                
+                destination = destination.strip()
+                if destination and destination not in DESTINATION_STOP_WORDS:
+                    if len(destination) >= 2:
+                        return destination
+        
+        return ""
+    
+    def _is_chinese_char(self, char: str) -> bool:
+        """检查是否是中文字符"""
+        code = ord(char)
+        return 0x4e00 <= code <= 0x9fff
     
     def extract_travel_dates(self, result: Dict[str, Any]) -> str:
         """提取旅行日期信息"""
@@ -101,23 +145,19 @@ class ContentExtractor:
             if not weather_info:
                 return "暂无天气信息，建议出行前查询实时天气。"
             
-            # 1. 提取整体摘要
             summary_text = ""
             summary = weather_info.get('summary', {})
             if summary:
                 suitability = summary.get('overall_recommendation', '适宜')
                 summary_text = f"整体建议：{suitability}。"
             
-            # 2. 提取详细预报 (遍历 locations)
             details = []
             locations = weather_info.get('locations', {})
             
-            # 场景A: 标准 locations 字典结构
             if isinstance(locations, dict):
                 for loc_name, loc_data in locations.items():
                     if 'forecast' in loc_data and isinstance(loc_data['forecast'], list):
                         daily_weather = []
-                        # 只取前3天或全部
                         for day in loc_data['forecast'][:5]:
                             date = day.get('date', '')
                             cond = day.get('weather_description', '未知')
@@ -128,11 +168,9 @@ class ContentExtractor:
                             daily_weather.append(f"{date}({cond}, {temp_str})")
                         
                         if daily_weather:
-                            # 简化地名显示
                             short_name = loc_name.split(',')[0] if ',' in loc_name else loc_name
                             details.append(f"【{short_name}】: " + "；".join(daily_weather))
             
-            # 场景B: 直接包含 forecast 列表
             elif 'forecast' in weather_info and isinstance(weather_info['forecast'], list):
                  daily_weather = []
                  for day in weather_info['forecast'][:5]:

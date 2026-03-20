@@ -8,21 +8,13 @@ MinIO对象存储服务
 
 import json
 import io
-from typing import Dict, Any, List, Optional, BinaryIO
+from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-from pathlib import Path
 from loguru import logger
+from minio import Minio
+from minio.error import S3Error
 
 from Agent.config.settings import Config
-
-# 尝试导入minio
-try:
-    from minio import Minio
-    from minio.error import S3Error
-    MINIO_AVAILABLE = True
-except ImportError:
-    MINIO_AVAILABLE = False
-    logger.warning("minio库未安装，MinIO功能不可用。请运行: pip install minio")
 
 
 class MinIOStorageService:
@@ -33,16 +25,12 @@ class MinIOStorageService:
     
     def __init__(self):
         """初始化MinIO客户端"""
-        if not MINIO_AVAILABLE:
-            raise RuntimeError("minio库未安装，无法使用MinIO存储服务")
-        
         self.client: Optional[Minio] = None
         self.bucket_name = Config.MINIO_BUCKET_NAME
-        self._init_client()
-        self._ensure_bucket_exists()
+        self._connect()
     
-    def _init_client(self):
-        """初始化MinIO客户端连接"""
+    def _connect(self):
+        """连接到MinIO服务器"""
         try:
             self.client = Minio(
                 Config.MINIO_ENDPOINT,
@@ -51,8 +39,7 @@ class MinIOStorageService:
                 secure=Config.MINIO_SECURE,
                 region=Config.MINIO_REGION
             )
-            # 测试连接
-            self.client.list_buckets()
+            self._ensure_bucket_exists()
             logger.info(f"MinIO连接成功: {Config.MINIO_ENDPOINT}")
         except Exception as e:
             logger.error(f"MinIO连接失败: {str(e)}")
@@ -64,9 +51,6 @@ class MinIOStorageService:
             if not self.client.bucket_exists(self.bucket_name):
                 self.client.make_bucket(self.bucket_name)
                 logger.info(f"创建存储桶: {self.bucket_name}")
-                
-                # 设置桶策略（可选：允许公共读取）
-                # self._set_bucket_policy()
             else:
                 logger.info(f"存储桶已存在: {self.bucket_name}")
         except S3Error as e:
@@ -118,12 +102,10 @@ class MinIOStorageService:
                 "conversations", username, filename
             )
             
-            # 序列化JSON数据
             json_data = json.dumps(conversation_data, ensure_ascii=False, indent=2)
             data_bytes = json_data.encode('utf-8')
             data_stream = io.BytesIO(data_bytes)
             
-            # 上传对象
             self.client.put_object(
                 bucket_name=self.bucket_name,
                 object_name=object_path,
@@ -202,13 +184,11 @@ class MinIOStorageService:
             
             data_stream = io.BytesIO(pdf_bytes)
             
-            # 处理metadata，确保只包含ASCII字符（MinIO限制）
             safe_metadata = {
                 "username": username,
                 "destination": destination.encode('ascii', 'ignore').decode('ascii') if destination else "unknown",
                 "upload_time": datetime.now().isoformat(),
             }
-            # 添加其他metadata，过滤掉非ASCII字符
             for k, v in metadata.items():
                 if k != "destination":
                     safe_value = str(v).encode('ascii', 'ignore').decode('ascii')
@@ -403,8 +383,6 @@ class MinIOStorageService:
             Optional[str]: 预签名URL
         """
         try:
-            from datetime import timedelta
-            
             url = self.client.presigned_get_object(
                 self.bucket_name,
                 object_path,
@@ -458,24 +436,16 @@ class MinIOStorageService:
     
     def health_check(self) -> Dict[str, Any]:
         """
-        MinIO健康检查
+        健康检查
         
         Returns:
             Dict: 健康状态
         """
         try:
-            # 测试连接
-            buckets = self.client.list_buckets()
-            bucket_exists = self.client.bucket_exists(self.bucket_name)
-            
-            # 获取存储桶统计
-            objects = list(self.client.list_objects(self.bucket_name, limit=1))
-            
+            buckets = list(self.client.list_buckets())
             return {
                 "status": "healthy",
                 "endpoint": Config.MINIO_ENDPOINT,
-                "bucket": self.bucket_name,
-                "bucket_exists": bucket_exists,
                 "total_buckets": len(buckets),
                 "connection": "ok"
             }
@@ -487,16 +457,11 @@ class MinIOStorageService:
             }
 
 
-# 全局MinIO服务实例
 _minio_service_instance = None
 
+
 def get_minio_service() -> MinIOStorageService:
-    """
-    获取全局MinIO服务实例
-    
-    Returns:
-        MinIOStorageService: MinIO服务实例
-    """
+    """获取全局MinIO服务实例"""
     global _minio_service_instance
     if _minio_service_instance is None:
         _minio_service_instance = MinIOStorageService()

@@ -4,17 +4,14 @@ PDF导出模块
 负责处理旅游规划的PDF导出功能
 """
 
-import tempfile
 import os
-from io import BytesIO
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any
 from loguru import logger
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
 from Agent.services.pdf_content_integrator import PDFContentIntegrator
-from Agent.main import get_agent
 
 
 class PDFExporter:
@@ -34,13 +31,13 @@ class PDFExporter:
         初始化PDF内容整合器
         """
         try:
-            agent = get_agent()
-            llm_model = agent.llm_model if hasattr(agent, 'llm_model') else None
+            from Agent.models.llm_factory import get_llm_model
+            llm_model = get_llm_model()
             self.integrator = PDFContentIntegrator(llm_model=llm_model)
             logger.info("PDF内容整合器初始化完成")
         except Exception as e:
-            logger.error(f"初始化PDF内容整合器失败: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"PDF导出服务初始化失败: {str(e)}")
+            logger.warning(f"初始化PDF内容整合器失败: {str(e)}，将使用无LLM模式")
+            self.integrator = PDFContentIntegrator(llm_model=None)
     
     async def export_plan_pdf(self, plan_data: Dict[str, Any]) -> Dict[str, Any]:
         """
