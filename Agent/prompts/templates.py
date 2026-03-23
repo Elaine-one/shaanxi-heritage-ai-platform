@@ -171,12 +171,14 @@ PLAN_EDIT_PROMPT = PromptTemplate(
 
 用户修改要求：{edit_request}
 
-请分析用户意图，修改规划并返回完整的JSON格式规划数据。确保修改后：
-1. 行程安排合理
-2. 路线逻辑清晰
-3. 包含必要的非遗项目信息
+请严格遵循以下规则：
+1. 如果用户明确指定了天数（如"改成X天"、"X天假期"、"延长到X天"），必须将 travel_days 修改为指定值
+2. 如果用户指定了人数、出发地、预算等参数，必须相应修改
+3. 返回完整的JSON格式规划数据
 
-如果用户要求不合理，请提供替代建议。
+【重要】
+- 严格按照用户的修改要求执行，不要省略任何参数的修改
+- 如果用户说"改成7天"，travel_days 必须改为 7
 
 请只返回JSON数据，不要其他解释：""",
     input_variables=["current_plan", "edit_request"]
@@ -233,3 +235,92 @@ def get_plan_edit_prompt(current_plan: str, edit_request: str) -> str:
     获取规划编辑提示词
     """
     return PLAN_EDIT_PROMPT.format(current_plan=current_plan, edit_request=edit_request)
+
+
+PDF_CONTENT_PROMPT = """你是陕西非遗文化旅游规划师，为用户撰写专业旅游规划文档。
+
+# 基本信息
+- **目的地**：{destination}
+- **出发地**：{start_location}
+- **行程天数**：{travel_days}天
+- **出行日期**：{travel_dates}
+- **出行方式**：{travel_mode}
+- **人数**：{group_size}人
+- **预算**：{budget_range}
+- **天气**：{weather_summary}
+
+# 用户需求（对话历史摘要）
+{formatted_history}
+
+# 行程骨架
+{slim_itinerary_json}
+
+# 非遗项目素材
+{heritage_context_str}
+
+# 系统建议
+{sys_recs}
+
+# 输出要求
+
+## 1. 文档结构（按此顺序）
+1. **定制说明** - 针对用户需求的调整
+2. **行前准备清单** - 物品表格
+3. **出行方式对比** - 交通方式表格
+4. **费用预算明细** - 预算表格
+5. **每日行程** - 按天分布，带日期
+6. **实用贴士**
+
+## 2. 每日行程格式
+每天的标题格式：`### 第X天（{day_dates_str}）：主题`
+
+每天必须包含：
+- **今日行程安排表格**（时间、项目、地点、时长、体验类型）
+- **三餐推荐表格**（餐次、餐厅、特色菜、人均、地址）
+- 项目详情（活态体验、匠心体验、附近寻味、摄影建议、注意事项）
+
+## 3. 三餐推荐表格格式
+| 餐次 | 推荐餐厅/小吃 | 特色菜品 | 人均消费 | 地址 |
+|-----|-------------|---------|---------|------|
+| 早餐 | [名称] | [特色] | [价格] | [地址] |
+
+## 4. 内容要求
+- 每个非遗项目介绍100-150字，重点描述**活态传承体验**和**匠心体验**
+- 避免"文化底蕴"、"场景化复原"等抽象描述
+- 强调实用性：具体时间、具体地点、具体费用
+- 使用Markdown格式，表格清晰"""
+
+
+def get_pdf_content_prompt(
+    destination: str,
+    start_location: str,
+    travel_days: int,
+    travel_dates: str,
+    travel_mode: str,
+    group_size: int,
+    budget_range: str,
+    weather_summary: str,
+    formatted_history: str,
+    slim_itinerary_json: str,
+    heritage_context_str: str,
+    sys_recs: str,
+    day_dates_str: str
+) -> str:
+    """
+    获取PDF内容生成提示词
+    """
+    return PDF_CONTENT_PROMPT.format(
+        destination=destination,
+        start_location=start_location,
+        travel_days=travel_days,
+        travel_dates=travel_dates,
+        travel_mode=travel_mode,
+        group_size=group_size,
+        budget_range=budget_range,
+        weather_summary=weather_summary,
+        formatted_history=formatted_history,
+        slim_itinerary_json=slim_itinerary_json,
+        heritage_context_str=heritage_context_str,
+        sys_recs=sys_recs,
+        day_dates_str=day_dates_str
+    )

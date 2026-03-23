@@ -27,10 +27,10 @@ from ..services.search import SearchService
 logger = logging.getLogger(__name__)
 
 class CustomPagination(PageNumberPagination):
-    """自定义分页器"""
-    page_size = 12
+    """非遗列表分页配置"""
+    page_size = 12  # 默认每页12条（非遗图片较多，保证加载速度）
     page_size_query_param = 'page_size'
-    max_page_size = 100
+    max_page_size = 100  # 最大单页100条（防止一次请求过多数据）
 
 # Create your views here.
 class HeritageViewSet(viewsets.ModelViewSet):

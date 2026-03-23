@@ -1,13 +1,6 @@
 /**
- * 旅游规划编辑器 - AI对话式编辑功能
- * 模块化重构版本
- * 
- * 模块结构:
- * - plan-editor.css: 所有样式
- * - plan-editor-ui.js: UI创建、拖拽、状态切换
- * - plan-editor-chat.js: 消息发送、渲染、Markdown
- * - plan-editor-api.js: API通信、会话管理
- * - plan-editor.js: 主入口、状态管理
+ * 旅游规划编辑器
+ * 提供AI对话式编辑功能
  */
 
 class PlanEditor {

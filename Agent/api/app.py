@@ -396,10 +396,31 @@ async def export_plan_pdf(request: PDFExportRequest, background_tasks: Backgroun
     """将旅游规划导出为PDF文件，自动上传到对象存储"""
     try:
         logger.info(f"收到AI PDF导出请求，目的地: {request.destination}, 用户: {current_user.username}")
-        
-        # 1. 获取完整数据
+
+        # 1. 获取完整数据 - 优先从 session 获取最新数据
         plan_data = request.complete_plan_data or {}
-        
+
+        if request.session_id:
+            try:
+                from Agent.memory.session import get_session_pool
+                session_pool = get_session_pool()
+                session = session_pool.get_session(request.session_id)
+                if session:
+                    if hasattr(session, 'plan_data') and session.plan_data:
+                        session_plan = session.plan_data
+                        if isinstance(session_plan, dict):
+                            plan_data.update(session_plan)
+                            logger.info(f"✅ 已从 session 获取最新 plan_data: travel_days={session_plan.get('travel_days')}")
+                        elif hasattr(session_plan, 'model_dump'):
+                            plan_data.update(session_plan.model_dump())
+                            logger.info(f"✅ 已从 session 获取最新 plan_data: travel_days={session_plan.travel_days}")
+                    if hasattr(session, 'departure_location') and session.departure_location:
+                        plan_data['departure_location'] = session.departure_location
+                    if hasattr(session, 'travel_days') and session.travel_days:
+                        plan_data['travel_days'] = session.travel_days
+            except Exception as e:
+                logger.warning(f"从 session 获取数据失败: {e}")
+
         # 2. 提取前端注入的对话历史
         conversation_history = plan_data.get('conversation_history', [])
         

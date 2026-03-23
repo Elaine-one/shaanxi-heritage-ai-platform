@@ -79,9 +79,10 @@ class KnowledgeGraph:
             with self.driver.session() as session:
                 session.run("RETURN 1")
             return True
-        except:
+        except Exception as e:
+            logger.error(f"Neo4j连接检测失败: {e}")
             return False
-    
+
     def get_heritage_count(self) -> int:
         """获取非遗项目数量"""
         if not self.driver:
@@ -91,7 +92,8 @@ class KnowledgeGraph:
                 result = session.run("MATCH (h:Heritage) RETURN count(h) as count")
                 record = result.single()
                 return record["count"] if record else 0
-        except:
+        except Exception as e:
+            logger.error(f"Neo4j查询非遗项目数量失败: {e}")
             return 0
     
     @staticmethod
@@ -577,30 +579,58 @@ class KnowledgeGraph:
         results = self.query_heritage_by_ids([heritage_id])
         return results[0] if results else None
     
-    def query_related_heritage(self, heritage_id: int, limit: int = 5) -> List[Dict[str, Any]]:
+    def query_related_heritage(self, heritage_id: int, limit: int = 5, relation_type: str = None) -> List[Dict[str, Any]]:
         """
         查询相关非遗项目
-        
+
         Args:
             heritage_id: 非遗项目 ID
             limit: 返回数量
-        
+            relation_type: 关系类型 ("category", "region", "level") 或 None(全部)
+
         Returns:
             相关非遗项目列表
         """
         if not self.driver:
             return []
-        
+
         try:
             with self.driver.session() as session:
-                result = session.run("""
-                    MATCH (h1:Heritage {id: $id})-[:BELONGS_TO]->(c:Category)<-[:BELONGS_TO]-(h2:Heritage)
-                    WHERE h1 <> h2
-                    RETURN DISTINCT h2.id as id, h2.name as name, h2.category as category,
-                           h2.region as region, h2.level as level, h2.description as description
-                    LIMIT $limit
-                """, id=heritage_id, limit=limit)
-                
+                if relation_type == "category":
+                    query = """
+                        MATCH (h1:Heritage {id: $id})-[:BELONGS_TO]->(c:Category)<-[:BELONGS_TO]-(h2:Heritage)
+                        WHERE h1 <> h2
+                        RETURN DISTINCT h2.id as id, h2.name as name, h2.category as category,
+                               h2.region as region, h2.level as level, h2.description as description
+                        LIMIT $limit
+                    """
+                elif relation_type == "region":
+                    query = """
+                        MATCH (h1:Heritage {id: $id})-[:LOCATED_AT]->(r:Region)<-[:LOCATED_AT]-(h2:Heritage)
+                        WHERE h1 <> h2
+                        RETURN DISTINCT h2.id as id, h2.name as name, h2.category as category,
+                               h2.region as region, h2.level as level, h2.description as description
+                        LIMIT $limit
+                    """
+                elif relation_type == "level":
+                    query = """
+                        MATCH (h1:Heritage {id: $id})-[:HAS_LEVEL]->(l:Level)<-[:HAS_LEVEL]-(h2:Heritage)
+                        WHERE h1 <> h2
+                        RETURN DISTINCT h2.id as id, h2.name as name, h2.category as category,
+                               h2.region as region, h2.level as level, h2.description as description
+                        LIMIT $limit
+                    """
+                else:
+                    query = """
+                        MATCH (h1:Heritage {id: $id})-[]-(h2:Heritage)
+                        WHERE h1 <> h2
+                        RETURN DISTINCT h2.id as id, h2.name as name, h2.category as category,
+                               h2.region as region, h2.level as level, h2.description as description
+                        LIMIT $limit
+                    """
+
+                result = session.run(query, id=heritage_id, limit=limit)
+
                 related = []
                 for record in result:
                     related.append(dict(record))

@@ -304,21 +304,25 @@ class PlanEditorUI {
         if (modal) modal.style.display = 'none';
         if (minibar) minibar.style.display = 'none';
         if (half) half.style.display = 'none';
-        
+
         this.editor.chatHistory = [];
         this.editor.sessionId = null;
         this.editor.currentPlan = null;
         this.editor.isEditing = false;
         this.editor.isMinimized = false;
         this.editor.isHalfExpanded = false;
-        
+
         localStorage.removeItem(this.editor.STORAGE_KEY);
-        
+
         const chatHistory = document.getElementById('chat-history');
         if (chatHistory) chatHistory.innerHTML = '';
-        
+
         const halfChatArea = document.getElementById('half-chat-area');
         if (halfChatArea) halfChatArea.innerHTML = '';
+
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.success('聊天记录已清空');
+        }
     }
 
     zoomIn() {

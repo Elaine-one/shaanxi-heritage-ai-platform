@@ -182,6 +182,7 @@ class SessionPool:
         session.departure_location = (
             basic_info.get('departure') or 
             basic_info.get('departureLocation') or
+            plan_data.get('departure') or
             plan_data.get('departure_location') or
             plan_data.get('departureLocation')
         )

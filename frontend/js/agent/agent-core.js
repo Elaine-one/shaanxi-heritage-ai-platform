@@ -34,13 +34,10 @@ class TravelPlanningAgent {
      * 销毁Agent实例，清理资源
      */
     destroy() {
-        // 停止进度监控
         if (this.progressManager) {
             this.progressManager.stopProgressMonitoring();
         }
         
-        // 移除事件监听器（如果需要，但通常DOM元素销毁会自动解绑）
-        // 这里主要确保定时器被清理
         this.isPlanning = false;
         console.log('旅游规划Agent已销毁');
     }
@@ -278,7 +275,6 @@ class TravelPlanningAgent {
      * @param {string} type 消息类型：success, error, warning, info
      */
     showMessage(message, type = 'info') {
-        // 实现消息显示逻辑
         console.log(`${type}: ${message}`);
         
         // 创建右上角浮动通知
@@ -391,18 +387,15 @@ class TravelPlanningAgent {
      * 导出旅游规划
      */
     async exportTravelPlan() {
-        // 保存所有导出按钮的原始状态，声明在try块之外，确保finally块能访问到
         let originalButtonStates = [];
         
         try {
-            // 防止同时执行多个导出操作
             if (this.isExporting) {
                 console.warn('正在执行导出操作，请勿重复点击');
                 this.showMessage('正在导出规划，请稍候...', 'info');
                 return;
             }
             
-            // 设置导出标志位
             this.isExporting = true;
             
             // 确保API地址已加载
@@ -434,9 +427,7 @@ class TravelPlanningAgent {
                 `;
             });
 
-            // 禁用所有AI修改按钮
             editButtons.forEach(editButton => {
-                // 避免重复保存
                 if (originalButtonStates.some(state => state.button === editButton)) return;
 
                 originalButtonStates.push({
@@ -451,7 +442,6 @@ class TravelPlanningAgent {
             // 显示导出进度
             this.showMessage('正在导出规划，请稍候...', 'info');
             
-            // 调用导出API，支持两种导出方式
             let exportUrl;
             let requestBody;
             
@@ -479,8 +469,10 @@ class TravelPlanningAgent {
             }
             
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 360000); // 设置120秒超时，适应更丰富的AI内容生成
-            
+            // PDF导出超时：6分钟（AI生成的旅游规划内容可能较大）
+            const PDF_EXPORT_TIMEOUT_MS = 6 * 60 * 1000;
+            const timeoutId = setTimeout(() => controller.abort(), PDF_EXPORT_TIMEOUT_MS);
+
             try {
                 const response = await fetch(exportUrl, {
                     method: 'POST',
@@ -490,10 +482,10 @@ class TravelPlanningAgent {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(requestBody),
-                    signal: controller.signal // 添加超时控制
+                    signal: controller.signal
                 });
-                
-                clearTimeout(timeoutId); // 清除超时计时器
+
+                clearTimeout(timeoutId);
                 
                 if (!response.ok) {
                     let errorMessage = `导出失败: ${response.status} ${response.statusText}`;
@@ -504,7 +496,6 @@ class TravelPlanningAgent {
                             errorMessage = `导出失败: ${errorData.detail}`;
                         }
                     } catch (e) {
-                        // 如果无法解析JSON，使用默认错误信息
                     }
                     throw new Error(errorMessage);
                 }
@@ -564,10 +555,8 @@ class TravelPlanningAgent {
         } catch (error) {
             this.handleError(error, '导出旅游规划时发生错误');
         } finally {
-            // 重置导出标志位，允许后续导出操作
             this.isExporting = false;
             
-            // 恢复所有导出按钮的原始状态
             if (originalButtonStates) {
                 originalButtonStates.forEach(({ button, originalText, originalDisabled }) => {
                     button.innerHTML = originalText;
@@ -582,7 +571,6 @@ class TravelPlanningAgent {
      */
     async editTravelPlan() {
         try {
-            // 确保API地址已加载
             if (!this.apiBaseUrl) {
                 this.apiBaseUrl = await this.getApiBaseUrl();
             }
@@ -592,7 +580,6 @@ class TravelPlanningAgent {
                 return;
             }
             
-            // 获取规划结果
             let planData;
             if (this.planResultCache) {
                 planData = this.planResultCache;
@@ -606,12 +593,9 @@ class TravelPlanningAgent {
                 return;
             }
             
-            // 显示编辑界面，这里可以调用plan-editor.js中的方法
             if (typeof window.openPlanEditor === 'function') {
-                // 只传递planData一个参数，因为openPlanEditor函数只接收一个参数
                 window.openPlanEditor(planData);
                 
-                // 关闭旅游规划结果模态框
                 const planningResultDialog = document.getElementById('planningResultDialog');
                 if (planningResultDialog) {
                     planningResultDialog.remove();
@@ -649,7 +633,6 @@ class TravelPlanningAgent {
                     this.apiBaseUrl = await this.getApiBaseUrl();
                 }
                 
-                // 调用取消API
                 const cancelUrl = `${this.apiBaseUrl.replace(/\/$/, '')}/cancel/${this.currentPlanId}`;
                 console.log('[取消规划] 调用取消API:', cancelUrl);
                 const response = await fetch(cancelUrl, {

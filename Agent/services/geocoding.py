@@ -186,10 +186,6 @@ class GeocodingService:
             
         return None
     
-    def get_default_coordinates(self) -> Tuple[float, float]:
-        """获取默认坐标（西安）"""
-        return (34.3416, 108.9398)
-    
     def add_to_cache(self, name: str, lat: float, lng: float):
         """手动添加坐标到缓存"""
         self._cache[name] = (lat, lng)

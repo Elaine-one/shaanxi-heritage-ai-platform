@@ -140,7 +140,8 @@ class RoutePreviewInput(V1BaseModel):
             import json
             try:
                 return json.loads(v)
-            except:
+            except json.JSONDecodeError as e:
+                logger.warning(f"heritage_ids JSON解析失败: {v[:50]}..., 错误: {e}")
                 return None
         return v
 
@@ -266,6 +267,25 @@ def create_plan_query_tool() -> 'BaseTool':
         return _format_result(result)
     
     return plan_query
+
+
+def create_plan_edit_tool() -> 'BaseTool':
+    """创建规划编辑工具"""
+    from pydantic import BaseModel, Field
+
+    class PlanEditInput(BaseModel):
+        current_plan: Dict[str, Any] = Field(description="当前规划数据")
+        edit_request: str = Field(description="用户的修改请求，如：'把第三天的行程换成博物馆'、'减少一个景点'等")
+
+    @tool("plan_edit", args_schema=PlanEditInput)
+    def plan_edit(current_plan: Dict[str, Any], edit_request: str) -> str:
+        """根据用户的修改要求，调整已有的旅游规划方案。当用户提到更改行程参数时使用，如：'我有7天假期'、'改成5天'、'增加延安景点'等。"""
+        from Agent.tools.base import get_tool_registry
+        tool = get_tool_registry().get_tool("plan_edit")
+        result = _run_async(tool.execute(current_plan=current_plan, edit_request=edit_request))
+        return _format_result(result)
+
+    return plan_edit
 
 
 def create_route_distance_tool() -> 'BaseTool':
@@ -753,6 +773,7 @@ def create_langchain_tools() -> List['BaseTool']:
         create_weather_query_tool(),
         create_geocoding_tool(),
         create_plan_query_tool(),
+        create_plan_edit_tool(),
         create_route_distance_tool(),
         create_driving_route_tool(),
         create_walking_route_tool(),

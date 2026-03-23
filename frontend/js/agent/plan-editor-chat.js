@@ -1,11 +1,13 @@
 /**
  * Plan Editor Chat Module
  * 处理消息发送、渲染、Markdown处理
+ * 复用 StreamingCore 提供流式能力
  */
 
 class PlanEditorChat {
     constructor(editor) {
         this.editor = editor;
+        this.streamingCore = new StreamingCore();
     }
 
     async sendMessage() {
@@ -14,145 +16,82 @@ class PlanEditorChat {
         const input = document.getElementById('chat-input');
         const sendBtn = document.getElementById('send-message-btn');
         const message = input.value.trim();
-        
+
         if (!message) return;
-        
+
         input.value = '';
         this.addChatMessage('user', message, false);
-        
+
         this.editor.isSending = true;
         sendBtn.disabled = true;
         const originalBtnText = sendBtn.innerHTML;
         sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        
-        const loadingId = this.showLoading();
-        
+
         try {
             if (!this.editor.sessionId) await this.editor.api.initializeChatSession();
 
             const apiUrl = await this.editor.api.getApiBaseUrl();
-            
-            const response = await fetch(`${apiUrl}/chat-stream`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ 
-                    message: message,
-                    session_id: this.editor.sessionId 
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
+            const url = `${apiUrl}/chat-stream`;
 
             const messageId = `msg-${Date.now()}`;
             const chatHistory = document.getElementById('chat-history');
             const html = `
                 <div class="chat-message ai-message">
                     <div class="message-avatar"><i class="fas fa-robot"></i></div>
-                    <div class="message-content" id="${messageId}"></div>
+                    <div class="message-content" id="${messageId}">
+                        <div class="thinking-indicator">
+                            <i class="fas fa-spinner"></i> 正在思考...
+                        </div>
+                    </div>
                 </div>
             `;
             chatHistory.insertAdjacentHTML('beforeend', html);
 
-            this.hideLoading(loadingId);
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
             let fullMessage = '';
             let pendingRender = false;
-            let statusIndicator = null;
 
             const renderMessage = () => {
-                if (statusIndicator) {
-                    statusIndicator.remove();
-                    statusIndicator = null;
+                const msgContainer = document.getElementById(messageId);
+                if (msgContainer) {
+                    const safeMessage = StreamingCore.fixMarkdown(fullMessage);
+                    const htmlContent = StreamingCore.renderMarkdown(safeMessage);
+                    msgContainer.innerHTML = htmlContent;
                 }
-                
-                const safeMessage = this._fixIncompleteMarkdown(fullMessage);
-                let html;
-                try {
-                    if (typeof window.marked !== 'undefined' && window.marked.parse) {
-                        html = window.marked.parse(safeMessage);
-                    } else if (typeof window.markdownit !== 'undefined') {
-                        const md = window.markdownit();
-                        html = md.render(safeMessage);
-                    } else {
-                        html = safeMessage.replace(/\n/g, '<br>');
-                    }
-                } catch (e) {
-                    console.warn('Markdown渲染失败:', e);
-                    html = safeMessage.replace(/\n/g, '<br>');
-                }
-                document.getElementById(messageId).innerHTML = html;
                 this.scrollToBottom();
                 pendingRender = false;
             };
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = line.slice(6);
-                        try {
-                            const parsed = JSON.parse(data);
-                            
-                            if (parsed.error) {
-                                this.addChatMessage('ai', `错误: ${parsed.error}`, false);
-                                return;
-                            }
-
-                            if (parsed.status === 'thinking') {
-                                this._updateStatusIndicator(messageId, parsed.content || '正在思考...');
-                            } else if (parsed.content) {
-                                fullMessage += parsed.content;
-                                
-                                if (!pendingRender) {
-                                    pendingRender = true;
-                                    requestAnimationFrame(() => {
-                                        renderMessage();
-                                    });
-                                }
-                            }
-                            
-                            if (parsed.metadata) {
-                                if (parsed.metadata.changes_made && parsed.metadata.updated_plan) {
-                                    this.editor.currentPlan = parsed.metadata.updated_plan;
-                                }
-                            }
-                        } catch (e) {
-                            console.error('解析 SSE 数据失败:', e);
-                        }
+            await this.streamingCore.stream(url, {
+                method: 'POST',
+                body: { message, session_id: this.editor.sessionId },
+                onChunk: (content) => {
+                    fullMessage += content;
+                    if (!pendingRender) {
+                        pendingRender = true;
+                        requestAnimationFrame(() => renderMessage());
                     }
+                },
+                onStatus: (status, statusContent) => {
+                    // 不再处理思考状态，保持视觉简洁
+                },
+                onComplete: () => {
+                    if (pendingRender) renderMessage();
+                    this.editor.chatHistory.push({ type: 'ai', content: fullMessage, timestamp: new Date() });
+                    this.editor.saveState();
+                    this.syncChatToFull();
+                    if (this.editor.isHalfExpanded) {
+                        this.syncChatToHalf();
+                    }
+                },
+                onError: (errorMsg) => {
+                    this.addChatMessage('ai', `错误: ${errorMsg}`, false);
                 }
-            }
-
-            if (pendingRender) {
-                renderMessage();
-            }
-
-            this.editor.chatHistory.push({ type: 'ai', content: fullMessage, timestamp: new Date() });
-            this.editor.saveState();
-            
-            this.syncChatToFull();
-            if (this.editor.isHalfExpanded) {
-                this.syncChatToHalf();
-            }
+            });
 
         } catch (error) {
             console.error('发送消息失败:', error);
-            
             let errorMessage = '网络请求失败，请稍后重试。';
-            
+
             if (error.name === 'TypeError' && error.message && error.message.includes('fetch')) {
                 errorMessage = '网络连接失败，请检查网络连接。';
             } else if (error.message && error.message.includes('Failed to fetch')) {
@@ -162,7 +101,7 @@ class PlanEditorChat {
             } else if (error.message) {
                 errorMessage = `请求失败: ${error.message}`;
             }
-            
+
             this.editor.chatHistory.push({ type: 'ai', content: errorMessage, timestamp: new Date() });
             this.editor.saveState();
             this.syncChatToFull();
@@ -184,141 +123,90 @@ class PlanEditorChat {
         const input = document.getElementById('half-chat-input');
         const sendBtn = document.getElementById('half-send-btn');
         const message = input.value.trim();
-        
+
         if (!message) return;
-        
+
         input.value = '';
         this.editor.chatHistory.push({ type: 'user', content: message, timestamp: new Date() });
         this.syncChatToHalf();
         this.editor.saveState();
-        
+
         this.editor.isSending = true;
         sendBtn.disabled = true;
         const originalBtnHTML = sendBtn.innerHTML;
         sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        
-        const thinkingId = `half-thinking-${Date.now()}`;
+
+        const messageId = `half-msg-${Date.now()}`;
         const halfChatArea = document.getElementById('half-chat-area');
-        const thinkingHtml = `
-            <div class="half-message ai-half" id="${thinkingId}">
+        const msgHtml = `
+            <div class="half-message ai-half" id="${messageId}">
                 <div class="half-avatar ai"><i class="fas fa-robot"></i></div>
-                <div class="half-content ai" style="color: #888; font-style: italic;">
-                    <i class="fas fa-spinner fa-spin"></i> 思考中...
+                <div class="half-content ai">
+                    <div class="half-thinking-indicator">
+                        <i class="fas fa-spinner"></i> 思考中...
+                    </div>
                 </div>
             </div>
         `;
-        halfChatArea.insertAdjacentHTML('beforeend', thinkingHtml);
+        halfChatArea.insertAdjacentHTML('beforeend', msgHtml);
         halfChatArea.scrollTop = halfChatArea.scrollHeight;
-        
+
         try {
             if (!this.editor.sessionId) await this.editor.api.initializeChatSession();
 
             const apiUrl = await this.editor.api.getApiBaseUrl();
-            
-            const response = await fetch(`${apiUrl}/chat-stream`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ 
-                    message: message,
-                    session_id: this.editor.sessionId 
-                })
-            });
+            const url = `${apiUrl}/chat-stream`;
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
             let fullMessage = '';
-            let hasRealContent = false;
-            let messageId = null;
 
             const renderHalfMessage = () => {
-                const thinkingEl = document.getElementById(thinkingId);
-                if (thinkingEl) thinkingEl.remove();
-                
-                if (!messageId) {
-                    messageId = `half-msg-${Date.now()}`;
-                    const msgHtml = `
-                        <div class="half-message ai-half" id="${messageId}">
-                            <div class="half-avatar ai"><i class="fas fa-robot"></i></div>
-                            <div class="half-content ai"></div>
-                        </div>
-                    `;
-                    halfChatArea.insertAdjacentHTML('beforeend', msgHtml);
-                }
-                
                 const msgEl = document.getElementById(messageId);
                 if (msgEl) {
                     const contentEl = msgEl.querySelector('.half-content');
                     if (contentEl) {
-                        contentEl.innerHTML = this.renderMarkdown(fullMessage);
+                        contentEl.innerHTML = StreamingCore.renderMarkdown(fullMessage);
                     }
                 }
                 halfChatArea.scrollTop = halfChatArea.scrollHeight;
             };
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = line.slice(6);
-                        try {
-                            const parsed = JSON.parse(data);
-                            
-                            if (parsed.error) {
-                                const thinkingEl = document.getElementById(thinkingId);
-                                if (thinkingEl) thinkingEl.remove();
-                                this.editor.chatHistory.push({ type: 'ai', content: `错误: ${parsed.error}`, timestamp: new Date() });
-                                this.syncChatToHalf();
-                                return;
-                            }
-
-                            if (parsed.status === 'thinking') {
-                                const thinkingEl = document.getElementById(thinkingId);
-                                if (thinkingEl) {
-                                    const contentEl = thinkingEl.querySelector('.half-content');
-                                    if (contentEl) {
-                                        contentEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${parsed.content || '思考中...'}`;
-                                    }
-                                }
-                            } else if (parsed.content) {
-                                fullMessage += parsed.content;
-                                hasRealContent = true;
-                                renderHalfMessage();
-                            }
-                            
-                            if (parsed.metadata) {
-                                if (parsed.metadata.changes_made && parsed.metadata.updated_plan) {
-                                    this.editor.currentPlan = parsed.metadata.updated_plan;
-                                }
-                            }
-                        } catch (e) {
-                            console.error('解析 SSE 数据失败:', e);
+            await this.streamingCore.stream(url, {
+                method: 'POST',
+                body: { message, session_id: this.editor.sessionId },
+                onChunk: (content) => {
+                    fullMessage += content;
+                    renderHalfMessage();
+                },
+                onStatus: (status, statusContent) => {
+                    // 不再处理思考状态，保持视觉简洁
+                },
+                onComplete: () => {
+                    if (fullMessage) {
+                        this.editor.chatHistory.push({ type: 'ai', content: fullMessage, timestamp: new Date() });
+                        this.editor.saveState();
+                    }
+                },
+                onError: (errorMsg) => {
+                    const msgEl = document.getElementById(messageId);
+                    if (msgEl) {
+                        const contentEl = msgEl.querySelector('.half-content');
+                        if (contentEl) {
+                            contentEl.innerHTML = `错误: ${errorMsg}`;
                         }
                     }
+                    this.editor.chatHistory.push({ type: 'ai', content: `错误: ${errorMsg}`, timestamp: new Date() });
                 }
-            }
-
-            if (fullMessage) {
-                this.editor.chatHistory.push({ type: 'ai', content: fullMessage, timestamp: new Date() });
-                this.editor.saveState();
-            }
+            });
 
         } catch (error) {
             console.error('发送消息失败:', error);
-            const thinkingEl = document.getElementById(thinkingId);
-            if (thinkingEl) thinkingEl.remove();
+            const msgEl = document.getElementById(messageId);
+            if (msgEl) {
+                const contentEl = msgEl.querySelector('.half-content');
+                if (contentEl) {
+                    contentEl.innerHTML = '网络请求失败，请稍后重试。';
+                }
+            }
             this.editor.chatHistory.push({ type: 'ai', content: '网络请求失败，请稍后重试。', timestamp: new Date() });
             this.syncChatToHalf();
         } finally {
@@ -544,88 +432,10 @@ class PlanEditorChat {
     }
 
     renderMarkdown(text) {
-        if (!text) return '';
-        
-        let html = text.replace(/\\n/g, '\n').replace(/\\"/g, '"');
-        
-        html = html
-            .replace(/^### (.*$)/gm, '<h4>$1</h4>')
-            .replace(/^## (.*$)/gm, '<h3>$1</h3>')
-            .replace(/^# (.*$)/gm, '<h2>$1</h2>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/`(.*?)`/g, '<code>$1</code>')
-            .replace(/^- (.*?)(\n|$)/gm, '<li>$1</li>');
-            
-        if (html.includes('<li>')) {
-            html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
-        }
-
-        html = html.replace(/\n/g, '<br>');
-        return html;
+        return StreamingCore.renderMarkdown(text);
     }
 
-    _fixIncompleteMarkdown(text) {
-        if (!text) return '';
-        
-        let fixed = text;
-        
-        const boldCount = (fixed.match(/\*\*/g) || []).length;
-        if (boldCount % 2 !== 0) {
-            fixed += '**';
-        }
-        
-        const codeBlockMatches = fixed.match(/```/g);
-        if (codeBlockMatches && codeBlockMatches.length % 2 !== 0) {
-            fixed += '\n```';
-        }
-        
-        const codeMatches = fixed.match(/(?<!`)`(?!`)/g);
-        if (codeMatches && codeMatches.length % 2 !== 0) {
-            fixed += '`';
-        }
-        
-        const italicMatches = fixed.match(/(?<!\*)\*(?!\*)/g);
-        if (italicMatches && italicMatches.length % 2 !== 0) {
-            fixed += '*';
-        }
-        
-        return fixed;
-    }
 
-    _updateStatusIndicator(messageId, statusText) {
-        const container = document.getElementById(messageId);
-        if (!container) return;
-        
-        let statusEl = container.querySelector('.status-indicator');
-        if (!statusEl) {
-            statusEl = document.createElement('div');
-            statusEl.className = 'status-indicator';
-            statusEl.style.cssText = 'color: #888; font-style: italic; margin-bottom: 8px;';
-            container.insertBefore(statusEl, container.firstChild);
-        }
-        
-        statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${statusText}`;
-    }
-
-    showLoading() {
-        const id = `loading-${Date.now()}`;
-        const html = `
-            <div id="${id}" class="chat-message ai-message">
-                <div class="message-avatar"><i class="fas fa-robot"></i></div>
-                <div class="message-content" style="padding: 10px 15px;">
-                    <i class="fas fa-circle-notch fa-spin" style="color: #8B0000;"></i> 思考中...
-                </div>
-            </div>
-        `;
-        document.getElementById('chat-history').insertAdjacentHTML('beforeend', html);
-        this.scrollToBottom();
-        return id;
-    }
-
-    hideLoading(id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-    }
 
     scrollToBottom() {
         const area = document.querySelector('.chat-scroll-area');

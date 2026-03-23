@@ -73,7 +73,7 @@ def get_agent_service_url(request):
 
 def _sse_stream_generator(client, method, url, params, content, headers):
     """
-    SSE 流式响应生成器
+    SSE 流式响应生成器 - 优化版，禁用内部缓冲
     
     Args:
         client: httpx 客户端
@@ -96,7 +96,7 @@ def _sse_stream_generator(client, method, url, params, content, headers):
             verify=False,
             timeout=300.0
         ) as response:
-            for chunk in response.iter_bytes():
+            for chunk in response.iter_bytes(chunk_size=10):
                 yield chunk
     except Exception as e:
         logger.error(f"SSE stream error: {str(e)}")
@@ -150,10 +150,13 @@ def proxy_agent_request(request, path):
         # 检查是否为 SSE 请求
         if 'progress-stream' in path or 'chat-stream' in path:
             logger.info(f"[SSE代理] 检测到SSE请求，启用流式转发")
-            return StreamingHttpResponse(
+            response = StreamingHttpResponse(
                 _sse_stream_generator(client, method, target_url, params, content, headers),
                 content_type='text/event-stream'
             )
+            response['Cache-Control'] = 'no-cache'
+            response['X-Accel-Buffering'] = 'no'
+            return response
         
         # 普通请求
         response = client.request(

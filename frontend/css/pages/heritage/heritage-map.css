@@ -46,13 +46,7 @@ body {
     position: relative;
 }
 
-/* 刷新按钮容器 */
-.refresh-container {
-    text-align: center;
-    padding: 10px 0;
-    background-color: #f5f5f5;
-    border-top: 1px solid #ddd;
-}
+
 
 /* 隐藏页脚，只在滚动时显示 */
 footer {
@@ -285,27 +279,6 @@ footer {
     padding-top: 10px;
 }
 
-.view-details-btn {
-    flex: 1;
-    margin-right: 12px;
-    padding: 8px 0;
-    background-color: var(--shaanxi-red);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-size: 14px;
-    font-weight: 500;
-    text-align: center;
-    box-shadow: 0 2px 5px rgba(197, 59, 59, 0.3);
-}
-
-.view-details-btn:hover {
-    background-color: var(--shaanxi-red-dark);
-    box-shadow: 0 3px 8px rgba(197, 59, 59, 0.4);
-}
-
 /* 查看详情按钮样式 */
 .detail-btn {
     flex: 1;
@@ -337,122 +310,9 @@ footer {
     box-shadow: 0 1px 3px rgba(197, 59, 59, 0.3);
 }
 
-/* 我的收藏区域样式 */
-.my-collections {
-    margin-bottom: 20px;
-    padding: 15px;
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
 
-.my-collections h3 {
-    margin-top: 0;
-    margin-bottom: 15px;
-    font-size: 16px;
-    color: #333;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-left: 3px solid var(--shaanxi-red);
-    padding-left: 10px;
-}
 
-#collection-count {
-    color: var(--shaanxi-red);
-    font-size: 14px;
-    font-weight: 500;
-}
 
-.collection-actions {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.collection-btn {
-    flex: 1;
-    padding: 10px 0;
-    background-color: var(--shaanxi-red);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-size: 14px;
-    font-weight: 500;
-    text-align: center;
-    box-shadow: 0 2px 5px rgba(197, 59, 59, 0.3);
-}
-
-.collection-btn:hover {
-    background-color: var(--shaanxi-red-dark);
-    box-shadow: 0 3px 8px rgba(197, 59, 59, 0.4);
-}
-
-/* 标签系统样式 */
-.collection-tags {
-    margin-top: 15px;
-}
-
-.tag-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 10px;
-    min-height: 30px;
-}
-
-.tag-item {
-    padding: 4px 10px;
-    background-color: #f0e6d2;
-    color: var(--shaanxi-red);
-    border-radius: 12px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.tag-item:hover {
-    background-color: #e6d5b8;
-}
-
-.tag-item.active {
-    background-color: var(--shaanxi-red);
-    color: white;
-}
-
-.add-tag {
-    display: flex;
-    gap: 8px;
-}
-
-#new-tag {
-    flex: 1;
-    padding: 6px 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-#add-tag-btn {
-    width: 30px;
-    height: 30px;
-    background-color: var(--shaanxi-red);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    transition: background-color 0.2s;
-}
-
-#add-tag-btn:hover {
-    background-color: var(--shaanxi-red-dark);
-}
 
 /* 收藏按钮样式 */
 .collect-btn {
@@ -726,18 +586,7 @@ footer {
     background: #a1a1a1;
 }
 
-/* 项目计数样式 */
-.project-count {
-    font-size: 13px;
-    color: #666;
-    padding: 10px 15px;
-    background-color: white;
-    border-top: 1px solid #eee;
-    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
-}
+
 
 /* 地图刷新按钮样式 */
 .map-refresh-container {
@@ -777,27 +626,6 @@ footer {
     
     .map-view {
         height: 400px;
-    }
-    
-    .heritage-item {
-        padding: 10px;
-    }
-    
-    .heritage-item h3 {
-        font-size: 14px;
-    }
-    
-    .heritage-item p {
-        font-size: 12px;
-    }
-    
-    .heritage-item .heritage-actions {
-        gap: 5px;
-    }
-    
-    .heritage-item .heritage-actions .btn {
-        padding: 4px 8px;
-        font-size: 12px;
     }
 }
 
@@ -853,138 +681,3 @@ header {
     transition: transform 0.3s ease-out;
 }
 
-/* 收藏项目样式优化 */
-.collection-popup {
-    width: 80%;
-    max-width: 800px;
-    max-height: 85vh;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    transform: translateY(20px) scale(0.95);
-    opacity: 0;
-    transition: all 0.3s;
-}
-
-.collection-popup.active {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-}
-
-.collection-popup-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 15px;
-}
-
-.collection-items {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 15px;
-}
-
-.collection-item {
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s;
-    background-color: white;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.collection-item-header {
-    position: relative;
-    height: 160px;
-}
-
-.collection-item-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.collection-item-level {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background-color: var(--shaanxi-red);
-    color: white;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 12px;
-}
-
-.collection-item-body {
-    padding: 15px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.collection-item-title {
-    font-weight: bold;
-    font-size: 16px;
-    margin-bottom: 10px;
-    color: #333;
-}
-
-.collection-item-category {
-    color: #666;
-    font-size: 14px;
-    margin-bottom: 8px;
-}
-
-.collection-item-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin: 10px 0;
-}
-
-.collection-item-tag {
-    padding: 2px 8px;
-    background-color: #f0e6d2;
-    color: var(--shaanxi-red);
-    border-radius: 10px;
-    font-size: 12px;
-}
-
-.collection-item-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: auto;
-}
-
-.collection-item-btn {
-    flex: 1;
-    padding: 8px 0;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    transition: all 0.2s;
-}
-
-.view-btn {
-    background-color: var(--shaanxi-red);
-    color: white;
-}
-
-.view-btn:hover {
-    background-color: var(--shaanxi-red-dark);
-}
-
-.remove-btn {
-    background-color: #f5f5f5;
-    color: #666;
-}
-
-.remove-btn:hover {
-    background-color: #e0e0e0;
-}

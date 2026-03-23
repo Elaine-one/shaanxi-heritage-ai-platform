@@ -109,7 +109,8 @@ class PlanEditor:
             logger.debug(f"  - heritage_ids: {context.plan_data.get_heritage_ids()}")
             
             context.add_conversation_turn('user', user_message)
-            
+            self.context_builder.invalidate_cache(session_id)
+
             full_response = ""
             async for chunk in self.langchain_agent.run_stream(user_message, context):
                 full_response += chunk

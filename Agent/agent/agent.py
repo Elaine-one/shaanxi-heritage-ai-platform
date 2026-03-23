@@ -69,7 +69,8 @@ class Agent:
             logger.debug(f"  - heritage_ids: {context.plan_data.get_heritage_ids()}")
             
             context.add_conversation_turn('user', user_input)
-            
+            self.context_builder.invalidate_cache(session_id)
+
             logger.info("🚀 使用 LangGraph Agent 处理")
             full_response = ""
             async for event in self.langchain_agent.run_stream(user_input, context):

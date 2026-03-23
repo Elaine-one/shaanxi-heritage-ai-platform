@@ -14,12 +14,9 @@ from .templates import (
     get_ai_suggestions_prompt,
     get_conversation_summary_prompt,
     get_knowledge_qa_prompt,
-    get_plan_edit_prompt
-)
-from .langchain_prompt import (
-    SYSTEM_PROMPT as LANGCHAIN_SYSTEM_PROMPT,
-    get_system_prompt,
-    format_plan_context,
+    get_plan_edit_prompt,
+    PDF_CONTENT_PROMPT,
+    get_pdf_content_prompt,
 )
 
 __all__ = [
@@ -29,12 +26,11 @@ __all__ = [
     'CONVERSATION_SUMMARY_PROMPT',
     'KNOWLEDGE_QA_PROMPT',
     'PLAN_EDIT_PROMPT',
+    'PDF_CONTENT_PROMPT',
     'get_react_prompt',
     'get_ai_suggestions_prompt',
     'get_conversation_summary_prompt',
     'get_knowledge_qa_prompt',
     'get_plan_edit_prompt',
-    'LANGCHAIN_SYSTEM_PROMPT',
-    'get_system_prompt',
-    'format_plan_context',
+    'get_pdf_content_prompt',
 ]

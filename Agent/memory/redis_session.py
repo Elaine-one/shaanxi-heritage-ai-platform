@@ -32,7 +32,13 @@ class RedisSessionPool(SessionPool):
     """
     
     def __init__(self, max_sessions: int = 100, cleanup_interval: int = 3600):
-        """初始化Redis会话池"""
+        """
+        初始化Redis会话池
+
+        Args:
+            max_sessions: 最大会话数限制，默认100
+            cleanup_interval: 清理间隔（秒），默认3600（1小时）
+        """
         self.max_sessions = max_sessions
         self.cleanup_interval = cleanup_interval
         self.redis_client: Optional[Redis] = None
@@ -253,12 +259,21 @@ class RedisSessionPool(SessionPool):
         if not session:
             return False
         
-        # 更新规划数据
         session.current_plan = updated_plan.copy()
         session.last_updated = datetime.now().isoformat()
         session.edit_count += 1
         
-        # 重新提取核心信息
+        if 'travel_days' in updated_plan:
+            session.travel_days = updated_plan['travel_days']
+        if 'departure' in updated_plan or 'departure_location' in updated_plan:
+            session.departure_location = updated_plan.get('departure') or updated_plan.get('departure_location', '')
+        if 'travel_mode' in updated_plan:
+            session.travel_mode = updated_plan['travel_mode']
+        if 'group_size' in updated_plan:
+            session.group_size = updated_plan['group_size']
+        if 'budget_range' in updated_plan:
+            session.budget_range = updated_plan['budget_range']
+        
         core_info = self._extract_core_info(updated_plan)
         session.weather_info = core_info.get('weather_info')
         session.selected_heritage_items = core_info.get('selected_heritage_items', [])
@@ -266,26 +281,54 @@ class RedisSessionPool(SessionPool):
         session.budget_constraints = core_info.get('budget_constraints', {})
         session.time_constraints = core_info.get('time_constraints', {})
         
-        # 保存到Redis
         self._save_session_to_redis(session)
         
-        logger.info(f"会话 {session_id} 已更新，编辑次数: {session.edit_count}")
+        logger.info(f"会话 {session_id} 已更新，travel_days={session.travel_days}, 编辑次数: {session.edit_count}")
         return True
     
     def remove_session(self, session_id: str) -> bool:
         """移除会话"""
         session_key = self._get_session_key(session_id)
-        
-        # 使用pipeline删除会话和索引
+
         pipe = self.redis_client.pipeline()
         pipe.delete(session_key)
         pipe.zrem(self.session_index_key, session_id)
         result = pipe.execute()
-        
-        if result[0]:  # 删除成功
+
+        if result[0]:
             logger.info(f"会话 {session_id} 已移除")
             return True
         return False
+
+    def add_conversation(self, session_id: str, role: str, content: str):
+        """添加对话记录（同时更新Redis和SQLite）"""
+        with self.session_lock:
+            session = self.sessions.get(session_id)
+            if session:
+                session.add_conversation(role, content)
+                self._save_session_to_redis(session)
+
+                sqlite_store = self._get_sqlite_store()
+                if sqlite_store and session.user_id:
+                    sqlite_store.save_conversation(
+                        session_id=session_id,
+                        user_id=session.user_id,
+                        role=role,
+                        content=content
+                    )
+
+                try:
+                    if self.conversation_service:
+                        asyncio.create_task(
+                            self.conversation_service.save_conversation_async(
+                                session_id=session_id,
+                                user_id=session.user_id,
+                                role=role,
+                                content=content
+                            )
+                        )
+                except Exception as e:
+                    logger.warning(f"保存对话记录失败: {e}")
     
     def update_session_plan(self, session_id: str, new_plan: Dict[str, Any]) -> bool:
         """更新会话中的规划数据"""

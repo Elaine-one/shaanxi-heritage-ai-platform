@@ -69,6 +69,7 @@ function createAvatarElement(avatarUrl, username, userId, options = {}) {
         img.src = AvatarCache.getCacheBustedUrl(avatarUrl, userId);
         
         img.onerror = function() {
+            console.warn('头像元素加载失败，显示占位符:', img.src, 'username:', username);
             if (showPlaceholder) {
                 container.innerHTML = createAvatarPlaceholder(username);
             }

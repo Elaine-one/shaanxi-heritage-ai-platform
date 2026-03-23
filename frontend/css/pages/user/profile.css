@@ -252,6 +252,7 @@
 .section-actions {
     display: flex;
     align-items: center;
+    gap: 10px;
 }
 
 .sort-select {
@@ -267,13 +268,6 @@
     height: 36px;
     display: inline-block;
     vertical-align: middle;
-}
-
-/* 确保section-actions内的元素对齐 */
-.section-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
 }
 
 .section-actions .btn,
@@ -508,24 +502,30 @@ textarea.form-control {
     display: none;
 }
 
-.favorite-checkbox input[type="checkbox"] {
+.favorite-checkbox input {
     width: 18px;
     height: 18px;
     cursor: pointer;
 }
 
 .multi-select-mode {
+    border: 1px solid #ddd;
     padding-left: 40px;
 }
 
+.multi-select-mode.selected {
+    border: 2px solid #e74c3c;
+    padding-left: 40px;
+}
+
+/* 多选操作栏 */
 .multi-select-actions {
     display: none;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 15px;
-    padding: 10px;
-    background-color: #f9f9f9;
-    border-radius: 8px;
+    background-color: #f8f8f8;
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
 }
 
 .multi-select-actions button {
@@ -559,43 +559,6 @@ textarea.form-control {
     margin-left: auto;
     font-size: 14px;
     color: #666;
-}
-
-/* 多选模式样式 */
-.favorite-checkbox {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 10;
-    background-color: rgba(255, 255, 255, 0.8);
-    border-radius: 4px;
-    padding: 3px;
-}
-
-.favorite-checkbox input {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-}
-
-.multi-select-mode {
-    border: 1px solid #ddd;
-    padding-left: 40px;
-}
-
-.multi-select-mode.selected {
-    border: 2px solid #e74c3c;
-    padding-left: 40px;
-}
-
-/* 多选操作栏 */
-.multi-select-actions {
-    display: none;
-    align-items: center;
-    background-color: #f8f8f8;
-    padding: 10px 15px;
-    border-radius: 4px;
-    margin-bottom: 20px;
 }
 
 /* 禁用按钮样式 */
@@ -664,16 +627,7 @@ textarea.form-control {
     }
 }
 
-.multi-select-actions .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
 
-.selected-count {
-    margin-left: auto;
-    font-size: 14px;
-    color: #666;
-}
 
 .favorite-image {
     height: 150px;

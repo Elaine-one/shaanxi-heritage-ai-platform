@@ -148,10 +148,7 @@ nav {
     }
 }
 
-/* 隐藏页面标题 */
-.page-title {
-    display: none;
-}
+
 
 /* 导航栏当前页面高亮优化 */
 .main-nav a.active {
@@ -816,20 +813,9 @@ nav {
     }
 }
 
-/* 修改默认图片路径 */
-.heritage-card-image {
-    background-image: url('/static/common/default-heritage.jpg');
-    /* 其他样式保持不变 */
-}
-
-/* 添加测试样式，确保卡片可见 */
-/* .heritage-item.test { */
+/* 
  
  
  
 
 
-/* 添加项目描述样式 */
-.heritage-description {
-    display: none;
-}

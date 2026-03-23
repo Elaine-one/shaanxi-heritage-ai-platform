@@ -423,7 +423,7 @@ async function loadCollectionsFromStorage() {
 }
 
 /**
- * 保存收藏数据到后端（已弃用本地存储）
+ * 保存收藏数据到后端
  * 注意：此函数现在仅用于更新本地缓存，实际数据已保存到后端
  */
 function saveCollectionsToStorage() {
@@ -617,7 +617,7 @@ function toggleCollection(itemId, event) {
     return true;
 }
 
-// 标签系统和旅游规划功能相关代码已移除，精简代码
+// 标签系统和旅游规划功能相关代码已移除
 
 /**
  * 使用全局api-utils中的showErrorMessage函数

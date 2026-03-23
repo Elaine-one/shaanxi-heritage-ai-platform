@@ -175,18 +175,19 @@ class TravelPlanner:
                         'lat': lat,
                         'lng': lng
                     })
-            except:
+                else:
+                    logger.warning(f"非遗项目坐标无效: {item.get('name', 'unknown')}, lat={lat}, lng={lng}")
+            except Exception as e:
+                logger.warning(f"非遗项目坐标解析异常: {item.get('name', 'unknown')}, 错误: {e}")
                 continue
-        
+
         if not locations:
-            # 如果没有有效坐标，尝试给一个默认的西安坐标，防止天气模块报错
-            return await self.weather_service.get_multi_location_weather(
-                [{'name': '西安', 'lat': 34.3416, 'lng': 108.9398}], days
-            )
+            logger.warning("所有非遗项目均无有效坐标，天气信息获取失败")
+            return {}
         
         return await self.weather_service.get_multi_location_weather(locations, days)
     
-    async def _generate_ai_suggestions(self, 
+    async def _generate_ai_suggestions(self,
                                      heritage_analysis: Dict[str, Any],
                                      weather_data: Dict[str, Any],
                                      planning_request: Dict[str, Any]) -> Dict[str, Any]:
@@ -195,12 +196,19 @@ class TravelPlanner:
         """
         try:
             from Agent.prompts import get_ai_suggestions_prompt
-            
-            travel_days = planning_request.get('travel_days', 3)
+
+            # 旅游规划参数默认值
+            # 用户未指定时使用这些兜底值
+            DEFAULT_TRAVEL_DAYS = 3
+            DEFAULT_GROUP_SIZE = 2
+            DEFAULT_BUDGET_RANGE = '中等'
+            DEFAULT_TRAVEL_MODE = '自驾'
+
+            travel_days = planning_request.get('travel_days', DEFAULT_TRAVEL_DAYS)
             departure_location = planning_request.get('departure_location', '')
-            group_size = planning_request.get('group_size', 2)
-            budget_range = planning_request.get('budget_range', '中等')
-            travel_mode = planning_request.get('travel_mode', '自驾')
+            group_size = planning_request.get('group_size', DEFAULT_GROUP_SIZE)
+            budget_range = planning_request.get('budget_range', DEFAULT_BUDGET_RANGE)
+            travel_mode = planning_request.get('travel_mode', DEFAULT_TRAVEL_MODE)
             special_requirements = planning_request.get('special_requirements', [])
             
             heritage_items = heritage_analysis.get('heritage_items', [])
@@ -247,8 +255,6 @@ class TravelPlanner:
                 'error': str(e)
             }
 
-    # 百度地图 API 集成
-
     async def _get_coordinates(self, location_name: str) -> tuple:
         """
         获取地理位置坐标（通过统一地理编码服务）
@@ -257,7 +263,7 @@ class TravelPlanner:
         
         geocoding = get_geocoding_service()
         coords = await geocoding.get_coordinates(location_name)
-        return coords if coords else geocoding.get_default_coordinates()
+        return coords
 
     async def _optimize_travel_route_v2(self, 
                                       items: List[Dict[str, Any]], 
@@ -290,13 +296,16 @@ class TravelPlanner:
             mcp_client = get_mcp_client()
 
             start_coords = await self._get_coordinates(start_location)
-            
+            if not start_coords:
+                logger.error(f"无法获取出发地坐标: {start_location}")
+                return {'daily_itinerary': [], 'error': f'无法获取出发地"{start_location}"的坐标'}
+
             unvisited = []
             for item in items:
                 try:
                     lat = float(item.get('latitude', 0))
                     lng = float(item.get('longitude', 0))
-                    
+
                     if not lat or not lng:
                         addr = item.get('address') or item.get('region') or item.get('name')
                         c = await self._get_coordinates(addr)
@@ -304,6 +313,8 @@ class TravelPlanner:
                             lat, lng = c
                             item['latitude'] = lat
                             item['longitude'] = lng
+                        else:
+                            logger.warning(f"无法获取非遗项目坐标: {item.get('name', 'unknown')}, 地址: {addr}")
 
                     if lat and lng:
                         item['visit_duration'] = float(item.get('visit_duration') or 2.0)
@@ -313,7 +324,8 @@ class TravelPlanner:
                             'coords': (lat, lng),
                             'location_str': f"{lat},{lng}"
                         })
-                except:
+                except Exception as e:
+                    logger.warning(f"非遗项目 {item.get('name', 'unknown')} 路径规划处理异常: {e}")
                     continue
             
             if not unvisited:
