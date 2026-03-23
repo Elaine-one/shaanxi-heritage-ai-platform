@@ -115,19 +115,27 @@ class WeatherService:
     def _configure_ubuntu_network(self):
         """配置Ubuntu环境的网络设置"""
         logger.info("检测到Ubuntu环境，应用特殊网络配置")
-        
-        # Ubuntu环境默认禁用SSL验证，避免证书问题
+
         if self.ssl_verify:
             logger.warning("Ubuntu环境下禁用SSL验证以避免证书问题")
             self.ssl_verify = False
-        
-        # 增加超时时间
-        self.timeout = aiohttp.ClientTimeout(total=30, connect=15, sock_connect=15, sock_read=15)
-        
-        # 增加重试次数和延迟
+
+        # HTTP请求超时配置（秒）
+        # total: 总请求超时; connect: 连接建立超时; sock_connect: 套接字连接超时; sock_read: 套接字读取超时
+        REQUEST_TIMEOUT_SECONDS = 30
+        CONNECT_TIMEOUT_SECONDS = 15
+        self.timeout = aiohttp.ClientTimeout(
+            total=REQUEST_TIMEOUT_SECONDS,
+            connect=CONNECT_TIMEOUT_SECONDS,
+            sock_connect=CONNECT_TIMEOUT_SECONDS,
+            sock_read=CONNECT_TIMEOUT_SECONDS
+        )
+
+        # HTTP请求重试配置
+        # 天气API响应可能不稳定，设置适当重试以提高成功率
         self.max_retries = 5
         self.retry_delay = 2
-        
+
         logger.info(f"Ubuntu网络配置完成: 超时={self.timeout.total}s, 重试次数={self.max_retries}")
     
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -155,11 +163,12 @@ class WeatherService:
                 logger.warning("SSL验证已禁用，仅用于开发环境")
             
             # 创建连接器配置
+            # limit: 全局连接池上限; limit_per_host: 单主机连接上限（高德API限制）; ttl_dns_cache: DNS缓存有效期
             connector = aiohttp.TCPConnector(
                 ssl=ssl_context,
-                limit=10,  # 连接池大小
-                limit_per_host=5,  # 每个主机的连接数
-                ttl_dns_cache=300,  # DNS缓存时间(秒)
+                limit=10,
+                limit_per_host=5,
+                ttl_dns_cache=300,
                 use_dns_cache=True,
                 enable_cleanup_closed=True
             )

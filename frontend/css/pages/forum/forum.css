@@ -668,12 +668,7 @@
     font-size: 0.9rem;
 }
 
-/* 侧边栏 */
-.sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
+
 
 /* 大屏幕优化 - 1400px以上 */
 @media (min-width: 1400px) {
@@ -880,7 +875,7 @@
     background: white;
     color: var(--shaanxi-red);
     padding: 10px 18px;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-large);
     font-size: 16px;
     font-weight: 600;
     text-decoration: none;
@@ -914,22 +909,7 @@
     box-shadow: 0 4px 12px rgba(188, 46, 36, 0.3);
 }
 
-.tag {
-    background: var(--light-bg);
-    color: var(--shaanxi-red);
-    padding: 0.4rem 0.8rem;
-    border-radius: 15px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border: 1px solid transparent;
-}
 
-.tag:hover {
-    background: var(--shaanxi-red);
-    color: white;
-    transform: translateY(-2px);
-}
 
 /* 活跃用户排行榜 - 简化设计 */
 .user-ranking {
@@ -1055,18 +1035,6 @@
     font-weight: bold;
     font-size: 16px;
     line-height: 1;
-}
-
-.rules-content li:before {
-    content: '•';
-    color: var(--shaanxi-red);
-    position: absolute;
-    left: 0;
-    font-weight: 600;
-}
-
-.rules-content li:last-child {
-    border-bottom: none;
 }
 
 .view-full-rules {
@@ -1208,26 +1176,7 @@
     font-family: inherit;
 }
 
-.form-group input:focus,
-.form-group select:focus {
-    outline: none;
-    border-color: var(--shaanxi-red);
-    box-shadow: 0 0 0 2px rgba(193, 48, 48, 0.2);
-}
 
-.char-count {
-    text-align: right;
-    font-size: 0.8rem;
-    color: #666;
-    margin-top: 0.25rem;
-}
-
-.tag-selector small {
-    display: block;
-    margin-top: 0.25rem;
-    color: #666;
-    font-size: 0.8rem;
-}
 
 /* 表单操作按钮 - 现代化设计 */
 .form-actions {

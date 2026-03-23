@@ -52,9 +52,9 @@ class LayeredCacheManager:
     - 统计监控: 完善的命中率统计
     """
     
-    L1_MAX_SIZE = 1000
-    L1_TTL_SECONDS = 300
-    L2_TTL_SECONDS = 86400
+    L1_MAX_SIZE = 1000  # L1内存缓存最大容量
+    L1_TTL_SECONDS = 300  # L1缓存有效期：5分钟（高频访问数据）
+    L2_TTL_SECONDS = 86400  # L2缓存有效期：24小时（持久化数据）
     
     def __init__(self, redis_client=None):
         self._lock = threading.RLock()

@@ -430,8 +430,11 @@ class RoutePreviewTool(BaseTool):
             
             start_coords = await geocoding.get_coordinates(departure_location)
             if not start_coords:
-                start_coords = (34.3416, 108.9398)
-            
+                return {
+                    'success': False,
+                    'error': f'无法获取出发地"{departure_location}"的坐标信息'
+                }
+
             locations = [{'name': departure_location, 'coords': start_coords, 'is_start': True}]
             for h in heritages:
                 lat = h.get('latitude')

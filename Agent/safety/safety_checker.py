@@ -211,7 +211,7 @@ def get_safety_checker() -> SafetyChecker:
 
 
 def check_safety(user_input: str) -> SafetyResult:
-    """便捷函数：检测输入安全性（同步版本）"""
+    """便捷函数：检测输入安全性"""
     return get_safety_checker().check(user_input)
 
 

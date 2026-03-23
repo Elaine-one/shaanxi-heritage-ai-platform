@@ -116,13 +116,19 @@
                         processImage(image);
                     } else {
                         image.onload = () => processImage(image);
-                        image.onerror = reject;
+                        image.onerror = () => {
+                            console.warn('图片加载失败(ImageElement):', image.src || image.currentSrc);
+                            reject(new Error('Failed to load image'));
+                        };
                     }
                 } else if (typeof image === 'string') {
                     const img = new Image();
                     img.crossOrigin = 'anonymous';
                     img.onload = () => processImage(img);
-                    img.onerror = reject;
+                    img.onerror = () => {
+                        console.warn('图片加载失败(string):', image);
+                        reject(new Error('Failed to load image'));
+                    };
                     img.src = image;
                 } else {
                     reject(new Error('Invalid image input'));

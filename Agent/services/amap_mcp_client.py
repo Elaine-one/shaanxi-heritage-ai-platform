@@ -40,6 +40,9 @@ class AmapMCPClient:
         self._session_loop = None
         
         self._cache: Dict[str, Tuple[Any, float]] = {}
+        # 高德地图API缓存策略（秒）
+        # geocode: 地理编码缓存1天; places: 地点搜索缓存1小时
+        # directions/distance/weather: 路线/距离/天气缓存30分钟
         self._cache_ttl = {
             'geocode': 86400,
             'directions': 1800,

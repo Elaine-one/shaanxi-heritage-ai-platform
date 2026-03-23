@@ -20,98 +20,7 @@
     justify-content: flex-start;
 }
 
-/* 页面头部样式 - 已隐藏，避免与固定侧边栏冲突 */
-.page-header {
-    display: none;
-}
 
-.page-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="%23ffffff" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>') repeat;
-    opacity: 0.3;
-}
-
-.page-header::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--shaanxi-gold), var(--shaanxi-red), var(--shaanxi-gold));
-}
-
-.header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    max-width: 1800px;
-    margin: 0 auto;
-    padding: 0 20px;
-    position: relative;
-    z-index: 1;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-}
-
-.title-section {
-    flex: 1;
-}
-
-.page-title {
-    font-size: 2.5rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    color: white;
-}
-
-.page-title i {
-    margin-right: 1rem;
-    color: var(--shaanxi-gold);
-    text-shadow: none;
-    font-size: 2.2rem;
-}
-
-.page-subtitle {
-    font-size: 1rem;
-    opacity: 0.95;
-    font-weight: 300;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-}
-
-.stats-section {
-    display: flex;
-    gap: 40px;
-    background: rgba(255,255,255,0.15);
-    padding: 25px 35px;
-    border-radius: 15px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.2);
-}
-
-.stat-item {
-    text-align: center;
-}
-
-.stat-number {
-    display: block;
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 5px;
-}
-
-.stat-label {
-    font-size: 1rem;
-    opacity: 0.9;
-    font-weight: 300;
-}
 
 /* 创作容器 - 论坛风格主容器 */
 .creation-container {
@@ -160,137 +69,9 @@
         padding: 20px;
         border-radius: 12px;
     }
-    
-    .login-required {
-        padding: 40px 15px;
-        margin: 20px 0;
-    }
-    
-    .login-required h2 {
-        font-size: 1.5rem;
-    }
-    
-    .login-actions {
-        flex-direction: column;
-        align-items: center;
-    }
-    
-    .header-content {
-        flex-direction: column;
-        text-align: center;
-        gap: 30px;
-        padding: 0 20px;
-    }
-    
-    .page-title {
-        font-size: 2.2rem;
-        gap: 15px;
-    }
-    
-    .stats-section {
-        flex-direction: column;
-        gap: 20px;
-        padding: 20px;
-    }
-    
-    .stat-number {
-        font-size: 2rem;
-    }
 }
 
-@media (max-width: 480px) {
-    .page-header {
-        padding: 50px 0;
-    }
-    
-    .page-title {
-        font-size: 1.8rem;
-    }
-    
-    .page-subtitle {
-        font-size: 1.1rem;
-    }
-    
-    .stats-section {
-        padding: 15px;
-    }
-    
-    .stat-number {
-        font-size: 1.8rem;
-    }
-}
 
-/* 未登录状态样式 */
-.login-required {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 60px 20px;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    margin: 40px 0;
-}
-
-.login-required .login-icon {
-    font-size: 4rem;
-    color: #667eea;
-    margin-bottom: 20px;
-}
-
-.login-required h2 {
-    font-size: 2rem;
-    color: #333;
-    margin-bottom: 15px;
-}
-
-.login-required p {
-    font-size: 1.1rem;
-    color: #666;
-    margin-bottom: 30px;
-}
-
-.login-actions {
-    display: flex;
-    gap: 15px;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.login-btn, .register-btn {
-    padding: 12px 25px;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.login-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-}
-
-.login-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-}
-
-.register-btn {
-    background: #f8f9fa;
-    color: #333;
-    border: 2px solid #667eea;
-}
-
-.register-btn:hover {
-    background: #667eea;
-    color: white;
-    transform: translateY(-2px);
-}
 
 /* 左侧边栏样式 - 参考非遗地图设计，移除固定定位 */
 .creation-sidebar {
@@ -683,37 +464,7 @@ footer {
     gap: 0;
 }
 
-.sort-btn {
-    background: #f8f9fa;
-    border: 2px solid #f0f0f0;
-    padding: 12px 24px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 16px;
-    font-weight: 500;
-    color: #666;
-    position: relative;
-    z-index: 1;
-    min-width: 120px;
-    text-align: center;
-}
 
-.sort-btn:hover {
-    background: rgba(188, 46, 36, 0.05);
-    border-color: var(--shaanxi-red);
-    color: var(--shaanxi-red);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(188, 46, 36, 0.15);
-}
-
-.sort-btn.active {
-    background: var(--shaanxi-red);
-    color: white;
-    box-shadow: 0 2px 8px rgba(188, 46, 36, 0.25);
-    font-weight: 600;
-    border: 2px solid var(--shaanxi-red);
-}
 
 /* 抖音风格的视频容器 */
 .douyin-container {
@@ -1138,30 +889,7 @@ footer {
     }
 }
 
-/* 加载更多按钮 - 论坛风格 */
-.load-more-container {
-    text-align: center;
-    margin-top: 40px;
-    padding: 20px 0;
-}
 
-.load-more-btn {
-    padding: 12px 32px;
-    border: 1px solid var(--border-light);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border-radius: var(--radius-medium);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-weight: 500;
-    font-size: 14px;
-}
-
-.load-more-btn:hover {
-    background: var(--shaanxi-red);
-    color: white;
-    border-color: var(--shaanxi-red);
-}
 
 /* 模态框样式 - 美化设计 */
 .modal {

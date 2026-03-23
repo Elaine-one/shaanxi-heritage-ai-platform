@@ -143,7 +143,9 @@ class PlanEditorAPI {
         this.editor.chat.addChatMessage('ai', '正在为您生成深度定制路书，请稍候...', true);
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 300000);
+        // 路书导出超时：5分钟（深度定制的AI内容渲染需要较长时间）
+        const TRAVEL_GUIDE_EXPORT_TIMEOUT_MS = 5 * 60 * 1000;
+        const timeoutId = setTimeout(() => controller.abort(), TRAVEL_GUIDE_EXPORT_TIMEOUT_MS);
         
         try {
             const apiUrl = await this.getApiBaseUrl('agent');

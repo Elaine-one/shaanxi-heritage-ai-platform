@@ -6,10 +6,6 @@
     <title>帖子详情 - 非遗传承网</title>
     <!-- 引入基础样式 -->
     <link rel="stylesheet" href="../css/base/common.css">
-    <link rel="stylesheet" href="../css/pages/forum/forum.css">
-    <link rel="stylesheet" href="../css/pages/forum/forum-post-optimized.css">
-    <link rel="stylesheet" href="../css/pages/forum/forum-post-header.css">
-    <link rel="stylesheet" href="../css/pages/forum/post-detail.css">
     <!-- 新增：统一组件样式 -->
     <link rel="stylesheet" href="../css/components/modal.css">
     <link rel="stylesheet" href="../css/components/notification.css">
@@ -38,34 +34,34 @@
         
         /* 专业级页面容器 - 精确边距控制 */
         .post-detail-container {
-            max-width: 100%; /* 默认情况下完全利用可用宽度 */
-            margin: 1rem 0.5rem; /* 上下边距1rem，左右边距0.5rem - 减少边缘空白 */
-            padding: 0; /* 移除内边距，使用外边距控制 */
-            min-height: calc(100vh - 2rem); /* 减去上下边距 */
+            max-width: 100%;
+            margin: 1rem 0.5rem;
+            padding: 0;
+            min-height: calc(100vh - 2rem);
             position: relative;
         }
         
         /* 大屏幕适配 - 让内容向左右扩展，减少空白 */
         @media (min-width: 1200px) {
             .post-detail-container {
-                max-width: 100%; /* 完全利用屏幕宽度 */
-                margin: 1rem 0; /* 上下1rem，左右0边距 */
+                max-width: 100%;
+                margin: 1rem 0;
             }
         }
         
         /* 超大屏幕适配 */
         @media (min-width: 1500px) {
             .post-detail-container {
-                max-width: 100%; /* 完全利用屏幕宽度 */
-                margin: 1rem 0; /* 上下1rem，左右0边距 */
+                max-width: 100%;
+                margin: 1rem 0;
             }
         }
         
         /* 全屏优化 */
         @media (min-width: 1800px) {
             .post-detail-container {
-                max-width: 100%; /* 完全利用屏幕宽度 */
-                margin: 1rem 0; /* 上下1rem，左右0边距 */
+                max-width: 100%;
+                margin: 1rem 0;
             }
         }
         
@@ -86,7 +82,6 @@
         }
         
         .post-detail-container.margin-custom {
-            /* 自定义边距，可以通过内联样式设置具体数值 */
             margin: var(--page-margin, 2rem) auto;
             min-height: calc(100vh - var(--page-margin-double, 4rem));
         }
@@ -621,263 +616,6 @@
                 transform: translateX(0);
             }
         }
-    </style>
-            align-items: center;
-            text-decoration: none;
-            color: white;
-            font-size: 1.5rem;
-            font-weight: bold;
-            transition: transform 0.3s ease;
-        }
-        
-        .logo a:hover {
-            transform: scale(1.05);
-        }
-        
-        .logo span {
-            font-size: 1.4rem;
-            font-weight: 600;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        }
-        
-        /* 导航菜单 */
-        .nav {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-            flex: 1;
-            justify-content: center;
-        }
-        
-        .nav a {
-            color: rgba(255, 255, 255, 0.9);
-            text-decoration: none;
-            font-size: 1rem;
-            font-weight: 500;
-            padding: 0.5rem 1rem;
-            border-radius: 25px;
-            transition: all 0.3s ease;
-            position: relative;
-            white-space: nowrap;
-        }
-        
-        .nav a:hover {
-            color: white;
-            background-color: rgba(255, 255, 255, 0.1);
-            transform: translateY(-2px);
-        }
-        
-        .nav a.active {
-            color: white;
-            background-color: rgba(255, 255, 255, 0.2);
-            font-weight: 600;
-        }
-        
-        .nav a.active::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 20px;
-            height: 2px;
-            background-color: #ffd700;
-            border-radius: 1px;
-        }
-        
-        /* 用户操作区 */
-        .user-actions {
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        
-        .user-icon {
-            cursor: pointer;
-            transition: transform 0.3s ease;
-            font-weight: 600;
-            font-size: 0.9rem;
-            background-color: rgb(140, 46, 46);
-            color: white;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .user-icon:hover {
-            transform: scale(1.1);
-        }
-        
-        /* 面包屑导航增强 - 重新设计 */
-        .breadcrumb {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 249, 250, 0.9));
-            border-radius: 12px;
-            padding: 1rem 2rem;
-            margin: 1rem 0 2rem;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-            font-size: 0.9rem;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            max-width: 100%;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-        
-        .breadcrumb:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-        }
-        
-        .breadcrumb-container {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .breadcrumb a {
-            color: #c93838;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            padding: 0.25rem 0.5rem;
-            border-radius: 6px;
-            font-weight: 500;
-        }
-        
-        .breadcrumb a:hover {
-            color: #a62c2c;
-            background-color: rgba(201, 56, 56, 0.1);
-            transform: translateY(-1px);
-        }
-        
-        .breadcrumb .separator {
-            color: #999;
-            font-size: 0.8rem;
-        }
-        
-        .breadcrumb .current {
-            color: #333;
-            font-weight: 600;
-            background-color: rgba(201, 56, 56, 0.05);
-            padding: 0.25rem 0.5rem;
-            border-radius: 6px;
-        }
-        
-        /* 返回按钮增强 - 重新设计 */
-        .back-to-forum-btn {
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            background: linear-gradient(135deg, #fff, #f8f9fa);
-            border: 2px solid #c93838;
-            border-radius: 25px;
-            color: #c93838;
-            font-weight: 600;
-            font-size: 0.95rem;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        }
-        
-        .back-to-forum-btn:hover {
-            background: linear-gradient(135deg, #c93838, #a62c2c);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(201, 56, 56, 0.3);
-        }
-        
-        .back-to-forum-btn:active {
-            transform: translateY(0) scale(0.95);
-        }
-        
-        .back-to-forum-btn i {
-            transition: transform 0.3s ease;
-        }
-        
-        .back-to-forum-btn:hover i {
-            transform: translateX(-3px);
-        }
-        
-        /* 作者头像悬停效果增强 - 重新设计 */
-        .author-avatar {
-            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #fff, #f0f0f0);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            font-weight: bold;
-            color: #c93838;
-            border: 4px solid rgba(255, 255, 255, 0.9);
-            box-shadow: 
-                0 4px 15px rgba(0, 0, 0, 0.2),
-                inset 0 2px 4px rgba(255, 255, 255, 0.3);
-            position: relative;
-            overflow: hidden;
-            cursor: pointer;
-        }
-        
-        .author-avatar:hover {
-            transform: scale(1.05) rotate(2deg);
-            box-shadow: 
-                0 6px 20px rgba(0, 0, 0, 0.3),
-                inset 0 2px 4px rgba(255, 255, 255, 0.3);
-        }
-        
-        .author-avatar:hover {
-            box-shadow: 
-                0 8px 25px rgba(0, 0, 0, 0.3),
-                inset 0 2px 4px rgba(255, 255, 255, 0.3),
-                0 0 0 4px rgba(255, 215, 0, 0.3);
-        }
-        
-        /* 关注按钮点击效果 */
-        .follow-btn {
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
-        
-        .follow-btn:active {
-            transform: translateY(0) scale(0.95);
-        }
-        
-        /* 导航链接悬停效果 */
-        .nav a {
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
-        
-        .nav a:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* Logo悬停效果 */
-        .logo a {
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
-        
-        .logo a:hover {
-            transform: scale(1.05) rotate(-1deg);
-        }
-        
-        /* 用户图标悬停效果 */
-        .user-icon {
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
-        
-        .user-icon:hover {
-            transform: scale(1.1) rotate(5deg);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        }
         
         /* 专业级评论区样式 - 加宽并增强文化感 */
         .comments-section-pro {
@@ -1038,11 +776,6 @@
             margin-bottom: 1rem;
         }
         
-        .comment-actions-pro {
-            display: flex;
-            gap: 1rem;
-        }
-        
         .comment-action-btn {
             background: none;
             border: none;
@@ -1101,20 +834,16 @@
             <div class="post-header-pro">
                 <div class="author-info-pro">
                     <div id="authorAvatar" class="author-avatar-pro">
-                        <!-- 作者头像或首字母 -->
                     </div>
                     
                     <div class="author-details-pro">
                         <h2 id="authorName" class="author-name-pro">
-                            <!-- 作者名称 -->
                         </h2>
                         
                         <div class="author-meta-pro">
                             <span id="authorLevel" class="author-level-pro">
-                                <!-- 作者等级 -->
                             </span>
                             <span id="postTime" class="post-time-pro">
-                                <!-- 发布时间 -->
                             </span>
                         </div>
                     </div>
@@ -1130,23 +859,19 @@
             <div class="post-content-pro">
                 <!-- 帖子标题 -->
                 <h1 id="postTitle" class="post-title-pro">
-                    <!-- 帖子标题 -->
                 </h1>
 
                 <!-- 帖子标签 -->
                 <div id="postTags" class="post-tags-pro">
-                    <!-- 标签将通过JS动态生成 -->
                 </div>
 
                 <!-- 帖子内容 -->
                 <div id="postSkeleton" class="post-skeleton">
-                    <!-- 加载骨架屏 -->
                     <div class="skeleton-content"></div>
                 </div>
                 
                 <div id="postContentWrapper" class="post-content-wrapper" style="display: none;">
                     <div id="postContent" class="post-body-pro">
-                        <!-- 帖子内容将通过JS动态生成 -->
                     </div>
                 </div>
             </div>
@@ -1210,7 +935,6 @@
 
                 <!-- 评论列表 -->
                 <div id="commentsList" class="comments-list-pro">
-                    <!-- 评论将通过JS动态生成 -->
                 </div>
             </div>
         </div>
@@ -1316,7 +1040,6 @@
     <!-- 页面初始化脚本 -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 初始化帖子详情管理器
             const postManager = new PostDetailManager();
         });
     </script>

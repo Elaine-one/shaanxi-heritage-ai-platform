@@ -730,16 +730,32 @@ class FloatingAIAssistant {
     }
     
     closePanel() {
+        this.clearHistory();
+    }
+
+    clearHistory() {
+        this.conversationHistory = [];
+        this.sessionId = `session_${Date.now()}`;
+        this.saveState();
+
         const panel = document.getElementById('ai-float-panel');
         const btn = document.getElementById('ai-float-btn');
         const minibar = document.getElementById('ai-minibar');
-        
+
         panel.classList.remove('open');
         btn.style.display = 'flex';
         minibar.style.display = 'none';
         this.isOpen = false;
         this.isMinimized = false;
-        this.saveState();
+
+        const container = document.getElementById('ai-chat-container');
+        if (container) {
+            container.innerHTML = this.renderConversationHistory();
+        }
+
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.success('聊天记录已清空');
+        }
     }
     
     minimizePanel() {
@@ -1058,10 +1074,14 @@ class FloatingAIAssistant {
         this.conversationHistory = [];
         this.sessionId = `session_${Date.now()}`;
         this.saveState();
-        
+
         const container = document.getElementById('ai-chat-container');
         if (container) {
             container.innerHTML = this.renderConversationHistory();
+        }
+
+        if (typeof NotificationManager !== 'undefined') {
+            NotificationManager.success('聊天记录已清空');
         }
     }
 }

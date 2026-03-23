@@ -385,87 +385,7 @@
     text-decoration: underline;
 }
 
-/* 帖子操作栏 - 紧凑设计 */
-.post-actions {
-    padding: 0.8rem 1.25rem;
-    border-top: 1px solid var(--border-light);
-    background: var(--bg-secondary);
-}
 
-.action-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.4rem 0.8rem;
-    background: white;
-    border: 1px solid var(--border-medium);
-    border-radius: 16px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.action-btn:hover {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-    background: rgba(188, 46, 36, 0.05);
-}
-
-.action-btn.active {
-    background: var(--primary-color);
-    border-color: var(--primary-color);
-    color: white;
-}
-
-.action-btn i {
-    font-size: 0.85rem;
-}
-
-.action-count {
-    font-weight: 500;
-    margin-left: 0.2rem;
-}
-
-/* 管理员操作 */
-.admin-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.8rem;
-    padding-top: 0.8rem;
-    border-top: 1px solid var(--border-light);
-}
-
-.admin-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.35rem 0.7rem;
-    background: white;
-    border: 1px solid var(--border-medium);
-    border-radius: 14px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.admin-btn:hover {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-}
-
-.admin-btn.delete-btn:hover {
-    border-color: #dc3545;
-    color: #dc3545;
-}
 
 /* 评论区 - 紧凑设计 */
 .comments-section {
@@ -1299,25 +1219,6 @@
         font-size: 0.9rem;
     }
     
-    .post-actions {
-        padding: 0.5rem 0.8rem;
-    }
-    
-    .action-btn {
-        padding: 0.3rem 0.5rem;
-        font-size: 0.7rem;
-    }
-    
-    .admin-actions {
-        margin-top: 0.5rem;
-        padding-top: 0.5rem;
-    }
-    
-    .admin-btn {
-        padding: 0.3rem 0.5rem;
-        font-size: 0.7rem;
-    }
-    
     .comments-header {
         padding: 0.6rem 0.8rem;
     }
@@ -1453,19 +1354,6 @@
 @media (max-width: 359px) {
     .post-title {
         font-size: 1rem;
-    }
-    
-    .action-btn {
-        padding: 0.25rem 0.4rem;
-        font-size: 0.65rem;
-    }
-    
-    .action-btn .action-text {
-        display: none;
-    }
-    
-    .action-btn i {
-        margin: 0;
     }
     
     .toolbar-left {

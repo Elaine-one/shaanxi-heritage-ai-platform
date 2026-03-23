@@ -281,25 +281,24 @@ class WeatherQueryTool(BaseTool):
     async def _get_city_coordinates(self, city: str) -> Optional[tuple]:
         """
         获取城市坐标（通过统一地理编码服务）
-        
+
         Args:
             city (str): 城市名称
-            
+
         Returns:
-            Optional[tuple]: (latitude, longitude) 或 None
+            Optional[tuple]: (latitude, longitude) 或 None（获取失败时返回None）
         """
         from ..services.geocoding import get_geocoding_service
-        
+
         geocoding = get_geocoding_service()
         coords = await geocoding.get_coordinates(city)
-        
+
         if coords:
             logger.info(f"获取城市坐标成功: {city} -> {coords}")
             return coords
-        
-        default = geocoding.get_default_coordinates()
-        logger.warning(f"未找到城市'{city}'的坐标，使用默认坐标: {default}")
-        return default
+
+        logger.warning(f"未找到城市'{city}'的坐标")
+        return None
 
 
 class KnowledgeBaseTool(BaseTool):
@@ -398,17 +397,29 @@ class PlanEditTool(BaseTool):
 
             response = await llm_model._call_model(prompt)
 
+            logger.info(f"LLM 原始返回: {response}")
+
             if response.get('success'):
                 import json
+                content = response['content'].strip()
+                if content.startswith('```'):
+                    lines = content.split('\n')
+                    content = '\n'.join(lines[1:-1] if lines[-1].startswith('```') else lines[1:])
+                logger.info(f"LLM content (cleaned): {content}")
                 try:
-                    edited_plan = json.loads(response['content'])
+                    edited_plan = json.loads(content)
+                    logger.info(f"解析后的 edited_plan: {edited_plan}")
                     filtered_plan = _filter_ids_from_data(edited_plan)
+
+                    self._update_current_context(filtered_plan)
+
                     return {
                         'success': True,
                         'edited_plan': filtered_plan,
                         'changes': f"已根据'{edit_request}'修改规划"
                     }
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON 解析失败: {e}, content: {content}")
                     filtered_current = _filter_ids_from_data(current_plan)
                     return {
                         'success': True,
@@ -422,15 +433,77 @@ class PlanEditTool(BaseTool):
             logger.error(f"规划编辑失败: {str(e)}")
             return {'success': False, 'error': f"编辑失败: {str(e)}"}
 
+    def _update_current_context(self, edited_plan: Dict[str, Any]):
+        """更新当前上下文的 plan_data 和 Redis session"""
+        try:
+            from Agent.context.unified_context import get_current_context
+            context = get_current_context()
+            if not context:
+                logger.debug("无当前上下文，跳过更新")
+                return
+
+            if context.plan_data:
+                if 'travel_days' in edited_plan:
+                    context.plan_data.travel_days = edited_plan['travel_days']
+                if 'departure' in edited_plan:
+                    context.plan_data.departure_location = edited_plan['departure']
+                    logger.info(f"✅ 更新 departure_location = {edited_plan['departure']}")
+                if 'departure_location' in edited_plan:
+                    context.plan_data.departure_location = edited_plan['departure_location']
+                    logger.info(f"✅ 更新 departure_location = {edited_plan['departure_location']}")
+                if 'travel_mode' in edited_plan:
+                    context.plan_data.travel_mode = edited_plan['travel_mode']
+                if 'group_size' in edited_plan:
+                    context.plan_data.group_size = edited_plan['group_size']
+                if 'budget_range' in edited_plan:
+                    context.plan_data.budget_range = edited_plan['budget_range']
+                if 'heritage_names' in edited_plan or 'heritage_items' in edited_plan:
+                    pass
+
+                logger.info(f"✅ 上下文 plan_data 已更新: travel_days={context.plan_data.travel_days}, departure={context.plan_data.departure_location}")
+
+            try:
+                from Agent.memory.session import get_session_pool
+                session_pool = get_session_pool()
+                if session_pool and context.session_id:
+                    if hasattr(session_pool, 'update_session_plan'):
+                        session_pool.update_session_plan(context.session_id, edited_plan)
+                        logger.info(f"✅ Session 已更新: session_id={context.session_id}, travel_days={edited_plan.get('travel_days')}")
+                    elif hasattr(session_pool, 'update_session'):
+                        session_pool.update_session(context.session_id, edited_plan)
+                        logger.info(f"✅ Session 已通过 update_session 更新: session_id={context.session_id}")
+                    else:
+                        session = session_pool.get_session(context.session_id)
+                        if session:
+                            if 'travel_days' in edited_plan:
+                                session.travel_days = edited_plan['travel_days']
+                            if 'departure' in edited_plan:
+                                session.departure_location = edited_plan['departure']
+                            if 'travel_mode' in edited_plan:
+                                session.travel_mode = edited_plan['travel_mode']
+                            if 'group_size' in edited_plan:
+                                session.group_size = edited_plan['group_size']
+                            if 'budget_range' in edited_plan:
+                                session.budget_range = edited_plan['budget_range']
+                            session.current_plan = edited_plan
+                            logger.info(f"✅ Session 已直接更新: session_id={context.session_id}")
+            except Exception as e:
+                logger.error(f"更新 session 失败: {e}")
+
+        except Exception as e:
+            logger.warning(f"更新上下文失败: {e}")
+
     def _build_edit_prompt(self, current_plan: Dict[str, Any],
                           edit_request: str) -> str:
         """构建规划编辑提示词"""
         import json
         from Agent.prompts import get_plan_edit_prompt
-        return get_plan_edit_prompt(
+        prompt = get_plan_edit_prompt(
             current_plan=json.dumps(current_plan, ensure_ascii=False, indent=2),
             edit_request=edit_request
         )
+        logger.info(f"plan_edit prompt:\n{prompt[:500]}...")
+        return prompt
 
 
 class GeocodingTool(BaseTool):

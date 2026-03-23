@@ -3,10 +3,6 @@
  * 负责初始化旅游规划Agent和集成其他模块
  */
 
-// 旅游规划Agent主入口文件
-// 引入其他模块并初始化旅游规划Agent
-
-// 初始化全局submitPlanningConfig函数，供profile.html使用
 window.submitPlanningConfig = function() {
     console.log('submitPlanningConfig函数被调用');
     if (window.travelAgent) {
@@ -16,10 +12,8 @@ window.submitPlanningConfig = function() {
     }
 };
 
-// 等待DOM加载完成后初始化旅游规划Agent
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // 如果已存在实例，先销毁，防止重复绑定和定时器泄露
         if (window.travelAgent) {
             console.log('检测到旧的Agent实例，正在销毁...');
             if (typeof window.travelAgent.destroy === 'function') {
@@ -28,7 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.travelAgent = null;
         }
         
-        // 初始化旅游规划Agent
         window.travelAgent = new TravelPlanningAgent();
         console.log('旅游规划Agent实例化成功');
     } catch (error) {

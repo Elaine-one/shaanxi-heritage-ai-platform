@@ -12,68 +12,16 @@ from loguru import logger
 
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
-from langchain.messages import HumanMessage
+from langchain.messages import HumanMessage, SystemMessage, AIMessage
 
-
-SYSTEM_PROMPT = """你是陕西非遗旅游助手，热情友好，回复自然流畅。
-
-# 规划上下文
-
-上下文已包含：出发地、已选非遗项目（名称、ID、地区、经纬度）、出行方式
-
-# 工具选择规则
-
-## 路线查询
-用户问"路线"、"怎么去"时：
-1. 先调用 route_preview 获取游览顺序
-2. 根据 travel_mode 调用交通工具：
-   - driving → driving_route
-   - transit/public → transit_route
-   - riding → riding_route
-
-## 天气查询
-用户问"天气"时：
-- 调用 maps_weather
-- 用户说"都需要"时查询所有非遗所在地区
-
-## 禁止事项
-- 不要搜索已选非遗项目
-- 不要使用非遗名称作为目的地参数
-
-## 参数使用规则
-
-调用交通规划工具时：
-- origin/destination 使用城市名称（如"西安市"、"宝鸡市"）
-- 或使用上下文中的经纬度格式"经度,纬度"
-- 例如：上下文显示"凤翔木版年画(经纬度:107.3969,34.5215)"
-- 调用时使用：origin="107.3969,34.5215" 或 origin="宝鸡市"
-
-# 输出格式
-
-- 使用 Markdown 格式
-- 直接回答，不要说"根据您的需求"等客套话
-- 简洁明了，突出重点
-- 使用表格展示路线、天气等结构化信息
-
-## 表格示例
-
-路线表格：
-| 路段 | 距离 | 时间 | 费用 |
-|------|------|------|------|
-| 兴平市 → 凤翔 | 132km | 1.5h | ¥50 |
-
-天气表格：
-| 城市 | 日期 | 天气 | 温度 |
-|------|------|------|------|
-| 西安 | 3/16 | 晴 | 5~-10°C |
-"""
+from Agent.prompts import REACT_SYSTEM_PROMPT
 
 
 class LangChainAgentExecutor:
     """
     LangGraph ReAct Agent 封装
-    
-    LangGraph create_react_agent 自动管理:
+
+    LangChain agents.create_agent 自动管理:
     - Thought/Action/Action Input/Observation 循环
     - 工具调用和结果处理
     - 迭代终止
@@ -127,7 +75,7 @@ class LangChainAgentExecutor:
         self._agent = create_agent(
             model=self.llm,
             tools=self._tools,
-            system_prompt=SYSTEM_PROMPT,
+            system_prompt=REACT_SYSTEM_PROMPT,
         )
         
         self._initialized = True
@@ -153,8 +101,6 @@ class LangChainAgentExecutor:
             
             logger.info(f"🚀 LangGraph Agent 开始处理: {user_input[:50]}...")
             logger.info("=" * 60)
-            
-            yield {"type": "status", "status": "thinking", "content": "正在思考..."}
             
             try:
                 final_result = {"messages": messages}
@@ -183,10 +129,6 @@ class LangChainAgentExecutor:
                                             tool_name = tc['name']
                                             logger.info(f"📌 步骤 {step_count}: 调用工具 [{tool_name}]")
                                             logger.info(f"   参数: {tc['args']}")
-                                            yield {
-                                                "type": "thinking",
-                                                "content": "正在思考..."
-                                            }
                                     elif last_msg.content and last_msg.content != last_content:
                                         new_content = last_msg.content[len(yielded_content):]
                                         if new_content:
@@ -257,16 +199,122 @@ class LangChainAgentExecutor:
     def _build_messages(self, user_input: str, context: 'UnifiedContext') -> List:
         """构建 Agent 消息列表"""
         current_date = datetime.now().strftime('%Y年%m月%d日')
+        system_content = REACT_SYSTEM_PROMPT.format(current_date=current_date)
+
         plan_context = self._build_plan_context(context)
-        
-        # 直接使用 plan_context 作为上下文，避免重复构建
+        if plan_context and plan_context != "用户暂无规划信息":
+            system_content += "\n\n# 当前会话规划信息\n" + plan_context
+
+        if context.user_id:
+            try:
+                from Agent.memory.user_profile import get_user_profile_manager
+                profile_manager = get_user_profile_manager()
+                user_context = profile_manager.get_user_context_for_prompt(context.user_id)
+                if user_context:
+                    system_content += "\n\n" + user_context
+            except Exception as e:
+                logger.debug(f"获取用户偏好失败: {e}")
+
+        rag_context = self._get_rag_context(user_input, context)
+        if rag_context:
+            system_content += "\n\n" + rag_context
+
+        messages = [SystemMessage(content=system_content)]
+
+        history_len = len(context.conversation_history)
+        if history_len > 15:
+            compressed_context = self._compress_conversation_history(context)
+            system_content += "\n\n# 对话历史摘要\n" + compressed_context
+            messages[0] = SystemMessage(content=system_content)
+        else:
+            for turn in context.conversation_history[-10:-1]:
+                if turn.role == "user":
+                    messages.append(HumanMessage(content=turn.content))
+                elif turn.role == "assistant":
+                    messages.append(AIMessage(content=turn.content))
+
         user_content = f"""当前日期: {current_date}
 
-{plan_context}
-
 用户问题: {user_input}"""
-        
-        return [HumanMessage(content=user_content)]
+
+        messages.append(HumanMessage(content=user_content))
+
+        self._log_messages_summary(messages, context.conversation_history, user_input)
+
+        return messages
+
+    def _log_messages_summary(self, messages: List, conversation_history: list, user_input: str):
+        """记录发送给 API 的消息摘要"""
+        logger.info("=" * 60)
+        logger.info("📤 即将发送给 API 的消息摘要:")
+        logger.info(f"=" * 60)
+
+        for i, msg in enumerate(messages):
+            msg_type = type(msg).__name__
+            content_preview = msg.content[:200] + "..." if len(msg.content) > 200 else msg.content
+            logger.info(f"  [{i}] {msg_type}: {content_preview}")
+
+        logger.info(f"-" * 60)
+        logger.info(f"📊 统计信息:")
+        logger.info(f"  - SystemMessage 长度: {len(messages[0].content)} 字符")
+        logger.info(f"  - 历史对话轮数: {len(conversation_history)} 轮")
+        if conversation_history:
+            history_chars = sum(len(t.content) for t in conversation_history)
+            logger.info(f"  - 历史对话总长度: {history_chars} 字符")
+        logger.info(f"  - 当前用户输入: {len(user_input)} 字符")
+        logger.info(f"  - 消息总数: {len(messages)} 条")
+        logger.info("=" * 60)
+
+    def _get_rag_context(self, user_input: str, context: 'UnifiedContext') -> str:
+        """获取RAG增强上下文"""
+        try:
+            from Agent.memory.rag_retriever import get_rag_retriever
+
+            retriever = get_rag_retriever()
+            rag_context = retriever.retrieve_context(
+                query=user_input,
+                heritage_ids=context.plan_data.get_heritage_ids() if context.plan_data else [],
+                user_id=context.user_id,
+                top_k=3
+            )
+            if rag_context:
+                logger.info(f"✅ RAG检索到 {len(rag_context)} 字符上下文")
+            return rag_context
+        except Exception as e:
+            logger.debug(f"RAG检索失败: {e}")
+            return ""
+
+    def _compress_conversation_history(self, context: 'UnifiedContext') -> str:
+        """压缩对话历史上下文（不包含当前用户输入）"""
+        try:
+            from Agent.context.context_compressor import get_context_compressor
+
+            compressor = get_context_compressor()
+
+            history_dicts = []
+            for turn in context.conversation_history[:-1]:
+                history_dicts.append({
+                    'role': turn.role,
+                    'content': turn.content
+                })
+
+            context_dict = {
+                'plan_data': context.plan_data.model_dump() if context.plan_data else {},
+                'conversation_history': history_dicts,
+                'cached_data': context.cached_data,
+                'rag_context': context.get('rag_context', ''),
+            }
+
+            result = compressor.compress(context_dict, token_budget=3000)
+
+            logger.info(f"上下文压缩: {result.original_tokens} → {result.compressed_tokens} tokens, "
+                       f"比例: {result.compression_ratio:.1%}, 保留: {result.preserved_sections}, "
+                       f"移除: {result.removed_sections}")
+
+            return result.content
+        except Exception as e:
+            logger.warning(f"上下文压缩失败，回退到简单截取: {e}")
+            return ""
     
     def _build_plan_context(self, context: 'UnifiedContext') -> str:
         """构建规划上下文"""
@@ -298,7 +346,7 @@ class LangChainAgentExecutor:
             return "\n".join(parts)
         else:
             return "用户暂无规划信息"
-    
+
     def _extract_output(self, result: Dict[str, Any]) -> str:
         """从 Agent 结果中提取输出"""
         messages = result.get("messages", [])

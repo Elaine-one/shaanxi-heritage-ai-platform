@@ -35,6 +35,11 @@ class BaiduMapsMCPClient:
         self.session: Optional[aiohttp.ClientSession] = None
         
         self._cache: Dict[str, Tuple[Any, float]] = {}
+        # 百度地图API缓存策略（秒）
+        # geocode: 地理编码缓存1天（地址解析结果相对稳定）
+        # directions/distance_matrix: 路线规划缓存30分钟（考虑路况变化）
+        # places: 地点搜索缓存1小时
+        # traffic: 交通状况缓存5分钟（实时性强）
         self._cache_ttl = {
             'geocode': 86400,
             'directions': 1800,
