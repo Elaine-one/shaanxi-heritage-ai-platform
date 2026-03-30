@@ -54,7 +54,7 @@ class ContextCompressor:
         'P3': 'vectorize',
     }
     
-    DEFAULT_TOKEN_BUDGET = 4000
+    DEFAULT_TOKEN_BUDGET = 80000
     
     def __init__(self, llm_client=None):
         self.llm_client = llm_client

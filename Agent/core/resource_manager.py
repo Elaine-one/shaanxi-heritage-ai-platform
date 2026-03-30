@@ -119,20 +119,20 @@ class ResourceManager:
             logger.warning(f"关闭天气服务失败: {e}")
         
         try:
-            from Agent.services.mcp_client import get_mcp_client
-            mcp_client = get_mcp_client()
-            if mcp_client:
-                await mcp_client.close()
+            from Agent.services.amap_mcp_client import get_amap_client
+            amap_client = get_amap_client()
+            if amap_client:
+                await amap_client.close()
         except Exception as e:
-            logger.warning(f"关闭MCP客户端失败: {e}")
+            logger.warning(f"关闭高德地图客户端失败: {e}")
         
         try:
-            from Agent.services.mcp_protocol_client import get_mcp_client as get_protocol_client
-            protocol_client = await get_protocol_client()
-            if protocol_client and protocol_client._initialized:
-                await protocol_client.close()
+            from Agent.services.amap_mcp_service import get_amap_mcp_service
+            mcp_service = await get_amap_mcp_service()
+            if mcp_service and mcp_service.is_initialized:
+                await mcp_service.close()
         except Exception as e:
-            logger.warning(f"关闭MCP协议客户端失败: {e}")
+            logger.warning(f"关闭MCP服务失败: {e}")
         
         try:
             from Agent.memory.knowledge_graph import get_knowledge_graph

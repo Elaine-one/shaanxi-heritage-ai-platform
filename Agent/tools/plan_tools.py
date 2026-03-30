@@ -210,11 +210,11 @@ class RouteDistanceTool(BaseTool):
         执行距离查询
         """
         try:
-            from Agent.services.mcp_client import get_mcp_client
+            from Agent.services.amap_mcp_client import get_amap_client
             from Agent.services.geocoding import get_geocoding_service
             
             geocoding = get_geocoding_service()
-            mcp_client = get_mcp_client()
+            amap_client = get_amap_client()
             
             origin_coords = await geocoding.get_coordinates(origin)
             dest_coords = await geocoding.get_coordinates(destination)
@@ -234,7 +234,7 @@ class RouteDistanceTool(BaseTool):
             origin_str = f"{origin_coords[0]},{origin_coords[1]}"
             dest_str = f"{dest_coords[0]},{dest_coords[1]}"
             
-            result = await mcp_client.map_directions(
+            result = await amap_client.map_directions(
                 origin=origin_str,
                 destination=dest_str,
                 mode=travel_mode
@@ -408,12 +408,12 @@ class RoutePreviewTool(BaseTool):
                 }
             
             from Agent.memory.heritage_query_service import get_heritage_query_service
-            from Agent.services.mcp_client import get_mcp_client
+            from Agent.services.amap_mcp_client import get_amap_client
             from Agent.services.geocoding import get_geocoding_service
             from itertools import permutations
             
             query_service = get_heritage_query_service()
-            mcp_client = get_mcp_client()
+            amap_client = get_amap_client()
             geocoding = get_geocoding_service()
             
             heritages = []
@@ -460,7 +460,7 @@ class RoutePreviewTool(BaseTool):
             all_location_strs = [f"{loc['coords'][0]},{loc['coords'][1]}" for loc in locations]
             
             logger.info(f"计算距离矩阵: {len(all_location_strs)} 个位置")
-            matrix_result = await mcp_client.map_distance_matrix(
+            matrix_result = await amap_client.map_distance_matrix(
                 origins=all_location_strs,
                 destinations=all_location_strs,
                 mode='driving'
@@ -578,24 +578,24 @@ class RoutePreviewTool(BaseTool):
                         dest_str = f"{route_coords[i+1][1]},{route_coords[i+1][0]}"
                         
                         if travel_mode == 'driving':
-                            detail_result = await mcp_client.maps_direction_driving(
+                            detail_result = await amap_client.maps_direction_driving(
                                 origin=origin_str, destination=dest_str
                             )
                         elif travel_mode == 'walking':
-                            detail_result = await mcp_client.maps_direction_walking(
+                            detail_result = await amap_client.maps_direction_walking(
                                 origin=origin_str, destination=dest_str
                             )
                         elif travel_mode == 'riding':
-                            detail_result = await mcp_client.maps_direction_riding(
+                            detail_result = await amap_client.maps_direction_riding(
                                 origin=origin_str, destination=dest_str
                             )
                         elif travel_mode == 'transit':
-                            detail_result = await mcp_client.maps_direction_transit(
+                            detail_result = await amap_client.maps_direction_transit(
                                 origin=origin_str, destination=dest_str,
                                 city=departure_location.split('市')[0] if '市' in departure_location else departure_location
                             )
                         else:
-                            detail_result = await mcp_client.maps_direction_driving(
+                            detail_result = await amap_client.maps_direction_driving(
                                 origin=origin_str, destination=dest_str
                             )
                         

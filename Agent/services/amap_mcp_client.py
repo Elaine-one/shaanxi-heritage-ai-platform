@@ -52,7 +52,7 @@ class AmapMCPClient:
         }
         
         self._initialized = True
-        logger.info(f"高德地图MCP客户端初始化完成, API Key: {self.api_key[:8]}..." if self.api_key else "高德地图MCP客户端初始化失败: API Key未配置")
+        logger.info("高德地图 MCP 客户端初始化完成" if self.api_key else "高德地图 MCP 客户端初始化失败: API Key 未配置")
     
     async def _get_session(self) -> aiohttp.ClientSession:
         current_loop = asyncio.get_running_loop()

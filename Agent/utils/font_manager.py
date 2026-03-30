@@ -69,6 +69,26 @@ class FontManager:
         except Exception as e:
             logger.error(f"扫描font_cache目录时发生错误: {e}")
     
+    def _scan_font_directory(self, directory: str):
+        """扫描指定目录下的字体文件"""
+        if not os.path.exists(directory):
+            return
+        
+        font_extensions = ['.ttf', '.otf', '.ttc']
+        
+        try:
+            for root, dirs, files in os.walk(directory):
+                for filename in files:
+                    _, ext = os.path.splitext(filename)
+                    if ext.lower() in font_extensions:
+                        font_name = os.path.splitext(filename)[0]
+                        if font_name not in self.available_fonts:
+                            file_path = os.path.join(root, filename)
+                            self.available_fonts[font_name] = file_path
+                            logger.debug(f"扫描到字体: {font_name} -> {file_path}")
+        except Exception as e:
+            logger.debug(f"扫描目录 {directory} 时出错: {e}")
+    
     def _scan_linux_fonts(self):
         """扫描Linux系统的中文字体"""
         # 常见的Linux中文字体路径
@@ -84,6 +104,9 @@ class FontManager:
             ('noto-cjk-sc', '/usr/share/fonts/truetype/noto/NotoSansCJKsc-Regular.otf'),
             # Droid字体
             ('droid-fallback', '/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf'),
+            # Noto CJK 额外路径（Debian/Ubuntu）
+            ('NotoSansCJK', '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'),
+            ('NotoSerifCJK', '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc'),
         ]
         
         for font_name, font_path in font_paths:
@@ -92,6 +115,10 @@ class FontManager:
                 if os.path.exists(font_path):
                     self.available_fonts[font_name] = font_path
                     logger.info(f"找到Linux中文字体: {font_name} -> {font_path}")
+        
+        # 扫描 /usr/share/fonts 目录下的所有中文字体
+        self._scan_font_directory('/usr/share/fonts/truetype')
+        self._scan_font_directory('/usr/share/fonts/opentype')
         
         # 如果没有找到字体，尝试使用fc-list命令查找
         if not self.available_fonts:

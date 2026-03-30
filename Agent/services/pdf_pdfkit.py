@@ -5,6 +5,7 @@
 """
 
 import os
+import platform
 from typing import Dict, Any, Optional
 from datetime import datetime
 from loguru import logger
@@ -31,150 +32,190 @@ class PDFKitGenerator:
     
     WKHTMLTOPDF_PATH = None
     
-    CSS_STYLE = """
+    def _get_font_face_css(self) -> str:
+        """生成 @font-face CSS 规则，使用 font_cache 中的字体"""
+        font_face_css = []
+        
+        font_cache_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'font_cache')
+        
+        font_mappings = {
+            'FangZhengHeiTi-GBK-1.ttf': 'FangZhengHeiTi-GBK-1',
+            'msyh.ttc': 'msyh',
+        }
+        
+        if os.path.exists(font_cache_dir):
+            for filename, font_name in font_mappings.items():
+                font_path = os.path.join(font_cache_dir, filename)
+                if os.path.exists(font_path):
+                    font_face_css.append(f"""
+        @font-face {{
+            font-family: '{font_name}';
+            src: url('file:///{font_path.replace(os.sep, "/")}');
+            font-weight: normal;
+            font-style: normal;
+        }}""")
+                    logger.debug(f"添加字体 @font-face: {font_name} -> {font_path}")
+        
+        return '\n'.join(font_face_css)
+    
+    def _get_css_style(self) -> str:
+        """获取 CSS 样式，包含动态字体支持"""
+        font_face = self._get_font_face_css()
+        
+        system = platform.system()
+        if system == "Linux":
+            font_family = "'FangZhengHeiTi-GBK-1', 'msyh', 'WenQuanYi Micro Hei', 'Noto Sans CJK SC', sans-serif"
+        elif system == "Darwin":
+            font_family = "'FangZhengHeiTi-GBK-1', 'msyh', 'PingFang SC', 'Heiti SC', sans-serif"
+        else:
+            font_family = "'FangZhengHeiTi-GBK-1', 'msyh', 'Microsoft YaHei', 'SimHei', sans-serif"
+        
+        return f"""
     <style>
-        @page {
+        {font_face}
+        
+        @page {{
             size: A4;
             margin: 2cm;
-        }
+        }}
         
-        * {
-            font-family: 'Microsoft YaHei', 'SimHei', 'PingFang SC', sans-serif;
-        }
+        * {{
+            font-family: {font_family};
+        }}
         
-        body {
+        body {{
             font-size: 11pt;
             line-height: 1.6;
             color: #2c3e50;
             max-width: 210mm;
             margin: 0 auto;
-        }
+        }}
         
-        h1 {
+        h1 {{
             font-size: 24pt;
             color: #8e44ad;
             text-align: center;
             margin-bottom: 20px;
             border-bottom: 2px solid #e67e22;
             padding-bottom: 10px;
-        }
+        }}
         
-        h2 {
+        h2 {{
             font-size: 16pt;
             color: #2980b9;
             margin-top: 25px;
             margin-bottom: 15px;
             border-left: 4px solid #e67e22;
             padding-left: 10px;
-        }
+        }}
         
-        h3 {
+        h3 {{
             font-size: 14pt;
             color: #16a085;
             margin-top: 20px;
             margin-bottom: 10px;
-        }
+        }}
         
-        h4 {
+        h4 {{
             font-size: 12pt;
             color: #34495e;
             margin-top: 15px;
             margin-bottom: 8px;
-        }
+        }}
         
-        p {
+        p {{
             text-align: justify;
             margin-bottom: 10px;
-        }
+        }}
         
-        ul, ol {
+        ul, ol {{
             margin-left: 20px;
             margin-bottom: 10px;
-        }
+        }}
         
-        li {
+        li {{
             margin-bottom: 5px;
-        }
+        }}
         
-        blockquote {
+        blockquote {{
             background-color: #f8f9fa;
             border-left: 4px solid #e67e22;
             padding: 10px 15px;
             margin: 15px 0;
             color: #555;
-        }
+        }}
         
-        table {
+        table {{
             width: 100%;
             border-collapse: collapse;
             margin: 15px 0;
             font-size: 10pt;
-        }
+        }}
         
-        th, td {
+        th, td {{
             border: 1px solid #ddd;
             padding: 8px 12px;
             text-align: left;
-        }
+        }}
         
-        th {
+        th {{
             background-color: #2980b9;
             color: white;
             font-weight: bold;
-        }
+        }}
         
-        tr:nth-child(even) {
+        tr:nth-child(even) {{
             background-color: #f8f9fa;
-        }
+        }}
         
-        hr {
+        hr {{
             border: none;
             border-top: 1px solid #e67e22;
             margin: 20px 0;
-        }
+        }}
         
-        strong {
+        strong {{
             color: #e67e22;
-        }
+        }}
         
-        em {
+        em {{
             color: #8e44ad;
-        }
+        }}
         
-        code {
+        code {{
             background-color: #f4f4f4;
             padding: 2px 6px;
             border-radius: 3px;
             color: #e74c3c;
-        }
+        }}
         
-        .highlight {
+        .highlight {{
             color: #e67e22;
             font-weight: bold;
-        }
+        }}
         
-        .info-box {
+        .info-box {{
             background-color: #e3f2fd;
             border: 1px solid #2196f3;
             border-radius: 4px;
             padding: 10px;
             margin: 10px 0;
-        }
+        }}
         
-        .warning-box {
+        .warning-box {{
             background-color: #fff3e0;
             border: 1px solid #ff9800;
             border-radius: 4px;
             padding: 10px;
             margin: 10px 0;
-        }
+        }}
         
-        .footer {
+        .footer {{
             text-align: center;
             color: #666;
             margin-top: 30px;
             font-size: 10pt;
-        }
+        }}
     </style>
     """
     
@@ -278,7 +319,7 @@ class PDFKitGenerator:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>陕西非遗文化旅游规划</title>
-    {self.CSS_STYLE}
+    {self._get_css_style()}
 </head>
 <body>
     {body_html}

@@ -60,13 +60,19 @@ class LangChainAgentExecutor:
         return self._llm
     
     async def initialize(self, context: 'UnifiedContext' = None) -> bool:
-        """初始化 Agent"""
+        """初始化 Agent（包含 MCP 工具）"""
         if self._initialized:
             return True
         
-        from Agent.tools.langchain_tools import get_langchain_tools
+        from Agent.tools.langchain_tools import get_langchain_tools_manager
         
-        self._tools = get_langchain_tools()
+        manager = get_langchain_tools_manager()
+        
+        manager.initialize()
+        
+        mcp_success = await manager.initialize_mcp()
+        
+        self._tools = await manager.get_all_tools()
         
         if not self._tools:
             logger.error("没有可用的 LangChain 工具")
@@ -79,7 +85,8 @@ class LangChainAgentExecutor:
         )
         
         self._initialized = True
-        logger.info(f"LangGraph Agent 初始化完成，工具数量: {len(self._tools)}")
+        mcp_status = "已集成" if mcp_success else "未集成"
+        logger.info(f"LangGraph Agent 初始化完成，工具数量: {len(self._tools)} (MCP工具{mcp_status})")
         return True
     
     async def run_stream(
@@ -87,8 +94,9 @@ class LangChainAgentExecutor:
         user_input: str,
         context: 'UnifiedContext'
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        """流式运行 Agent - 真正的实时流式输出，支持状态反馈"""
+        """流式运行 Agent - 使用 messages 模式实现逐 token 流式输出"""
         from Agent.context.unified_context import set_current_context, clear_current_context
+        from langchain_core.messages import AIMessageChunk, ToolMessage
         
         set_current_context(context)
         
@@ -103,57 +111,43 @@ class LangChainAgentExecutor:
             logger.info("=" * 60)
             
             try:
-                final_result = {"messages": messages}
                 step_count = 0
-                last_content = ""
-                yielded_content = ""
+                final_content = ""
                 
                 async for event in self._agent.astream(
                     {"messages": messages},
                     {"recursion_limit": self.MAX_ITERATIONS},
-                    stream_mode="updates"
+                    stream_mode="messages"
                 ):
-                    step_count += 1
+                    if not event:
+                        continue
                     
-                    for node_name, node_output in event.items():
-                        if "messages" in node_output:
-                            msgs = node_output["messages"]
-                            last_msg = msgs[-1] if msgs else None
-                            
-                            if last_msg:
-                                msg_type = type(last_msg).__name__
-                                
-                                if msg_type == "AIMessage":
-                                    if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
-                                        for tc in last_msg.tool_calls:
-                                            tool_name = tc['name']
-                                            logger.info(f"📌 步骤 {step_count}: 调用工具 [{tool_name}]")
-                                            logger.info(f"   参数: {tc['args']}")
-                                    elif last_msg.content and last_msg.content != last_content:
-                                        new_content = last_msg.content[len(yielded_content):]
-                                        if new_content:
-                                            yield {"type": "content", "content": new_content}
-                                            yielded_content = last_msg.content
-                                        last_content = last_msg.content
-                                        logger.info(f"💭 步骤 {step_count}: 输出内容 ({len(new_content)} 字符)")
-                                
-                                elif msg_type == "ToolMessage":
-                                    content = last_msg.content[:200] if len(last_msg.content) > 200 else last_msg.content
-                                    logger.info(f"📋 步骤 {step_count}: 工具返回结果")
-                                    logger.info(f"   {content}")
+                    chunk = event[0] if isinstance(event, (list, tuple)) else event
+                    
+                    if isinstance(chunk, AIMessageChunk):
+                        has_tool_calls = hasattr(chunk, 'tool_calls') and chunk.tool_calls
                         
-                        final_result = {"messages": node_output.get("messages", [])}
+                        if has_tool_calls:
+                            step_count += 1
+                            for tc in chunk.tool_calls:
+                                tool_name = tc.get('name', 'unknown')
+                                logger.info(f"📌 步骤 {step_count}: 调用工具 [{tool_name}]")
+                                logger.info(f"   参数: {tc.get('args', {})}")
+                        elif chunk.content:
+                            yield {"type": "content", "content": chunk.content}
+                            final_content += chunk.content
+                    
+                    elif isinstance(chunk, ToolMessage):
+                        step_count += 1
+                        content_preview = chunk.content[:200] if len(chunk.content) > 200 else chunk.content
+                        logger.info(f"📋 步骤 {step_count}: 工具返回结果")
+                        logger.info(f"   {content_preview}")
                 
                 logger.info("=" * 60)
-                logger.info(f"📊 Agent 执行完成，共 {step_count} 步")
+                logger.info(f"📊 Agent 执行完成，共 {step_count} 步，输出 {len(final_content)} 字符")
                 
-                if not yielded_content:
-                    output = self._extract_output(final_result)
-                    if output:
-                        async for chunk in self._stream_llm_direct(output):
-                            yield {"type": "content", "content": chunk}
-                    else:
-                        yield {"type": "content", "content": "抱歉，我无法处理您的请求，请尝试换一种方式提问。"}
+                if not final_content:
+                    yield {"type": "content", "content": "抱歉，我无法处理您的请求，请尝试换一种方式提问。"}
                 
                 yield {"type": "done"}
                     
@@ -173,12 +167,20 @@ class LangChainAgentExecutor:
         """获取工具的显示名称"""
         tool_names = {
             'route_preview': '路线预览',
-            'driving_route': '驾车路线查询',
-            'transit_route': '公共交通查询',
-            'riding_route': '骑行路线查询',
+            'maps_direction_driving': '驾车路线查询',
+            'maps_direction_transit': '公共交通查询',
+            'maps_direction_riding': '骑行路线查询',
+            'maps_direction_walking': '步行路线查询',
             'maps_weather': '天气查询',
             'maps_around_search': '周边搜索',
             'maps_geo': '地理编码',
+            'maps_distance': '距离测量',
+            'maps_text_search': 'POI搜索',
+            'heritage_search': '非遗项目查询',
+            'plan_query': '规划查询',
+            'plan_edit': '规划编辑',
+            'nearby_heritage_query': '邻近非遗查询',
+            'related_heritage_query': '相关非遗查询',
         }
         return tool_names.get(tool_name, tool_name)
     
@@ -305,7 +307,7 @@ class LangChainAgentExecutor:
                 'rag_context': context.get('rag_context', ''),
             }
 
-            result = compressor.compress(context_dict, token_budget=3000)
+            result = compressor.compress(context_dict, token_budget=80000)
 
             logger.info(f"上下文压缩: {result.original_tokens} → {result.compressed_tokens} tokens, "
                        f"比例: {result.compression_ratio:.1%}, 保留: {result.preserved_sections}, "

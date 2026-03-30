@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from loguru import logger
 from Agent.services.heritage_analyzer import get_heritage_analyzer
 from Agent.services.weather import get_weather_service
-from Agent.services.mcp_client import get_mcp_client
+from Agent.services.amap_mcp_client import get_amap_client
 from Agent.models.llm_model import get_llm_model
 
 class TravelPlanner:
@@ -293,7 +293,7 @@ class TravelPlanner:
             if not items:
                 return {'daily_itinerary': []}
 
-            mcp_client = get_mcp_client()
+            amap_client = get_amap_client()
 
             start_coords = await self._get_coordinates(start_location)
             if not start_coords:
@@ -336,7 +336,7 @@ class TravelPlanner:
             
             logger.info(f"计算距离矩阵: {len(all_locations)} 个位置")
             
-            matrix_result = await mcp_client.map_distance_matrix(
+            matrix_result = await amap_client.map_distance_matrix(
                 origins=all_locations,
                 destinations=all_locations,
                 mode=api_mode
