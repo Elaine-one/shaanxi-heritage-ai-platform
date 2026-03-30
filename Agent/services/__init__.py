@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Services 模块
-包含服务层代码，包括天气服务、PDF 生成、内容整合、遗产分析、地理编码、MCP客户端等
+包含服务层代码，包括天气服务、PDF 生成、内容整合、遗产分析、地理编码、MCP服务等
 """
 
 from .weather import WeatherService, get_weather_service
@@ -13,7 +13,8 @@ from .geocoding import GeocodingService, get_geocoding_service
 from .conversation_service import ConversationService, get_conversation_service
 from .user_history_service import UserHistoryService, get_user_history_service
 from .minio_storage import MinIOStorageService, get_minio_service
-from .mcp_client import BaiduMapsMCPClient, get_mcp_client
+from .amap_mcp_client import AmapMCPClient, get_amap_client
+from .amap_mcp_service import AmapMCPService, get_amap_mcp_service, get_mcp_tools
 
 __all__ = [
     'WeatherService',
@@ -32,6 +33,9 @@ __all__ = [
     'get_user_history_service',
     'MinIOStorageService',
     'get_minio_service',
-    'BaiduMapsMCPClient',
-    'get_mcp_client',
+    'AmapMCPClient',
+    'get_amap_client',
+    'AmapMCPService',
+    'get_amap_mcp_service',
+    'get_mcp_tools',
 ]

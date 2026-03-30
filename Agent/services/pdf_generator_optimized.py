@@ -43,13 +43,24 @@ class OptimizedPDFGenerator:
         logger.info(f"PDF生成器初始化完成，字体: {self.chinese_font}")
     
     def _register_chinese_font(self) -> str:
-        """注册中文字体"""
+        """注册中文字体，优先使用 font_cache 目录中的字体"""
+        try:
+            from Agent.utils.font_manager import register_chinese_font
+            font_name = register_chinese_font()
+            if font_name:
+                logger.info(f"通过 font_manager 注册字体: {font_name}")
+                return font_name
+        except ImportError as e:
+            logger.warning(f"font_manager 导入失败，使用默认字体查找: {e}")
+        
         font_paths = [
             "C:/Windows/Fonts/msyh.ttc",
             "C:/Windows/Fonts/simhei.ttf",
             "C:/Windows/Fonts/simsun.ttc",
             "/System/Library/Fonts/PingFang.ttc",
             "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         ]
         
         for font_path in font_paths:

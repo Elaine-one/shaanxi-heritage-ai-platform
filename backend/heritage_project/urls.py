@@ -6,10 +6,16 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
 from django.shortcuts import redirect
+from django.http import JsonResponse
+
+def health_check(request):
+    """健康检查端点"""
+    return JsonResponse({'status': 'healthy', 'service': 'heritage-app'})
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("heritage_api.urls")),
+    path("health", health_check, name='health'),
     path("", TemplateView.as_view(template_name='index.html'), name='index'),
     path("index.html", TemplateView.as_view(template_name='index.html'), name='index-html'),
     path("pages/non-heritage-list.html", TemplateView.as_view(template_name='pages/non-heritage-list.html'), name='non-heritage-list'),

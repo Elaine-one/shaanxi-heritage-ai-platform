@@ -100,10 +100,19 @@ class StartupManager:
         try:
             result = await self._init_mcp_client()
             results['mcp_client'] = {'success': True, 'result': result}
-            logger.info("✓ mcp_client 初始化完成")
+            tools_count = result.get('tools_count', 0)
+            logger.info(f"✓ mcp_client 初始化完成，工具数量: {tools_count}")
         except Exception as e:
             results['mcp_client'] = {'success': False, 'error': str(e)}
-            logger.error(f"✗ mcp_client 初始化失败: {e}")
+            logger.warning(f"⚠ mcp_client 初始化失败: {e}")
+        
+        try:
+            result = await self._init_langchain_agent()
+            results['langchain_agent'] = {'success': True, 'result': result}
+            logger.info(f"✓ langchain_agent 初始化完成，工具数量: {result.get('tools_count', 0)}")
+        except Exception as e:
+            results['langchain_agent'] = {'success': False, 'error': str(e)}
+            logger.error(f"✗ langchain_agent 初始化失败: {e}")
         
         elapsed = (datetime.now() - start_time).total_seconds()
         logger.info(f"并行初始化完成，耗时 {elapsed:.2f}s")
@@ -160,14 +169,14 @@ class StartupManager:
         }
     
     async def _init_mcp_client(self) -> Dict[str, Any]:
-        """初始化 MCP 客户端"""
+        """初始化高德 MCP 客户端"""
         try:
-            from Agent.services.mcp_protocol_client import init_mcp_client, get_mcp_client
+            from Agent.services.amap_mcp_service import init_amap_mcp, get_amap_mcp_service
             
-            success = await init_mcp_client()
+            success = await init_amap_mcp()
             if success:
-                client = await get_mcp_client()
-                tools_count = len(client.tools) if client._initialized else 0
+                service = await get_amap_mcp_service()
+                tools_count = len(service.get_tools()) if service.is_initialized else 0
             else:
                 tools_count = 0
             
@@ -176,7 +185,27 @@ class StartupManager:
                 'tools_count': tools_count
             }
         except Exception as e:
-            logger.warning(f"MCP 客户端初始化失败: {e}")
+            logger.warning(f"高德 MCP 客户端初始化失败: {e}")
+            return {
+                'initialized': False,
+                'tools_count': 0,
+                'error': str(e)
+            }
+    
+    async def _init_langchain_agent(self) -> Dict[str, Any]:
+        """初始化 LangChain Agent（包含工具合并）"""
+        try:
+            from Agent.agent.langchain_agent import get_langchain_agent_executor
+            
+            agent = get_langchain_agent_executor()
+            success = await agent.initialize()
+            
+            return {
+                'initialized': success,
+                'tools_count': len(agent._tools) if success else 0
+            }
+        except Exception as e:
+            logger.warning(f"LangChain Agent 初始化失败: {e}")
             return {
                 'initialized': False,
                 'tools_count': 0,

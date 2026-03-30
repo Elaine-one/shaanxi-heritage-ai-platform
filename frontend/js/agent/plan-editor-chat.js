@@ -8,6 +8,9 @@ class PlanEditorChat {
     constructor(editor) {
         this.editor = editor;
         this.streamingCore = new StreamingCore();
+        this.currentAiReply = null;
+        this.aiMessageContainer = null;
+        this.halfAiMessageContainer = null;
     }
 
     async sendMessage() {
@@ -20,12 +23,25 @@ class PlanEditorChat {
         if (!message) return;
 
         input.value = '';
-        this.addChatMessage('user', message, false);
+        
+        this.editor.chatHistory.push({ type: 'user', content: message, timestamp: new Date() });
+        this.editor.saveState();
 
         this.editor.isSending = true;
         sendBtn.disabled = true;
         const originalBtnText = sendBtn.innerHTML;
         sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        const messageId = `ai-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        this.currentAiReply = {
+            messageId: messageId,
+            content: '',
+            isThinking: true
+        };
+
+        this._appendUserMessage(message);
+        this._appendAiMessagePlaceholder(messageId);
 
         try {
             if (!this.editor.sessionId) await this.editor.api.initializeChatSession();
@@ -33,31 +49,15 @@ class PlanEditorChat {
             const apiUrl = await this.editor.api.getApiBaseUrl();
             const url = `${apiUrl}/chat-stream`;
 
-            const messageId = `msg-${Date.now()}`;
-            const chatHistory = document.getElementById('chat-history');
-            const html = `
-                <div class="chat-message ai-message">
-                    <div class="message-avatar"><i class="fas fa-robot"></i></div>
-                    <div class="message-content" id="${messageId}">
-                        <div class="thinking-indicator">
-                            <i class="fas fa-spinner"></i> 正在思考...
-                        </div>
-                    </div>
-                </div>
-            `;
-            chatHistory.insertAdjacentHTML('beforeend', html);
-
             let fullMessage = '';
             let pendingRender = false;
 
             const renderMessage = () => {
-                const msgContainer = document.getElementById(messageId);
-                if (msgContainer) {
-                    const safeMessage = StreamingCore.fixMarkdown(fullMessage);
-                    const htmlContent = StreamingCore.renderMarkdown(safeMessage);
-                    msgContainer.innerHTML = htmlContent;
+                if (this.currentAiReply) {
+                    this.currentAiReply.content = fullMessage;
+                    this.currentAiReply.isThinking = false;
                 }
-                this.scrollToBottom();
+                this._updateAiMessageContent(fullMessage);
                 pendingRender = false;
             };
 
@@ -72,19 +72,25 @@ class PlanEditorChat {
                     }
                 },
                 onStatus: (status, statusContent) => {
-                    // 不再处理思考状态，保持视觉简洁
                 },
                 onComplete: () => {
                     if (pendingRender) renderMessage();
                     this.editor.chatHistory.push({ type: 'ai', content: fullMessage, timestamp: new Date() });
                     this.editor.saveState();
-                    this.syncChatToFull();
+                    this.currentAiReply = null;
+                    this.aiMessageContainer = null;
+                    this.halfAiMessageContainer = null;
                     if (this.editor.isHalfExpanded) {
                         this.syncChatToHalf();
                     }
                 },
                 onError: (errorMsg) => {
-                    this.addChatMessage('ai', `错误: ${errorMsg}`, false);
+                    this._updateAiMessageContent(`错误: ${errorMsg}`);
+                    this.editor.chatHistory.push({ type: 'ai', content: `错误: ${errorMsg}`, timestamp: new Date() });
+                    this.editor.saveState();
+                    this.currentAiReply = null;
+                    this.aiMessageContainer = null;
+                    this.halfAiMessageContainer = null;
                 }
             });
 
@@ -102,12 +108,12 @@ class PlanEditorChat {
                 errorMessage = `请求失败: ${error.message}`;
             }
 
+            this._updateAiMessageContent(errorMessage);
             this.editor.chatHistory.push({ type: 'ai', content: errorMessage, timestamp: new Date() });
             this.editor.saveState();
-            this.syncChatToFull();
-            if (this.editor.isHalfExpanded) {
-                this.syncChatToHalf();
-            }
+            this.currentAiReply = null;
+            this.aiMessageContainer = null;
+            this.halfAiMessageContainer = null;
         } finally {
             this.editor.isSending = false;
             sendBtn.disabled = false;
@@ -127,8 +133,8 @@ class PlanEditorChat {
         if (!message) return;
 
         input.value = '';
+        
         this.editor.chatHistory.push({ type: 'user', content: message, timestamp: new Date() });
-        this.syncChatToHalf();
         this.editor.saveState();
 
         this.editor.isSending = true;
@@ -136,20 +142,16 @@ class PlanEditorChat {
         const originalBtnHTML = sendBtn.innerHTML;
         sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
-        const messageId = `half-msg-${Date.now()}`;
-        const halfChatArea = document.getElementById('half-chat-area');
-        const msgHtml = `
-            <div class="half-message ai-half" id="${messageId}">
-                <div class="half-avatar ai"><i class="fas fa-robot"></i></div>
-                <div class="half-content ai">
-                    <div class="half-thinking-indicator">
-                        <i class="fas fa-spinner"></i> 思考中...
-                    </div>
-                </div>
-            </div>
-        `;
-        halfChatArea.insertAdjacentHTML('beforeend', msgHtml);
-        halfChatArea.scrollTop = halfChatArea.scrollHeight;
+        const messageId = `ai-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        this.currentAiReply = {
+            messageId: messageId,
+            content: '',
+            isThinking: true
+        };
+
+        this._appendHalfUserMessage(message);
+        this._appendHalfAiMessagePlaceholder(messageId);
 
         try {
             if (!this.editor.sessionId) await this.editor.api.initializeChatSession();
@@ -158,16 +160,15 @@ class PlanEditorChat {
             const url = `${apiUrl}/chat-stream`;
 
             let fullMessage = '';
+            let pendingRender = false;
 
             const renderHalfMessage = () => {
-                const msgEl = document.getElementById(messageId);
-                if (msgEl) {
-                    const contentEl = msgEl.querySelector('.half-content');
-                    if (contentEl) {
-                        contentEl.innerHTML = StreamingCore.renderMarkdown(fullMessage);
-                    }
+                if (this.currentAiReply) {
+                    this.currentAiReply.content = fullMessage;
+                    this.currentAiReply.isThinking = false;
                 }
-                halfChatArea.scrollTop = halfChatArea.scrollHeight;
+                this._updateHalfAiMessageContent(fullMessage);
+                pendingRender = false;
             };
 
             await this.streamingCore.stream(url, {
@@ -175,45 +176,265 @@ class PlanEditorChat {
                 body: { message, session_id: this.editor.sessionId },
                 onChunk: (content) => {
                     fullMessage += content;
-                    renderHalfMessage();
+                    if (!pendingRender) {
+                        pendingRender = true;
+                        requestAnimationFrame(() => renderHalfMessage());
+                    }
                 },
                 onStatus: (status, statusContent) => {
-                    // 不再处理思考状态，保持视觉简洁
                 },
                 onComplete: () => {
-                    if (fullMessage) {
-                        this.editor.chatHistory.push({ type: 'ai', content: fullMessage, timestamp: new Date() });
-                        this.editor.saveState();
-                    }
+                    if (pendingRender) renderHalfMessage();
+                    this.editor.chatHistory.push({ type: 'ai', content: fullMessage, timestamp: new Date() });
+                    this.editor.saveState();
+                    this.currentAiReply = null;
+                    this.aiMessageContainer = null;
+                    this.halfAiMessageContainer = null;
+                    this.syncChatToFull();
                 },
                 onError: (errorMsg) => {
-                    const msgEl = document.getElementById(messageId);
-                    if (msgEl) {
-                        const contentEl = msgEl.querySelector('.half-content');
-                        if (contentEl) {
-                            contentEl.innerHTML = `错误: ${errorMsg}`;
-                        }
-                    }
+                    this._updateHalfAiMessageContent(`错误: ${errorMsg}`);
                     this.editor.chatHistory.push({ type: 'ai', content: `错误: ${errorMsg}`, timestamp: new Date() });
+                    this.editor.saveState();
+                    this.currentAiReply = null;
+                    this.aiMessageContainer = null;
+                    this.halfAiMessageContainer = null;
                 }
             });
 
         } catch (error) {
             console.error('发送消息失败:', error);
-            const msgEl = document.getElementById(messageId);
-            if (msgEl) {
-                const contentEl = msgEl.querySelector('.half-content');
-                if (contentEl) {
-                    contentEl.innerHTML = '网络请求失败，请稍后重试。';
-                }
-            }
+            this._updateHalfAiMessageContent('网络请求失败，请稍后重试。');
             this.editor.chatHistory.push({ type: 'ai', content: '网络请求失败，请稍后重试。', timestamp: new Date() });
-            this.syncChatToHalf();
+            this.editor.saveState();
+            this.currentAiReply = null;
+            this.aiMessageContainer = null;
+            this.halfAiMessageContainer = null;
         } finally {
             this.editor.isSending = false;
             sendBtn.disabled = false;
             sendBtn.innerHTML = originalBtnHTML;
         }
+    }
+
+    _appendUserMessage(content) {
+        const chatHistory = document.getElementById('chat-history');
+        if (!chatHistory) return;
+        
+        const html = `
+            <div class="chat-message user-message">
+                <div class="message-avatar"><i class="fas fa-user"></i></div>
+                <div class="message-content">${content}</div>
+            </div>
+        `;
+        chatHistory.insertAdjacentHTML('beforeend', html);
+        this.scrollToBottom();
+    }
+
+    _appendAiMessagePlaceholder(messageId) {
+        const chatHistory = document.getElementById('chat-history');
+        if (!chatHistory) return;
+        
+        const html = `
+            <div class="chat-message ai-message">
+                <div class="message-avatar"><i class="fas fa-robot"></i></div>
+                <div class="message-content" id="${messageId}">
+                    <div class="thinking-indicator">
+                        <i class="fas fa-spinner fa-spin"></i> 正在思考...
+                    </div>
+                </div>
+            </div>
+        `;
+        chatHistory.insertAdjacentHTML('beforeend', html);
+        this.aiMessageContainer = document.getElementById(messageId);
+        this.scrollToBottom();
+    }
+
+    _updateAiMessageContent(content) {
+        if (!this.aiMessageContainer) return;
+        
+        if (content) {
+            const safeMessage = StreamingCore.fixMarkdown(content);
+            const htmlContent = StreamingCore.renderMarkdown(safeMessage);
+            this.aiMessageContainer.innerHTML = htmlContent;
+        } else {
+            this.aiMessageContainer.innerHTML = `
+                <div class="thinking-indicator">
+                    <i class="fas fa-spinner fa-spin"></i> 正在思考...
+                </div>
+            `;
+        }
+        this.scrollToBottom();
+    }
+
+    _appendHalfUserMessage(content) {
+        const halfChatArea = document.getElementById('half-chat-area');
+        if (!halfChatArea) return;
+        
+        const html = `
+            <div class="half-message user-half">
+                <div class="half-avatar user"><i class="fas fa-user"></i></div>
+                <div class="half-content user">${content}</div>
+            </div>
+        `;
+        halfChatArea.insertAdjacentHTML('beforeend', html);
+        halfChatArea.scrollTop = halfChatArea.scrollHeight;
+    }
+
+    _appendHalfAiMessagePlaceholder(messageId) {
+        const halfChatArea = document.getElementById('half-chat-area');
+        if (!halfChatArea) return;
+        
+        const html = `
+            <div class="half-message ai-half">
+                <div class="half-avatar ai"><i class="fas fa-robot"></i></div>
+                <div class="half-content ai" id="${messageId}">
+                    <div class="half-thinking-indicator">
+                        <i class="fas fa-spinner fa-spin"></i> 思考中...
+                    </div>
+                </div>
+            </div>
+        `;
+        halfChatArea.insertAdjacentHTML('beforeend', html);
+        this.halfAiMessageContainer = document.getElementById(messageId);
+        halfChatArea.scrollTop = halfChatArea.scrollHeight;
+    }
+
+    _updateHalfAiMessageContent(content) {
+        if (!this.halfAiMessageContainer) return;
+        
+        if (content) {
+            const safeMessage = StreamingCore.fixMarkdown(content);
+            const htmlContent = StreamingCore.renderMarkdown(safeMessage);
+            this.halfAiMessageContainer.innerHTML = htmlContent;
+        } else {
+            this.halfAiMessageContainer.innerHTML = `
+                <div class="half-thinking-indicator">
+                    <i class="fas fa-spinner fa-spin"></i> 思考中...
+                </div>
+            `;
+        }
+        const halfChatArea = document.getElementById('half-chat-area');
+        if (halfChatArea) {
+            halfChatArea.scrollTop = halfChatArea.scrollHeight;
+        }
+    }
+
+    renderChatWithPending() {
+        const chatContainer = document.getElementById('chat-history');
+        if (!chatContainer) return;
+        
+        const wasExporting = this.editor.api.isExporting;
+        const hadExportBtn = document.getElementById('export-pdf-btn') !== null;
+        
+        chatContainer.innerHTML = '';
+        
+        this.editor.chatHistory.forEach(msg => {
+            const isUser = msg.type === 'user';
+            const icon = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+            const displayContent = isUser ? msg.content : this.renderMarkdown(msg.content);
+            
+            const html = `
+                <div class="chat-message ${isUser ? 'user-message' : 'ai-message'}">
+                    <div class="message-avatar">${icon}</div>
+                    <div class="message-content">${displayContent}</div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+        });
+        
+        if (this.currentAiReply) {
+            const icon = '<i class="fas fa-robot"></i>';
+            let displayContent;
+            
+            if (this.currentAiReply.isThinking) {
+                displayContent = `
+                    <div class="thinking-indicator">
+                        <i class="fas fa-spinner fa-spin"></i> 正在思考...
+                    </div>
+                `;
+            } else if (this.currentAiReply.content) {
+                displayContent = this.renderMarkdown(this.currentAiReply.content);
+            } else {
+                displayContent = `
+                    <div class="thinking-indicator">
+                        <i class="fas fa-spinner fa-spin"></i> 正在思考...
+                    </div>
+                `;
+            }
+            
+            const html = `
+                <div class="chat-message ai-message">
+                    <div class="message-avatar">${icon}</div>
+                    <div class="message-content" id="${this.currentAiReply.messageId}">${displayContent}</div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+            this.aiMessageContainer = document.getElementById(this.currentAiReply.messageId);
+        }
+        
+        if (hadExportBtn) {
+            this.editor.ui.showExportOptions();
+        }
+        
+        if (wasExporting) {
+            this.editor.api._setExportingState(true);
+        }
+        
+        this.scrollToBottom();
+    }
+
+    renderHalfWithPending() {
+        const halfChatArea = document.getElementById('half-chat-area');
+        if (!halfChatArea) return;
+        
+        halfChatArea.innerHTML = '';
+        
+        this.editor.chatHistory.forEach(msg => {
+            const isUser = msg.type === 'user';
+            const icon = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+            const displayContent = isUser ? msg.content : this.renderMarkdown(msg.content);
+            
+            const html = `
+                <div class="half-message ${isUser ? 'user-half' : 'ai-half'}">
+                    <div class="half-avatar ${isUser ? 'user' : 'ai'}">${icon}</div>
+                    <div class="half-content ${isUser ? 'user' : 'ai'}">${displayContent}</div>
+                </div>
+            `;
+            halfChatArea.insertAdjacentHTML('beforeend', html);
+        });
+        
+        if (this.currentAiReply) {
+            const icon = '<i class="fas fa-robot"></i>';
+            let displayContent;
+            
+            if (this.currentAiReply.isThinking) {
+                displayContent = `
+                    <div class="half-thinking-indicator">
+                        <i class="fas fa-spinner fa-spin"></i> 思考中...
+                    </div>
+                `;
+            } else if (this.currentAiReply.content) {
+                displayContent = this.renderMarkdown(this.currentAiReply.content);
+            } else {
+                displayContent = `
+                    <div class="half-thinking-indicator">
+                        <i class="fas fa-spinner fa-spin"></i> 思考中...
+                    </div>
+                `;
+            }
+            
+            const html = `
+                <div class="half-message ai-half">
+                    <div class="half-avatar ai">${icon}</div>
+                    <div class="half-content ai" id="${this.currentAiReply.messageId}">${displayContent}</div>
+                </div>
+            `;
+            halfChatArea.insertAdjacentHTML('beforeend', html);
+            this.halfAiMessageContainer = document.getElementById(this.currentAiReply.messageId);
+        }
+        
+        halfChatArea.scrollTop = halfChatArea.scrollHeight;
     }
 
     async addChatMessage(type, content, typingEffect = false) {
@@ -223,7 +444,7 @@ class PlanEditorChat {
         this.editor.chatHistory.push({ type, content, timestamp: new Date() });
         this.editor.saveState();
 
-        const messageId = `msg-${Date.now()}`;
+        const messageId = `${type}-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const isUser = type === 'user';
         const icon = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
         
@@ -376,66 +597,16 @@ class PlanEditorChat {
     }
 
     syncChatToFull() {
-        const chatContainer = document.getElementById('chat-history');
-        if (!chatContainer) return;
-        
-        const wasExporting = this.editor.api.isExporting;
-        const hadExportBtn = document.getElementById('export-pdf-btn') !== null;
-        
-        chatContainer.innerHTML = '';
-        this.editor.chatHistory.forEach(msg => {
-            const isUser = msg.type === 'user';
-            const icon = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-            const displayContent = isUser ? msg.content : this.renderMarkdown(msg.content);
-            
-            const html = `
-                <div class="chat-message ${isUser ? 'user-message' : 'ai-message'}">
-                    <div class="message-avatar">${icon}</div>
-                    <div class="message-content">${displayContent}</div>
-                </div>
-            `;
-            chatContainer.insertAdjacentHTML('beforeend', html);
-        });
-        
-        if (hadExportBtn) {
-            this.editor.ui.showExportOptions();
-        }
-        
-        if (wasExporting) {
-            this.editor.api._setExportingState(true);
-        }
-        
-        this.scrollToBottom();
+        this.renderChatWithPending();
     }
 
     syncChatToHalf() {
-        const halfChatArea = document.getElementById('half-chat-area');
-        if (!halfChatArea) return;
-        
-        halfChatArea.innerHTML = '';
-        
-        this.editor.chatHistory.forEach(msg => {
-            const isUser = msg.type === 'user';
-            const icon = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-            const displayContent = isUser ? msg.content : this.renderMarkdown(msg.content);
-            
-            const html = `
-                <div class="half-message ${isUser ? 'user-half' : 'ai-half'}">
-                    <div class="half-avatar ${isUser ? 'user' : 'ai'}">${icon}</div>
-                    <div class="half-content ${isUser ? 'user' : 'ai'}">${displayContent}</div>
-                </div>
-            `;
-            halfChatArea.insertAdjacentHTML('beforeend', html);
-        });
-        
-        halfChatArea.scrollTop = halfChatArea.scrollHeight;
+        this.renderHalfWithPending();
     }
 
     renderMarkdown(text) {
         return StreamingCore.renderMarkdown(text);
     }
-
-
 
     scrollToBottom() {
         const area = document.querySelector('.chat-scroll-area');

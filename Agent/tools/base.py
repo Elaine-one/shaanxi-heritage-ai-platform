@@ -574,7 +574,6 @@ class ToolRegistry:
 
     def _register_default_tools(self):
         """注册默认工具"""
-        from .mcp_tools import MCPPOISearchTool, MCPTrafficTool
         from .knowledge_graph_tools import (
             NearbyHeritageTool, 
             RelatedHeritageTool, 
@@ -589,8 +588,6 @@ class ToolRegistry:
             KnowledgeBaseTool(),
             PlanEditTool(),
             GeocodingTool(),
-            MCPPOISearchTool(),
-            MCPTrafficTool(),
             NearbyHeritageTool(),
             RelatedHeritageTool(),
             NearbyRegionTool(),

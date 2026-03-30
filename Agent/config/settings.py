@@ -95,6 +95,7 @@ class Config:
     
     AMAP_API_KEY = os.getenv('AMAP_API_KEY')
     AMAP_API_URL = os.getenv('AMAP_API_URL', 'https://restapi.amap.com/v3')
+    AMAP_MCP_URL = os.getenv('AMAP_MCP_URL', 'https://mcp.amap.com/sse')
     
     MAP_PROVIDER = os.getenv('MAP_PROVIDER', 'amap').lower()
     
@@ -176,8 +177,8 @@ class Config:
             errors.append('LLM_MODEL 未设置')
         if not self._llm.base_url and self._llm.provider == 'custom':
             warnings.append('LLM_BASE_URL 未设置')
-        if not self.BAIDU_MAP_AK:
-            warnings.append('BAIDU_MAP_AK 未设置')
+        if not self.AMAP_API_KEY:
+            warnings.append('AMAP_API_KEY 未设置，地图工具将不可用')
         
         return {'valid': len(errors) == 0, 'errors': errors, 'warnings': warnings}
     
