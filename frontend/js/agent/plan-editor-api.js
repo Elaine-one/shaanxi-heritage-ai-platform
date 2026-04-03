@@ -39,9 +39,12 @@ class PlanEditorAPI {
             if (data.success) {
                 this.editor.sessionId = data.session_id;
                 this.editor.ui.enableApplyButton();
+                console.log('编辑会话初始化成功:', data.session_id);
             }
         } catch (e) {
             console.error('初始化会话失败:', e);
+        } finally {
+            this.editor._initializing = false;
         }
     }
 

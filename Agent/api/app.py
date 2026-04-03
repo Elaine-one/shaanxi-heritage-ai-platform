@@ -34,7 +34,7 @@ if str(current_dir) not in sys.path:
 from Agent.agent.agent import get_agent
 from Agent.agent.travel_planner import get_travel_planner
 from Agent.utils.logger_config import setup_logger
-from Agent.api.session_dependencies import get_current_user_from_session, TokenData
+from Agent.api.session_dependencies import get_current_user_from_session, TokenData, close_async_client
 from Agent.config.settings import Config
 
 # 导入路由
@@ -111,6 +111,8 @@ async def lifespan(app: FastAPI):
         await asyncio.wait_for(_cleanup_task, timeout=5.0)
     except (asyncio.CancelledError, asyncio.TimeoutError):
         pass
+    
+    await close_async_client()
     
     await resource_manager.shutdown()
 
