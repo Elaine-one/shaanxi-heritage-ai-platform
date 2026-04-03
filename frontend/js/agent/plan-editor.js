@@ -111,6 +111,17 @@ class PlanEditor {
     }
 
     startEditing(planData) {
+        if (this.isEditing) {
+            console.warn('已经在编辑中，忽略重复调用');
+            return;
+        }
+        
+        if (this._initializing) {
+            console.warn('正在初始化会话，请稍候...');
+            return;
+        }
+        
+        this._initializing = true;
         this.currentPlan = planData;
         this.isEditing = true;
         this.chatHistory = [];
