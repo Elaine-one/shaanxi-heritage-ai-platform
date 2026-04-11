@@ -1,7 +1,7 @@
 # 陕西非物质文化遗产智能旅游平台
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Elaine-one/shaanxi-heritage-ai-platform/main/docs/banner.png" alt="陕西非遗智能旅游平台" width="100%"/>
+  <img src="https://raw.githubusercontent.com/Elaine-one/shaanxi-heritage-ai-platform/main/doc/banner.gif" alt="陕西非遗智能旅游平台" width="100%"/>
 </p>
 
 <div align="center">
