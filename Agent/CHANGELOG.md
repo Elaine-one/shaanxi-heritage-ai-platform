@@ -1,5 +1,34 @@
 # 更新日志
 
+## v1.5（2026-04-14）
+
+#### 🧠 记忆系统架构重构
+
+**新增核心模块：**
+- ✅ 新增 `coordinator.py`：记忆协调器，统一管理四层记忆（内存/Redis/SQLite/Neo4j）
+- ✅ 新增 `sifter.py`：记忆筛选器，实现智能上下文过滤与优先级排序
+- ✅ 新增 `l2_graph_store.py`：L2 图存储层，强化关系记忆与知识图谱集成
+- ✅ 新增 `l3_sqlite_ledger.py`：L3 账本存储，替代旧 SQLite 模块，支持审计追踪
+- ✅ 新增 `session_provider.py`：会话提供者，统一会话管理接口
+- ✅ 新增 `memory_budget.py`：记忆预算配置，控制 Token 消耗与上下文长度
+
+**上下文系统优化：**
+- ✅ 重构 `context_compressor.py`：优化 P0-P3 四级压缩策略
+- ✅ 优化 `context_builder.py`：改进上下文构建流程，增强层间通信
+- ✅ 改进 `unified_context.py`：扩展上下文模型，支持记忆预算控制
+
+**会话管理重构：**
+- ✅ 重构 `session.py`：优化会话状态管理，支持多存储后端切换
+- ✅ 改进 `redis_session.py`：增强分布式会话支持
+
+**模块清理：**
+- 🗑️ 移除 `memory/sqlite_store.py`：被 `l3_sqlite_ledger.py` 替代
+- 🗑️ 移除 `memory/user_profile.py`：功能整合至 L3 账本
+- 🗑️ 移除 `memory/conversation_vector_service.py`：功能迁移至筛选器
+- 🗑️ 移除 `tools/context_manager.py`：功能整合至协调器
+- 🗑️ 移除 `api/export/` 目录：导出功能迁移
+- 🗑️ 移除 `core/concurrency.py`、`progress_manager.py`、`task_queue.py`：功能整合
+
 ## v1.4（2026-03-19）
 
 #### 🔌 MCP 工具统一封装
