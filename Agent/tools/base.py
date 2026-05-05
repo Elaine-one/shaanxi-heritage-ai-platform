@@ -43,9 +43,14 @@ def resolve_heritage_id(kg, heritage_id: int = None, heritage_name: str = None) 
     if heritage_id:
         return heritage_id
     if heritage_name:
-        heritages = kg.query_heritage_by_conditions(name=heritage_name)
-        if heritages:
-            return heritages[0].get('id')
+        try:
+            from Agent.memory.heritage_query_service import get_heritage_query_service
+            query_service = get_heritage_query_service()
+            results = query_service.hybrid_query(heritage_name, top_k=1)
+            if results:
+                return results[0].get('id')
+        except Exception as e:
+            logger.warning(f"通过名称解析heritage_id失败: {e}")
     return None
 
 
@@ -81,24 +86,32 @@ class BaseTool(ABC):
     @abstractmethod
     def name(self) -> str:
         """工具名称"""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def description(self) -> str:
         """工具描述"""
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def parameters(self) -> Dict[str, Any]:
         """参数Schema"""
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def execute(self, **kwargs) -> Dict[str, Any]:
         """执行工具调用"""
-        pass
+        raise NotImplementedError
+
+    async def safe_execute(self, **kwargs) -> Dict[str, Any]:
+        """安全执行工具调用，统一异常处理"""
+        try:
+            return await self.execute(**kwargs)
+        except Exception as e:
+            logger.error(f"{self.name}执行失败: {e}")
+            return {"success": False, "error": str(e)}
 
 
 class HeritageSearchTool(BaseTool):
@@ -219,145 +232,6 @@ class HeritageSearchTool(BaseTool):
             return {'success': False, 'error': f"查询失败: {str(e)}"}
 
 
-class WeatherQueryTool(BaseTool):
-    """天气查询工具"""
-
-    @property
-    def name(self) -> str:
-        return "weather_query"
-
-    @property
-    def description(self) -> str:
-        return "查询指定城市或地区的天气预报，包括温度、天气状况、湿度、风力等信息。适用于回答用户关于旅行目的地天气的问题。"
-
-    @property
-    def parameters(self) -> Dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "city": {
-                    "type": "string",
-                    "description": "城市名称，如：西安、北京、上海"
-                },
-                "days": {
-                    "type": "integer",
-                    "description": "查询天数，默认为3天，最长7天"
-                }
-            },
-            "required": ["city"]
-        }
-
-    async def execute(self, city: str, days: int = 3) -> Dict[str, Any]:
-        """执行天气查询"""
-        try:
-            from ..services.weather import get_weather_service
-            weather_service = get_weather_service()
-
-            # 将城市名称转换为坐标
-            coordinates = await self._get_city_coordinates(city)
-            if not coordinates:
-                return {'success': False, 'error': f"无法获取城市'{city}'的坐标信息"}
-
-            latitude, longitude = coordinates
-            result = await weather_service.get_weather_forecast(latitude, longitude, days)
-
-            if result.get('success'):
-                return {
-                    'success': True,
-                    'weather': result.get('weather', {}),
-                    'forecast': result.get('forecast', []),
-                    'location': city,
-                    'coordinates': {'latitude': latitude, 'longitude': longitude},
-                    'data_source': result.get('data_source', 'unknown'),
-                    'source_description': result.get('source_description', '数据来源未知')
-                }
-            else:
-                return {'success': False, 'error': result.get('error', '天气查询失败')}
-
-        except Exception as e:
-            logger.error(f"天气查询失败: {str(e)}")
-            return {'success': False, 'error': f"天气查询失败: {str(e)}"}
-
-    async def _get_city_coordinates(self, city: str) -> Optional[tuple]:
-        """
-        获取城市坐标（通过统一地理编码服务）
-
-        Args:
-            city (str): 城市名称
-
-        Returns:
-            Optional[tuple]: (latitude, longitude) 或 None（获取失败时返回None）
-        """
-        from ..services.geocoding import get_geocoding_service
-
-        geocoding = get_geocoding_service()
-        coords = await geocoding.get_coordinates(city)
-
-        if coords:
-            logger.info(f"获取城市坐标成功: {city} -> {coords}")
-            return coords
-
-        logger.warning(f"未找到城市'{city}'的坐标")
-        return None
-
-
-class KnowledgeBaseTool(BaseTool):
-    """知识库问答工具"""
-
-    @property
-    def name(self) -> str:
-        return "knowledge_base_qa"
-
-    @property
-    def description(self) -> str:
-        return "回答关于陕西非物质文化遗产的一般性问题，包括历史背景、文化意义、保护现状等。适用于知识性问答。"
-
-    @property
-    def parameters(self) -> Dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "question": {
-                    "type": "string",
-                    "description": "用户问题"
-                },
-                "category": {
-                    "type": "string",
-                    "description": "问题类别：历史、工艺、民俗、传承人、其他"
-                }
-            },
-            "required": ["question"]
-        }
-
-    async def execute(self, question: str, category: str = "其他") -> Dict[str, Any]:
-        """执行知识库问答"""
-        try:
-            from Agent.models.llm_model import get_llm_model
-            llm_model = get_llm_model()
-
-            prompt = self._build_knowledge_prompt(question, category)
-
-            response = await llm_model._call_model(prompt)
-
-            if response.get('success'):
-                return {
-                    'success': True,
-                    'answer': response['content'],
-                    'source': 'knowledge_base'
-                }
-            else:
-                return {'success': False, 'error': response.get('error', '知识查询失败')}
-
-        except Exception as e:
-            logger.error(f"知识库查询失败: {str(e)}")
-            return {'success': False, 'error': f"知识查询失败: {str(e)}"}
-
-    def _build_knowledge_prompt(self, question: str, category: str) -> str:
-        """构建知识库问答提示词"""
-        from Agent.prompts import get_knowledge_qa_prompt
-        return get_knowledge_qa_prompt(category=category, question=question)
-
-
 class PlanEditTool(BaseTool):
     """规划编辑工具"""
 
@@ -458,12 +332,20 @@ class PlanEditTool(BaseTool):
                 if 'budget_range' in edited_plan:
                     context.plan_data.budget_range = edited_plan['budget_range']
                 if 'heritage_names' in edited_plan or 'heritage_items' in edited_plan:
-                    pass
+                    if 'heritage_items' in edited_plan:
+                        from Agent.context.unified_context import HeritageItem
+                        context.plan_data.heritage_items = [
+                            HeritageItem(**{k: v for k, v in item.items() if k in ('id', 'name', 'region', 'category', 'level', 'latitude', 'longitude')})
+                            for item in edited_plan['heritage_items'] if isinstance(item, dict)
+                        ]
+                        logger.info(f"✅ 更新 heritage_items, count={len(context.plan_data.heritage_items)}")
+                    elif 'heritage_names' in edited_plan:
+                        logger.info(f"✅ heritage_names 更新: {edited_plan['heritage_names']}")
 
                 logger.info(f"✅ 上下文 plan_data 已更新: travel_days={context.plan_data.travel_days}, departure={context.plan_data.departure_location}")
 
             try:
-                from Agent.memory.session import get_session_pool
+                from Agent.memory.session_provider import get_session_pool
                 session_pool = get_session_pool()
                 if session_pool and context.session_id:
                     if hasattr(session_pool, 'update_session_plan'):
@@ -506,65 +388,6 @@ class PlanEditTool(BaseTool):
         return prompt
 
 
-class GeocodingTool(BaseTool):
-    """地理位置查询工具"""
-
-    @property
-    def name(self) -> str:
-        return "geocoding_query"
-
-    @property
-    def description(self) -> str:
-        return "查询指定地名或景点的地理坐标信息，返回经纬度。适用于需要获取位置坐标的场景，如天气查询、路线规划等。"
-
-    @property
-    def parameters(self) -> Dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "address": {
-                    "type": "string",
-                    "description": "地名、城市名或景点名称，如：西安、兵马俑、大雁塔等"
-                },
-                "location_name": {
-                    "type": "string",
-                    "description": "地名（同address，兼容参数）"
-                }
-            },
-            "required": []
-        }
-
-    async def execute(self, address: str = None, location_name: str = None) -> Dict[str, Any]:
-        """执行地理坐标查询"""
-        try:
-            location = address or location_name
-            if not location:
-                return {'success': False, 'error': '请提供地址参数'}
-            
-            from ..services.geocoding import get_geocoding_service
-            geocoding = get_geocoding_service()
-            
-            coords = await geocoding.get_coordinates(location)
-            
-            if coords:
-                return {
-                    'success': True,
-                    'location': location,
-                    'latitude': coords[0],
-                    'longitude': coords[1],
-                    'coordinates': {'latitude': coords[0], 'longitude': coords[1]}
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': f"未找到'{location}'的坐标信息"
-                }
-
-        except Exception as e:
-            logger.error(f"地理编码失败: {str(e)}")
-            return {'success': False, 'error': f"地理编码失败: {str(e)}"}
-
-
 class ToolRegistry:
     """工具注册中心"""
 
@@ -578,20 +401,19 @@ class ToolRegistry:
             NearbyHeritageTool, 
             RelatedHeritageTool, 
             NearbyRegionTool, 
-            RouteHintTool
+            RouteHintTool,
+            UserRecommendTool
         )
         from .plan_tools import PlanQueryTool, RouteDistanceTool, RoutePreviewTool
         
         default_tools = [
             HeritageSearchTool(),
-            WeatherQueryTool(),
-            KnowledgeBaseTool(),
             PlanEditTool(),
-            GeocodingTool(),
             NearbyHeritageTool(),
             RelatedHeritageTool(),
             NearbyRegionTool(),
             RouteHintTool(),
+            UserRecommendTool(),
             PlanQueryTool(),
             RouteDistanceTool(),
             RoutePreviewTool()
@@ -640,25 +462,3 @@ def get_tool_registry() -> ToolRegistry:
     if _tool_registry is None:
         _tool_registry = ToolRegistry()
     return _tool_registry
-
-
-def get_available_tools() -> List[Dict[str, Any]]:
-    """获取所有可用工具"""
-    registry = get_tool_registry()
-    return registry.list_tools()
-
-
-def execute_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
-    """执行指定工具"""
-    registry = get_tool_registry()
-    tool = registry.get_tool(tool_name)
-
-    if tool is None:
-        return {'success': False, 'error': f"工具不存在: {tool_name}"}
-
-    if asyncio.iscoroutinefunction(tool.execute):
-        result = asyncio.run(tool.execute(**kwargs))
-    else:
-        result = tool.execute(**kwargs)
-
-    return result

@@ -56,7 +56,7 @@ let actualTotalPages = 1; // 新增：存储实际总页数
     document.addEventListener('DOMContentLoaded', function() {
         // 加载浏览历史模块
         const historyScript = document.createElement('script');
-        historyScript.src = '../utils/browsing-history.js';
+        historyScript.src = '../js/utils/browsing-history.js';
         document.head.appendChild(historyScript);
         
         // 初始化页面

@@ -718,7 +718,7 @@ footer {
 }
 
 .music-icon::before {
-    content: '🎵';
+    content: '\f001'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     font-size: 20px;
     text-shadow: none !important;
 }

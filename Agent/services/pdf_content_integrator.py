@@ -85,10 +85,6 @@ class PDFContentIntegrator:
                 if not valid_conversation:
                     logger.error("对话历史格式验证失败，可能导致PDF内容与对话无关")
                 
-                if hasattr(self.ai_integrator, '_content_cache'):
-                    self.ai_integrator._content_cache.clear()
-                    logger.info("已清除AI内容缓存，确保使用最新的对话历史")
-                
                 plan_data['conversation_history'] = conversation_history
                 logger.info(f"已将对话历史添加到plan_data中，共 {len(conversation_history)} 条记录")
             

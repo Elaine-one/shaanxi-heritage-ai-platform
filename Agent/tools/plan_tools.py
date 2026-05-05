@@ -74,14 +74,13 @@ class PlanQueryTool(BaseTool):
             if not plan_summary:
                 plan_summary = {'heritage_items': heritage_items}
             
-            if query_type == "overview":
-                return self._query_overview(plan_summary)
-            elif query_type == "itinerary":
-                return self._query_itinerary(plan_summary)
-            elif query_type == "heritages":
-                return self._query_heritages(plan_summary)
-            else:
-                return self._query_overview(plan_summary)
+            query_handlers = {
+                "overview": self._query_overview,
+                "itinerary": self._query_itinerary,
+                "heritages": self._query_heritages,
+            }
+            handler = query_handlers.get(query_type, self._query_overview)
+            return handler(plan_summary)
                 
         except Exception as e:
             logger.error(f"规划查询失败: {str(e)}")
@@ -577,27 +576,17 @@ class RoutePreviewTool(BaseTool):
                         origin_str = f"{route_coords[i][1]},{route_coords[i][0]}"
                         dest_str = f"{route_coords[i+1][1]},{route_coords[i+1][0]}"
                         
-                        if travel_mode == 'driving':
-                            detail_result = await amap_client.maps_direction_driving(
-                                origin=origin_str, destination=dest_str
-                            )
-                        elif travel_mode == 'walking':
-                            detail_result = await amap_client.maps_direction_walking(
-                                origin=origin_str, destination=dest_str
-                            )
-                        elif travel_mode == 'riding':
-                            detail_result = await amap_client.maps_direction_riding(
-                                origin=origin_str, destination=dest_str
-                            )
-                        elif travel_mode == 'transit':
-                            detail_result = await amap_client.maps_direction_transit(
-                                origin=origin_str, destination=dest_str,
+                        route_methods = {
+                            'driving': lambda o, d: amap_client.maps_direction_driving(origin=o, destination=d),
+                            'walking': lambda o, d: amap_client.maps_direction_walking(origin=o, destination=d),
+                            'riding': lambda o, d: amap_client.maps_direction_riding(origin=o, destination=d),
+                            'transit': lambda o, d: amap_client.maps_direction_transit(
+                                origin=o, destination=d,
                                 city=departure_location.split('市')[0] if '市' in departure_location else departure_location
-                            )
-                        else:
-                            detail_result = await amap_client.maps_direction_driving(
-                                origin=origin_str, destination=dest_str
-                            )
+                            ),
+                        }
+                        route_fn = route_methods.get(travel_mode, route_methods['driving'])
+                        detail_result = await route_fn(origin_str, dest_str)
                         
                         if detail_result.get('success'):
                             from_name = departure_location if i == 0 else dest_locs[order_indices[i-1]]['name']

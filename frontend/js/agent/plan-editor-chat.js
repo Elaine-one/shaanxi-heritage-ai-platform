@@ -15,6 +15,7 @@ class PlanEditorChat {
 
     async sendMessage() {
         if (this.editor.isSending) return;
+        if (this.editor.api.isExporting) return;
 
         const input = document.getElementById('chat-input');
         const sendBtn = document.getElementById('send-message-btn');
@@ -98,14 +99,15 @@ class PlanEditorChat {
             console.error('发送消息失败:', error);
             let errorMessage = '网络请求失败，请稍后重试。';
 
-            if (error.name === 'TypeError' && error.message && error.message.includes('fetch')) {
-                errorMessage = '网络连接失败，请检查网络连接。';
-            } else if (error.message && error.message.includes('Failed to fetch')) {
-                errorMessage = '网络连接失败，请检查网络连接。';
-            } else if (error.message && error.message.includes('HTTP')) {
-                errorMessage = `服务器错误: ${error.message}`;
-            } else if (error.message) {
-                errorMessage = `请求失败: ${error.message}`;
+            const errorStrategies = [
+                { test: e => e.name === 'TypeError' && e.message?.includes('fetch'), msg: '网络连接失败，请检查网络连接。' },
+                { test: e => e.message?.includes('Failed to fetch'), msg: '网络连接失败，请检查网络连接。' },
+                { test: e => e.message?.includes('HTTP'), msg: e => `服务器错误: ${e.message}` },
+                { test: e => e.message, msg: e => `请求失败: ${e.message}` },
+            ];
+            const strategy = errorStrategies.find(s => s.test(error));
+            if (strategy) {
+                errorMessage = typeof strategy.msg === 'function' ? strategy.msg(error) : strategy.msg;
             }
 
             this._updateAiMessageContent(errorMessage);
@@ -125,6 +127,7 @@ class PlanEditorChat {
 
     async sendHalfMessage() {
         if (this.editor.isSending) return;
+        if (this.editor.api.isExporting) return;
 
         const input = document.getElementById('half-chat-input');
         const sendBtn = document.getElementById('half-send-btn');
@@ -323,17 +326,18 @@ class PlanEditorChat {
     renderChatWithPending() {
         const chatContainer = document.getElementById('chat-history');
         if (!chatContainer) return;
-        
-        const wasExporting = this.editor.api.isExporting;
-        const hadExportBtn = document.getElementById('export-pdf-btn') !== null;
-        
+
+        const hasAppliedChanges = this.editor.chatHistory.some(msg =>
+            msg.type === 'ai' && msg.content.includes('修改已应用')
+        );
+
         chatContainer.innerHTML = '';
-        
+
         this.editor.chatHistory.forEach(msg => {
             const isUser = msg.type === 'user';
             const icon = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
             const displayContent = isUser ? msg.content : this.renderMarkdown(msg.content);
-            
+
             const html = `
                 <div class="chat-message ${isUser ? 'user-message' : 'ai-message'}">
                     <div class="message-avatar">${icon}</div>
@@ -342,11 +346,11 @@ class PlanEditorChat {
             `;
             chatContainer.insertAdjacentHTML('beforeend', html);
         });
-        
+
         if (this.currentAiReply) {
             const icon = '<i class="fas fa-robot"></i>';
             let displayContent;
-            
+
             if (this.currentAiReply.isThinking) {
                 displayContent = `
                     <div class="thinking-indicator">
@@ -362,7 +366,7 @@ class PlanEditorChat {
                     </div>
                 `;
             }
-            
+
             const html = `
                 <div class="chat-message ai-message">
                     <div class="message-avatar">${icon}</div>
@@ -372,15 +376,11 @@ class PlanEditorChat {
             chatContainer.insertAdjacentHTML('beforeend', html);
             this.aiMessageContainer = document.getElementById(this.currentAiReply.messageId);
         }
-        
-        if (hadExportBtn) {
-            this.editor.ui.showExportOptions();
+
+        if (hasAppliedChanges && !this.editor.api.isExporting) {
+            this.editor.ui.showExportButton();
         }
-        
-        if (wasExporting) {
-            this.editor.api._setExportingState(true);
-        }
-        
+
         this.scrollToBottom();
     }
 

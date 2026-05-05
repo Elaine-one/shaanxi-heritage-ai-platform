@@ -80,10 +80,10 @@ class DialogManager {
                                 <div class="form-group">
                                     <label for="travelMode"><i class="fas fa-car"></i> 出行方式:</label>
                                     <select id="travelMode">
-                                        <option value="自驾" selected>🚗 自驾</option>
-                                        <option value="公共交通">🚌 公共交通</option>
-                                        <option value="跟团">👥 跟团</option>
-                                        <option value="自由行">🎒 自由行</option>
+                                        <option value="自驾" selected><i class="fa-solid fa-car"></i> 自驾</option>
+                                        <option value="公共交通"><i class="fa-solid fa-bus"></i> 公共交通</option>
+                                        <option value="跟团"><i class="fa-solid fa-people-group"></i> 跟团</option>
+                                        <option value="自由行"><i class="fa-solid fa-person-hiking"></i> 自由行</option>
                                     </select>
                                 </div>
                                 
@@ -92,10 +92,10 @@ class DialogManager {
                                 <div class="form-group">
                                     <label for="budgetRange"><i class="fas fa-wallet"></i> 预算范围:</label>
                                     <select id="budgetRange">
-                                        <option value="经济">💰 经济型 (500-1000元/天)</option>
-                                        <option value="中等" selected>💳 中等 (1000-2000元/天)</option>
-                                        <option value="高端">💎 高端 (2000-5000元/天)</option>
-                                        <option value="豪华">👑 豪华 (5000元以上/天)</option>
+                                        <option value="经济"><i class="fa-solid fa-coins"></i> 经济型 (500-1000元/天)</option>
+                                        <option value="中等" selected><i class="fa-solid fa-credit-card"></i> 中等 (1000-2000元/天)</option>
+                                        <option value="高端"><i class="fa-solid fa-gem"></i> 高端 (2000-5000元/天)</option>
+                                        <option value="豪华"><i class="fa-solid fa-crown"></i> 豪华 (5000元以上/天)</option>
                                     </select>
                                 </div>
                                 

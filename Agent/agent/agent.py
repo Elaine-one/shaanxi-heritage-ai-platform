@@ -9,8 +9,10 @@ from typing import Dict, Any, List, AsyncIterator
 from loguru import logger
 
 from Agent.safety.safety_checker import check_safety_async
-from Agent.memory.session import get_session_pool
+from Agent.memory.session_provider import get_session_pool
+from Agent.memory.coordinator import get_memory_coordinator
 from Agent.context import get_context_builder
+from Agent.config.memory_budget import memory_budget
 from .langchain_agent import get_langchain_agent_executor
 
 
@@ -19,6 +21,7 @@ class Agent:
     
     def __init__(self):
         self.session_pool = get_session_pool()
+        self.memory_coordinator = get_memory_coordinator()
         self.context_builder = get_context_builder()
         self._langchain_agent = None
         logger.info("Agent 初始化完成（架构：安全检测 + LangGraph ReAct + UnifiedContext）")
@@ -54,6 +57,15 @@ class Agent:
             safety_result = await check_safety_async(user_input)
             if not safety_result.is_safe:
                 logger.warning(f"安全检测拦截: {safety_result.reason}")
+                try:
+                    await self.memory_coordinator.append_turn(
+                        session_id=session_id,
+                        role="system",
+                        content=f"[安全拦截] {safety_result.reason}",
+                        user_id=None,
+                    )
+                except Exception:
+                    pass
                 yield {"type": "content", "content": self._get_blocked_response()}
                 yield {"type": "done"}
                 return
@@ -69,6 +81,16 @@ class Agent:
             logger.debug(f"  - heritage_ids: {context.plan_data.get_heritage_ids()}")
             
             context.add_conversation_turn('user', user_input)
+            if memory_budget.memory_coordinator_enabled:
+                await self.memory_coordinator.append_turn(
+                    session_id=session_id,
+                    role='user',
+                    content=user_input,
+                    user_id=context.user_id,
+                    username=context.username
+                )
+            else:
+                self.session_pool.add_conversation(session_id, 'user', user_input, user_id=context.user_id)
             self.context_builder.invalidate_cache(session_id)
 
             logger.info("🚀 使用 LangGraph Agent 处理")
@@ -80,10 +102,17 @@ class Agent:
             
             if full_response:
                 context.add_conversation_turn('assistant', full_response)
-                
-                last_turn = context.conversation_history[-1] if context.conversation_history else None
-                if last_turn and last_turn.role == 'assistant':
-                    self.session_pool.add_conversation(session_id, 'assistant', full_response)
+                if memory_budget.memory_coordinator_enabled:
+                    await self.memory_coordinator.append_turn(
+                        session_id=session_id,
+                        role='assistant',
+                        content=full_response,
+                        user_id=context.user_id,
+                        username=context.username
+                    )
+                else:
+                    self.session_pool.add_conversation(session_id, 'assistant', full_response, user_id=context.user_id)
+                self.context_builder.invalidate_cache(session_id)
             
         except Exception as e:
             import traceback
@@ -102,10 +131,6 @@ class Agent:
 - 搜索周边餐厅、酒店
 
 请问有什么可以帮您的吗？"""
-
-    def _stream_response(self, response: str) -> List[str]:
-        """流式输出响应 - 直接输出完整内容"""
-        yield response
 
 
 _agent_instance = None

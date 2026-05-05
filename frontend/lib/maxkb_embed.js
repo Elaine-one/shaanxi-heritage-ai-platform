@@ -1,34 +1,68 @@
 (function() {
-  // 通过后端API获取MaxKB配置
-  const getMaxKBConfig = async () => {
-    try {
-      const response = await fetch('/api/third-party/config/maxkb/', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        timeout: 3000
-      });
-      
-      if (response.ok) {
-        return await response.json();
+  var CACHE_KEY = 'maxkb_config_status';
+  var CACHE_DURATION = 30 * 60 * 1000;
+
+  var cached = null;
+  try {
+    var raw = localStorage.getItem(CACHE_KEY);
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (Date.now() - parsed.timestamp < CACHE_DURATION) {
+        cached = parsed;
+      } else {
+        localStorage.removeItem(CACHE_KEY);
       }
+    }
+  } catch (e) {}
+
+  if (cached && !cached.available) {
+    console.warn('MaxKB配置不可用（缓存），跳过聊天机器人加载');
+    return;
+  }
+
+  var getMaxKBConfig = async function() {
+    try {
+      var controller = new AbortController();
+      var timeoutId = setTimeout(function() { controller.abort(); }, 3000);
+
+      var response = await fetch('/api/third-party/config/maxkb/', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        var config = await response.json();
+        if (config && config.embed_url) {
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ available: true, timestamp: Date.now() }));
+          } catch (e) {}
+          return config;
+        }
+      }
+
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ available: false, timestamp: Date.now() }));
+      } catch (e) {}
       return null;
     } catch (error) {
-      console.warn('获取MaxKB配置失败:', error);
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ available: false, timestamp: Date.now() }));
+      } catch (e) {}
       return null;
     }
   };
 
-  // 只有在获取配置成功时才加载脚本
-  getMaxKBConfig().then(config => {
+  getMaxKBConfig().then(function(config) {
     if (config && config.embed_url) {
-      const script = document.createElement('script');
+      var script = document.createElement('script');
       script.async = true;
       script.defer = true;
       script.src = config.embed_url;
-      script.onerror = () => {
+      script.onerror = function() {
         console.warn('MaxKB聊天机器人加载失败');
       };
       document.head.appendChild(script);

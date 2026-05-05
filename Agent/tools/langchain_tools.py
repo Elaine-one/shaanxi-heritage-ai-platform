@@ -13,6 +13,7 @@ from loguru import logger
 
 from langchain.tools import BaseTool, tool
 from pydantic import BaseModel, Field, field_validator
+from Agent.config.memory_budget import memory_budget
 
 
 V1BaseModel = BaseModel
@@ -51,12 +52,19 @@ def _run_async(coro):
 
 def _format_result(result: Dict[str, Any]) -> str:
     """格式化工具执行结果为字符串"""
+    def _truncate(text: str, max_chars: int) -> str:
+        if len(text) <= max_chars:
+            return text
+        return text[:max_chars] + f"\n...（结果已截断，原始长度 {len(text)} 字符）"
+
     if result.get('success'):
         data = result.copy()
         data.pop('success', None)
-        return json.dumps(data, ensure_ascii=False, indent=2)
+        serialized = json.dumps(data, ensure_ascii=False, indent=2)
+        return _truncate(serialized, memory_budget.tool_result_max_chars)
     else:
-        return f"执行失败: {result.get('error', '未知错误')}"
+        msg = f"执行失败: {result.get('error', '未知错误')}"
+        return _truncate(msg, memory_budget.tool_result_max_chars)
 
 
 class HeritageSearchInput(V1BaseModel):
@@ -104,6 +112,24 @@ class RelatedHeritageInput(V1BaseModel):
     heritage_name: Optional[str] = Field(None, description="非遗项目名称")
     relation_type: str = Field(default="all", description="关系类型: category/region/all")
     limit: int = Field(default=5, description="返回数量限制")
+
+
+class UserRecommendInput(V1BaseModel):
+    """个性化推荐工具输入"""
+    user_id: str = Field(description="用户ID")
+    limit: int = Field(default=5, description="推荐数量，默认5")
+
+
+class NearbyRegionInput(V1BaseModel):
+    """邻近地区查询工具输入"""
+    region_name: str = Field(description="地区名称，如'西安市'")
+    distance_km: float = Field(default=100, description="搜索半径（公里）")
+
+
+class RouteHintInput(V1BaseModel):
+    """路线提示工具输入"""
+    heritage_ids: List[int] = Field(description="非遗项目ID列表")
+    departure: Optional[str] = Field(None, description="出发地")
 
 
 def create_heritage_search_tool() -> 'BaseTool':
@@ -247,6 +273,45 @@ def create_related_heritage_tool() -> 'BaseTool':
     return related_heritage_query
 
 
+def create_user_recommend_tool() -> 'BaseTool':
+    """创建个性化非遗推荐工具"""
+    @tool("user_heritage_recommend", args_schema=UserRecommendInput)
+    def user_heritage_recommend(user_id: str, limit: int = 5) -> str:
+        """基于用户历史偏好、规划记录和导出行为，推荐可能感兴趣的非遗项目。当用户询问推荐或想发现新项目时使用。"""
+        from Agent.tools.base import get_tool_registry
+        tool = get_tool_registry().get_tool("user_heritage_recommend")
+        result = _run_async(tool.execute(user_id=user_id, limit=limit))
+        return _format_result(result)
+
+    return user_heritage_recommend
+
+
+def create_nearby_region_tool() -> 'BaseTool':
+    """创建邻近地区查询工具"""
+    @tool("nearby_region_query", args_schema=NearbyRegionInput)
+    def nearby_region_query(region_name: str, distance_km: float = 100) -> str:
+        """查询指定地区周边的其他区县或城市。当用户想了解目的地周边文化资源分布时使用。"""
+        from Agent.tools.base import get_tool_registry
+        tool = get_tool_registry().get_tool("nearby_region_query")
+        result = _run_async(tool.execute(region_name=region_name, distance_km=distance_km))
+        return _format_result(result)
+
+    return nearby_region_query
+
+
+def create_route_hint_tool() -> 'BaseTool':
+    """创建路线提示工具"""
+    @tool("heritage_route_hint", args_schema=RouteHintInput)
+    def heritage_route_hint(heritage_ids: List[int], departure: Optional[str] = None) -> str:
+        """基于知识图谱分析已选非遗项目，提供顺访推荐和路线提示。当用户已选定多个项目想优化路线时使用。"""
+        from Agent.tools.base import get_tool_registry
+        tool = get_tool_registry().get_tool("heritage_route_hint")
+        result = _run_async(tool.execute(heritage_ids=heritage_ids, departure=departure))
+        return _format_result(result)
+
+    return heritage_route_hint
+
+
 def create_business_tools() -> List['BaseTool']:
     """创建业务工具（非地图工具）"""
     tools = [
@@ -256,6 +321,9 @@ def create_business_tools() -> List['BaseTool']:
         create_route_preview_tool(),
         create_nearby_heritage_tool(),
         create_related_heritage_tool(),
+        create_user_recommend_tool(),
+        create_nearby_region_tool(),
+        create_route_hint_tool(),
     ]
     
     tools = [t for t in tools if t is not None]
@@ -281,33 +349,6 @@ async def get_mcp_tools_async() -> List['BaseTool']:
     except Exception as e:
         logger.error(f"获取 MCP 工具失败: {e}")
         return []
-
-
-def create_langchain_tools() -> List['BaseTool']:
-    """
-    创建所有 LangChain 工具（同步版本，仅返回业务工具）
-    
-    注意：地图工具通过 MCP 异步获取，需要在 Agent 初始化时调用 get_all_tools_async()
-    """
-    return create_business_tools()
-
-
-async def get_all_tools_async() -> List['BaseTool']:
-    """
-    异步获取所有工具（业务工具 + MCP 工具）
-    
-    Returns:
-        List: 完整的工具列表
-    """
-    business_tools = create_business_tools()
-    
-    mcp_tools = await get_mcp_tools_async()
-    
-    all_tools = business_tools + mcp_tools
-    
-    logger.info(f"工具加载完成: 业务工具 {len(business_tools)} 个, MCP 工具 {len(mcp_tools)} 个, 共计 {len(all_tools)} 个")
-    
-    return all_tools
 
 
 class LangChainToolsManager:
@@ -392,14 +433,3 @@ def get_langchain_tools_manager() -> LangChainToolsManager:
     if _tools_manager is None:
         _tools_manager = LangChainToolsManager()
     return _tools_manager
-
-
-def get_langchain_tools() -> List['BaseTool']:
-    """获取 LangChain 工具列表（同步版本，仅业务工具）"""
-    return get_langchain_tools_manager().get_tools()
-
-
-async def get_langchain_tools_async() -> List['BaseTool']:
-    """获取 LangChain 工具列表（异步版本，包含 MCP 工具）"""
-    manager = get_langchain_tools_manager()
-    return await manager.get_all_tools()

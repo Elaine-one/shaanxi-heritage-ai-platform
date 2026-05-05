@@ -682,23 +682,26 @@ class FloatingAIAssistant {
     
     bindEvents() {
         document.addEventListener('click', (e) => {
-            if (e.target.closest('#ai-float-btn')) {
-                this.togglePanel();
-            } else if (e.target.closest('#ai-close-btn')) {
-                this.closePanel();
-            } else if (e.target.closest('#ai-minimize-btn')) {
-                this.minimizePanel();
-            } else if (e.target.closest('#ai-expand-btn')) {
-                this.toggleExpand();
-            } else if (e.target.closest('#ai-restore-btn') || e.target.closest('.ai-minibar')) {
-                this.restorePanel();
-            } else if (e.target.closest('#ai-send-btn')) {
-                this.sendMessage();
-            } else if (e.target.closest('.quick-btn')) {
-                const btn = e.target.closest('.quick-btn');
-                const msg = btn.dataset.msg;
-                document.getElementById('ai-input').value = msg;
-                this.sendMessage();
+            const clickHandlers = [
+                ['#ai-float-btn', () => this.togglePanel()],
+                ['#ai-close-btn', () => this.closePanel()],
+                ['#ai-minimize-btn', () => this.minimizePanel()],
+                ['#ai-expand-btn', () => this.toggleExpand()],
+                ['#ai-restore-btn', () => this.restorePanel()],
+                ['.ai-minibar', () => this.restorePanel()],
+                ['#ai-send-btn', () => this.sendMessage()],
+                ['.quick-btn', (target) => {
+                    const msg = target.dataset.msg;
+                    document.getElementById('ai-input').value = msg;
+                    this.sendMessage();
+                }],
+            ];
+            for (const [selector, handler] of clickHandlers) {
+                const target = e.target.closest(selector);
+                if (target) {
+                    handler(target);
+                    break;
+                }
             }
         });
         

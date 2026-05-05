@@ -5,6 +5,7 @@ PDF生成器
 """
 
 import os
+import asyncio
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from loguru import logger
@@ -13,13 +14,111 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    HRFlowable, PageBreak
+    HRFlowable, PageBreak, Flowable
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+
+
+class CalloutBox(Flowable):
+    def __init__(self, text, box_type, font_name, width=420):
+        Flowable.__init__(self)
+        self.text = text
+        self.box_type = box_type
+        self.font_name = font_name
+        self.box_width = width
+        
+        type_config = {
+            'tip':    {'bg': '#E8F5E9', 'border': '#2E7D32', 'icon': '\u3010\u5B9E\u7528\u8D34\u58EB\u3011', 'text_color': '#1B5E20'},
+            'warning': {'bg': '#FFF3E0', 'border': '#E65100', 'icon': '\u3010\u6CE8\u610F\u4E8B\u9879\u3011', 'text_color': '#BF360C'},
+            'highlight': {'bg': '#FBE9E7', 'border': '#C41A1A', 'icon': '\u3010\u884C\u7A0B\u4EAE\u70B9\u3011', 'text_color': '#B71C1C'},
+        }
+        config = type_config.get(box_type, type_config['tip'])
+        self.bg_color = colors.HexColor(config['bg'])
+        self.border_color = colors.HexColor(config['border'])
+        self.icon_text = config['icon']
+        self.text_color = colors.HexColor(config['text_color'])
+        
+        self._style = ParagraphStyle(
+            f'callout_{box_type}',
+            fontName=font_name,
+            fontSize=10,
+            leading=15,
+            textColor=self.text_color,
+        )
+        self._icon_style = ParagraphStyle(
+            f'callout_icon_{box_type}',
+            fontName=font_name,
+            fontSize=10,
+            leading=15,
+            textColor=self.border_color,
+        )
+        
+        self._para = Paragraph(self.text, self._style)
+        self._icon_para = Paragraph(f'<b>{self.icon_text}</b>', self._icon_style)
+        
+        pw, ph = self._para.wrap(self.box_width - 30, 1000)
+        iw, ih = self._icon_para.wrap(self.box_width - 30, 1000)
+        self.box_height = ph + ih + 20
+    
+    def wrap(self, availWidth, availHeight):
+        return self.box_width, self.box_height
+    
+    def draw(self):
+        canvas = self.canv
+        canvas.saveState()
+        
+        canvas.setFillColor(self.bg_color)
+        canvas.rect(0, 0, self.box_width, self.box_height, fill=1, stroke=0)
+        
+        canvas.setStrokeColor(self.border_color)
+        canvas.setLineWidth(3)
+        canvas.line(0, 0, 0, self.box_height)
+        
+        y = self.box_height - 10
+        self._icon_para.drawOn(canvas, 10, y - 12)
+        y -= 18
+        
+        self._para.drawOn(canvas, 10, y - self._para.height + 5)
+        
+        canvas.restoreState()
+
+
+class DayBanner(Flowable):
+    def __init__(self, day_text, date_text, font_name, width=420):
+        Flowable.__init__(self)
+        self.day_text = day_text
+        self.date_text = date_text
+        self.font_name = font_name
+        self.banner_width = width
+        self.banner_height = 36
+    
+    def wrap(self, availWidth, availHeight):
+        return self.banner_width, self.banner_height + 8
+    
+    def draw(self):
+        canvas = self.canv
+        canvas.saveState()
+        
+        canvas.setFillColor(colors.HexColor('#C41A1A'))
+        canvas.rect(0, 8, self.banner_width, self.banner_height, fill=1, stroke=0)
+        
+        canvas.setFillColor(colors.HexColor('#D4A574'))
+        canvas.rect(0, 8, 6, self.banner_height, fill=1, stroke=0)
+        
+        canvas.setFont(self.font_name, 14)
+        canvas.setFillColor(colors.white)
+        canvas.drawString(16, 20, self.day_text)
+        
+        if self.date_text:
+            canvas.setFont(self.font_name, 10)
+            canvas.setFillColor(colors.HexColor('#FFD5D5'))
+            canvas.drawRightString(self.banner_width - 10, 22, self.date_text)
+        
+        canvas.restoreState()
 
 
 class OptimizedPDFGenerator:
@@ -77,25 +176,28 @@ class OptimizedPDFGenerator:
         return 'Helvetica'
     
     def _create_styles(self) -> Dict[str, ParagraphStyle]:
-        """创建样式"""
         styles = getSampleStyleSheet()
         
-        COLOR_PRIMARY = colors.HexColor('#2c3e50')
-        COLOR_ACCENT = colors.HexColor('#e67e22')
-        COLOR_H1 = colors.HexColor('#8e44ad')
-        COLOR_H2 = colors.HexColor('#2980b9')
-        COLOR_H3 = colors.HexColor('#16a085')
+        COLOR_PRIMARY = colors.HexColor('#C41A1A')
+        COLOR_ACCENT = colors.HexColor('#D4A574')
+        COLOR_H1 = colors.HexColor('#C41A1A')
+        COLOR_H2 = colors.HexColor('#2C5F2D')
+        COLOR_H3 = colors.HexColor('#8B6914')
+        COLOR_TEXT = colors.HexColor('#2D2D2D')
+        COLOR_TEXT_LIGHT = colors.HexColor('#666666')
+        COLOR_BG_WARM = colors.HexColor('#FDF6EC')
+        COLOR_BG_CARD = colors.HexColor('#F5EDE0')
         
         custom_styles = {
             'title': ParagraphStyle(
                 'CustomTitle',
                 parent=styles['Heading1'],
                 fontName=self.chinese_font,
-                fontSize=26,
-                leading=34,
+                fontSize=28,
+                leading=36,
                 alignment=TA_CENTER,
-                spaceAfter=20,
-                textColor=COLOR_H1
+                spaceAfter=8,
+                textColor=COLOR_PRIMARY
             ),
             'subtitle': ParagraphStyle(
                 'CustomSubtitle',
@@ -105,26 +207,26 @@ class OptimizedPDFGenerator:
                 leading=16,
                 alignment=TA_CENTER,
                 spaceAfter=30,
-                textColor=colors.gray
+                textColor=COLOR_TEXT_LIGHT
             ),
             'h1': ParagraphStyle(
                 'CustomH1',
                 parent=styles['Heading1'],
                 fontName=self.chinese_font,
-                fontSize=18,
-                leading=24,
-                spaceBefore=20,
-                spaceAfter=12,
+                fontSize=20,
+                leading=28,
+                spaceBefore=24,
+                spaceAfter=14,
                 textColor=COLOR_H1
             ),
             'h2': ParagraphStyle(
                 'CustomH2',
                 parent=styles['Heading2'],
                 fontName=self.chinese_font,
-                fontSize=15,
-                leading=20,
-                spaceBefore=15,
-                spaceAfter=10,
+                fontSize=16,
+                leading=22,
+                spaceBefore=18,
+                spaceAfter=12,
                 textColor=COLOR_H2
             ),
             'h3': ParagraphStyle(
@@ -133,7 +235,7 @@ class OptimizedPDFGenerator:
                 fontName=self.chinese_font,
                 fontSize=13,
                 leading=18,
-                spaceBefore=12,
+                spaceBefore=14,
                 spaceAfter=8,
                 textColor=COLOR_H3
             ),
@@ -142,40 +244,41 @@ class OptimizedPDFGenerator:
                 parent=styles['Normal'],
                 fontName=self.chinese_font,
                 fontSize=11,
-                leading=16,
+                leading=18,
                 alignment=TA_JUSTIFY,
-                spaceAfter=8,
-                textColor=COLOR_PRIMARY
+                spaceAfter=10,
+                textColor=COLOR_TEXT
             ),
             'list': ParagraphStyle(
                 'CustomList',
                 parent=styles['Normal'],
                 fontName=self.chinese_font,
                 fontSize=11,
-                leading=16,
-                leftIndent=15,
-                spaceAfter=4,
-                textColor=COLOR_PRIMARY
+                leading=18,
+                leftIndent=20,
+                spaceAfter=6,
+                textColor=COLOR_TEXT
             ),
             'quote': ParagraphStyle(
                 'CustomQuote',
                 parent=styles['Normal'],
                 fontName=self.chinese_font,
                 fontSize=10,
-                leading=14,
-                leftIndent=20,
+                leading=15,
+                leftIndent=25,
                 rightIndent=20,
                 spaceBefore=10,
                 spaceAfter=10,
-                textColor=colors.HexColor('#555555'),
-                backColor=colors.HexColor('#f8f9fa')
+                textColor=COLOR_TEXT_LIGHT,
+                backColor=COLOR_BG_WARM,
+                borderPadding=8
             ),
             'highlight': ParagraphStyle(
                 'CustomHighlight',
                 parent=styles['Normal'],
                 fontName=self.chinese_font,
                 fontSize=11,
-                leading=16,
+                leading=18,
                 textColor=COLOR_ACCENT
             ),
             'footer': ParagraphStyle(
@@ -185,7 +288,38 @@ class OptimizedPDFGenerator:
                 fontSize=9,
                 leading=12,
                 alignment=TA_CENTER,
-                textColor=colors.gray
+                textColor=COLOR_TEXT_LIGHT
+            ),
+            'cover_info': ParagraphStyle(
+                'CoverInfo',
+                parent=styles['Normal'],
+                fontName=self.chinese_font,
+                fontSize=12,
+                leading=18,
+                alignment=TA_CENTER,
+                textColor=COLOR_TEXT
+            ),
+            'section_header': ParagraphStyle(
+                'SectionHeader',
+                parent=styles['Normal'],
+                fontName=self.chinese_font,
+                fontSize=14,
+                leading=20,
+                textColor=colors.white,
+                alignment=TA_LEFT,
+                spaceBefore=16,
+                spaceAfter=10
+            ),
+            'tip_text': ParagraphStyle(
+                'TipText',
+                parent=styles['Normal'],
+                fontName=self.chinese_font,
+                fontSize=10,
+                leading=15,
+                leftIndent=30,
+                rightIndent=15,
+                spaceAfter=6,
+                textColor=COLOR_TEXT
             )
         }
         
@@ -215,9 +349,9 @@ class OptimizedPDFGenerator:
             doc = SimpleDocTemplate(
                 output_path,
                 pagesize=A4,
-                rightMargin=20*mm,
-                leftMargin=20*mm,
-                topMargin=25*mm,
+                rightMargin=25*mm,
+                leftMargin=25*mm,
+                topMargin=30*mm,
                 bottomMargin=25*mm
             )
             
@@ -227,13 +361,15 @@ class OptimizedPDFGenerator:
             
             if content_type == 'rich_text':
                 text_content = content.get('text_content', '')
+                plan_data = content.get('plan_data', {})
+                self._add_auto_cover(story, text_content, plan_data)
                 self._parse_markdown_to_story(story, text_content)
             elif content_type == 'structured':
                 self._build_structured_content(story, content)
             else:
                 self._add_fallback_content(story, content)
             
-            doc.build(story, onFirstPage=self._add_page_header, onLaterPages=self._add_page_header)
+            await asyncio.to_thread(doc.build, story, onFirstPage=self._add_page_header, onLaterPages=self._add_page_header)
             
             if os.path.exists(output_path) and os.path.getsize(output_path) > 100:
                 file_size = os.path.getsize(output_path)
@@ -264,29 +400,43 @@ class OptimizedPDFGenerator:
             }
     
     def _add_page_header(self, canvas, doc):
-        """添加页眉页脚"""
         canvas.saveState()
         
+        canvas.setStrokeColor(colors.HexColor('#C41A1A'))
+        canvas.setLineWidth(2)
+        canvas.line(doc.leftMargin, doc.height + doc.topMargin + 6*mm, 
+                     doc.width + doc.leftMargin, doc.height + doc.topMargin + 6*mm)
+        
         canvas.setFont(self.chinese_font, 9)
-        canvas.setFillColor(colors.gray)
+        canvas.setFillColor(colors.HexColor('#C41A1A'))
+        canvas.drawString(doc.leftMargin, doc.height + doc.topMargin + 9*mm, "陕西非遗文化旅游规划")
         
-        canvas.drawString(doc.leftMargin, doc.height + doc.topMargin + 10*mm, "陕西非遗文化旅游规划")
+        canvas.setStrokeColor(colors.HexColor('#D4A574'))
+        canvas.setLineWidth(0.5)
+        canvas.line(doc.leftMargin, 15*mm, doc.width + doc.leftMargin, 15*mm)
         
-        canvas.drawCentredString(doc.width / 2 + doc.leftMargin, 10*mm, f"第 {doc.page} 页")
+        canvas.setFillColor(colors.HexColor('#999999'))
+        canvas.setFont(self.chinese_font, 8)
+        canvas.drawCentredString(doc.width / 2 + doc.leftMargin, 10*mm, f"— {doc.page} —")
         
         canvas.restoreState()
     
     def _remove_emojis(self, text: str) -> str:
-        """处理不支持的 emoji"""
         emoji_replacements = {
-            '📢': '【定制说明】',
-            '🎒': '【行前准备】',
-            '🚗': '【出行方式】',
-            '💰': '【费用预算】',
-            '📜': '【每日行程】',
-            '🍽️': '【今日三餐】',
-            '📍': '【项目详情】',
-            '💡': '【实用贴士】',
+            '📢': '',
+            '🎒': '',
+            '🚗': '',
+            '💰': '',
+            '📜': '',
+            '🍽️': '',
+            '🍽': '',
+            '📍': '',
+            '💡': '',
+            '⚠️': '',
+            '⚠': '',
+            '🌟': '',
+            '✨': '',
+            '🏨': '',
             '★': '*',
             '☆': ' ',
             '✓': '√',
@@ -296,10 +446,9 @@ class OptimizedPDFGenerator:
         for emoji, replacement in emoji_replacements.items():
             text = text.replace(emoji, replacement)
         
-        return text
+        return text.strip()
     
     def _parse_markdown_to_story(self, story: List, text: str):
-        """解析 Markdown 内容，支持表格和 emoji 处理"""
         lines = text.split('\n')
         i = 0
         
@@ -310,54 +459,132 @@ class OptimizedPDFGenerator:
             if not line:
                 continue
             
+            raw_line = line
             line = self._remove_emojis(line)
             line = self._process_inline_markdown(line)
             
-            if line.startswith('# ') and not line.startswith('## '):
-                story.append(Spacer(1, 10))
-                story.append(Paragraph(line[2:], self.styles['title']))
-                story.append(HRFlowable(width="60%", thickness=2, color=colors.HexColor('#e67e22'), spaceAfter=20))
+            handlers = [
+                (lambda l: l.startswith('# ') and not l.startswith('## '), self._handle_h1),
+                (lambda l: l.startswith('## '), self._handle_h2),
+                (lambda l: l.startswith('### '), self._handle_h3),
+                (lambda l: l.startswith('#### '), self._handle_h4),
+                (lambda l: l.startswith('> '), self._handle_quote),
+                (lambda l: l in ('---', '***'), self._handle_hr),
+                (lambda l: l.startswith('|'), self._handle_table_line),
+                (lambda l: l.startswith(('- ', '* ')), self._handle_list),
+            ]
             
-            elif line.startswith('## '):
-                story.append(Spacer(1, 15))
-                story.append(Paragraph(line[3:], self.styles['h1']))
-                story.append(HRFlowable(width="30%", thickness=1, color=colors.HexColor('#2980b9'), spaceAfter=10))
+            handled = False
+            new_idx = None
+            for matcher, handler in handlers:
+                if matcher(line):
+                    result = handler(story, line, lines, i)
+                    if result is not None:
+                        new_idx = result
+                    handled = True
+                    break
             
-            elif line.startswith('### '):
-                story.append(Spacer(1, 8))
-                story.append(Paragraph(line[4:], self.styles['h2']))
-            
-            elif line.startswith('#### '):
-                story.append(Spacer(1, 6))
-                story.append(Paragraph(line[5:], self.styles['h3']))
-            
-            elif line.startswith('> '):
-                story.append(Spacer(1, 5))
-                story.append(Paragraph(line[2:], self.styles['quote']))
-                story.append(Spacer(1, 5))
-            
-            elif line == '---' or line == '***':
-                story.append(Spacer(1, 15))
-                story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#95a5a6'), spaceAfter=15))
-            
-            elif line.startswith('|'):
-                i = self._parse_markdown_table(story, lines, i - 1)
-            
-            elif line.startswith('- ') or line.startswith('* '):
-                content = line[2:]
-                if '|' in content and self._is_time_format(content.split('|')[0].strip()):
-                    parts = content.split('|', 1)
-                    if len(parts) == 2:
-                        formatted = f"<b>{parts[0].strip()}</b> | {parts[1].strip()}"
-                        story.append(Paragraph(formatted, self.styles['list']))
-                        continue
-                story.append(Paragraph(f"• {content}", self.styles['list']))
-            
-            else:
+            if new_idx is not None:
+                i = new_idx
+            elif not handled:
                 story.append(Paragraph(line, self.styles['normal']))
+
+    def _handle_h1(self, story, line, lines, idx):
+        story.append(Spacer(1, 12))
+        story.append(HRFlowable(width="100%", thickness=3, color=colors.HexColor('#C41A1A'), spaceAfter=8))
+        story.append(Paragraph(line[2:], self.styles['h1']))
+        story.append(HRFlowable(width="40%", thickness=1, color=colors.HexColor('#D4A574'), spaceAfter=16))
+
+    def _handle_h2(self, story, line, lines, idx):
+        story.append(Spacer(1, 10))
+        story.append(Paragraph(line[3:], self.styles['h2']))
+        story.append(HRFlowable(width="25%", thickness=1, color=colors.HexColor('#2C5F2D'), spaceAfter=12))
+
+    def _handle_h3(self, story, line, lines, idx):
+        content = line[4:]
+        is_day_title = False
+        day_text = content
+        date_text = ''
+        
+        for prefix in ['第', 'Day ', 'day ']:
+            if content.startswith(prefix):
+                is_day_title = True
+                break
+        
+        if is_day_title:
+            if '(' in content and ')' in content:
+                paren_start = content.index('(')
+                paren_end = content.index(')')
+                date_text = content[paren_start+1:paren_end]
+                day_text = content[:paren_start]
+            elif '（' in content and '）' in content:
+                paren_start = content.index('（')
+                paren_end = content.index('）')
+                date_text = content[paren_start+1:paren_end]
+                day_text = content[:paren_start]
+            elif '：' in content:
+                parts = content.split('：', 1)
+                day_text = parts[0]
+                date_text = parts[1] if len(parts) > 1 else ''
+            
+            story.append(Spacer(1, 16))
+            story.append(DayBanner(day_text, date_text, self.chinese_font))
+            story.append(Spacer(1, 8))
+        else:
+            story.append(Spacer(1, 8))
+            story.append(Paragraph(content, self.styles['h3']))
+
+    def _handle_h4(self, story, line, lines, idx):
+        story.append(Spacer(1, 6))
+        story.append(Paragraph(line[5:], self.styles['h3']))
+
+    def _handle_quote(self, story, line, lines, idx):
+        content = line[2:]
+        
+        raw_content = content
+        for emoji in ['💡', '⚠️', '⚠', '🌟', '✨', '🏨']:
+            if raw_content.startswith(emoji):
+                raw_content = raw_content[len(emoji):].strip()
+                break
+        
+        if raw_content != content:
+            content = self._process_inline_markdown(raw_content)
+        
+        if '【实用贴士】' in content or '【贴士】' in content or content.startswith('今日天气') or content.startswith('今日贴士') or content.startswith('推荐') or content.startswith('若遇') or content.startswith('建议'):
+            story.append(Spacer(1, 6))
+            story.append(CalloutBox(content, 'tip', self.chinese_font))
+            story.append(Spacer(1, 6))
+        elif '【注意事项】' in content or '【注意】' in content or content.startswith('注意') or content.startswith('请勿') or content.startswith('禁止') or content.startswith('参观寺庙'):
+            story.append(Spacer(1, 6))
+            story.append(CalloutBox(content, 'warning', self.chinese_font))
+            story.append(Spacer(1, 6))
+        elif '【行程亮点】' in content or '【亮点】' in content or content.startswith('亮点') or content.startswith('必看') or content.startswith('不可错过'):
+            story.append(Spacer(1, 6))
+            story.append(CalloutBox(content, 'highlight', self.chinese_font))
+            story.append(Spacer(1, 6))
+        else:
+            story.append(Spacer(1, 5))
+            story.append(Paragraph(content, self.styles['quote']))
+            story.append(Spacer(1, 5))
+
+    def _handle_hr(self, story, line, lines, idx):
+        story.append(Spacer(1, 15))
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#95a5a6'), spaceAfter=15))
+
+    def _handle_table_line(self, story, line, lines, idx):
+        return self._parse_markdown_table(story, lines, idx - 1)
+
+    def _handle_list(self, story, line, lines, idx):
+        content = line[2:]
+        if '|' in content and self._is_time_format(content.split('|')[0].strip()):
+            parts = content.split('|', 1)
+            if len(parts) == 2:
+                formatted = f"<b>{parts[0].strip()}</b> | {parts[1].strip()}"
+                story.append(Paragraph(formatted, self.styles['list']))
+                return
+        story.append(Paragraph(f"• {content}", self.styles['list']))
     
     def _parse_markdown_table(self, story: List, lines: List[str], start_idx: int) -> int:
-        """解析 Markdown 表格，支持自动换行"""
         table_data = []
         i = start_idx
         
@@ -399,26 +626,12 @@ class OptimizedPDFGenerator:
                 
                 table = Table(formatted_data, colWidths=col_widths, repeatRows=1)
                 
-                style = TableStyle([
-                    ('FONTNAME', (0, 0), (-1, 0), self.chinese_font),
-                    ('FONTSIZE', (0, 0), (-1, 0), 10),
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                    ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-                    ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
-                    ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
-                    ('VALIGN', (0, 1), (-1, -1), 'TOP'),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#bdc3c7')),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-                    ('TOPPADDING', (0, 0), (-1, -1), 10),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 8),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-                    ('LINEABOVE', (0, 0), (-1, 0), 2, colors.HexColor('#2c3e50')),
-                    ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#2c3e50')),
-                ])
+                header_text = ''.join(table_data[0]).lower() if table_data else ''
+                table_type = self._detect_table_type(header_text)
+                style = self._get_table_style(table_type)
                 
-                if len(formatted_data) > 1:
-                    style.add('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#ecf0f1')])
+                if len(formatted_data) > 1 and table_type == 'default':
+                    style.add('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FDF6EC')])
                 
                 table.setStyle(style)
                 story.append(Spacer(1, 12))
@@ -429,6 +642,96 @@ class OptimizedPDFGenerator:
                 logger.warning(f"表格渲染失败: {e}")
         
         return i
+    
+    def _detect_table_type(self, header_text: str) -> str:
+        dining_keywords = ['餐次', '餐厅', '招牌菜', '人均', '特色菜', '早餐', '午餐', '晚餐']
+        transport_keywords = ['方式', '耗时', '舒适度', '推荐指数', '交通', '路段']
+        budget_keywords = ['费用', '金额', '预算', '预估', '合计', '明细']
+        checklist_keywords = ['勾选', '类别', '物品', '备注']
+        emergency_keywords = ['电话', '紧急', '报警', '急救']
+        
+        for kw in dining_keywords:
+            if kw in header_text:
+                return 'dining'
+        for kw in transport_keywords:
+            if kw in header_text:
+                return 'transport'
+        for kw in budget_keywords:
+            if kw in header_text:
+                return 'budget'
+        for kw in checklist_keywords:
+            if kw in header_text:
+                return 'checklist'
+        for kw in emergency_keywords:
+            if kw in header_text:
+                return 'emergency'
+        return 'default'
+    
+    def _get_table_style(self, table_type: str) -> TableStyle:
+        base_style = [
+            ('FONTNAME', (0, 0), (-1, -1), self.chinese_font),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ]
+        
+        type_styles = {
+            'dining': [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E67E22')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#F0C080')),
+                ('LINEABOVE', (0, 0), (-1, 0), 2, colors.HexColor('#E67E22')),
+                ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#E67E22')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FFF8F0')]),
+            ],
+            'transport': [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2980B9')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#A0C8E8')),
+                ('LINEABOVE', (0, 0), (-1, 0), 2, colors.HexColor('#2980B9')),
+                ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#2980B9')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F0F7FC')]),
+            ],
+            'budget': [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C5F2D')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#A0C8A0')),
+                ('LINEABOVE', (0, 0), (-1, 0), 2, colors.HexColor('#2C5F2D')),
+                ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#2C5F2D')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F0F8F0')]),
+            ],
+            'checklist': [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#5D6D7E')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#B0BEC5')),
+                ('LINEABOVE', (0, 0), (-1, 0), 2, colors.HexColor('#5D6D7E')),
+                ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#5D6D7E')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F7F8')]),
+            ],
+            'emergency': [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#C0392B')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E8A0A0')),
+                ('LINEABOVE', (0, 0), (-1, 0), 2, colors.HexColor('#C0392B')),
+                ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#C0392B')),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FFF0F0')]),
+            ],
+            'default': [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#C41A1A')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D4A574')),
+                ('LINEABOVE', (0, 0), (-1, 0), 2, colors.HexColor('#C41A1A')),
+                ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#C41A1A')),
+            ],
+        }
+        
+        return TableStyle(base_style + type_styles.get(table_type, type_styles['default']))
     
     def _is_time_format(self, text: str) -> bool:
         """检查是否是时间格式（不使用正则）"""
@@ -491,7 +794,7 @@ class OptimizedPDFGenerator:
                 end = text.find('`', i + 1)
                 if end != -1:
                     content = text[i+1:end]
-                    result.append(f'<font color="#e67e22"><b>{content}</b></font>')
+                    result.append(f'<font color="#C41A1A"><b>{content}</b></font>')
                     i = end + 1
                     continue
             result.append(text[i])
@@ -528,13 +831,117 @@ class OptimizedPDFGenerator:
         
         self._add_footer_section(story, plan_data)
     
+    def _add_auto_cover(self, story: List, text_content: str, plan_data: Dict[str, Any]):
+        story.append(Spacer(1, 60))
+        
+        story.append(HRFlowable(width="100%", thickness=4, color=colors.HexColor('#C41A1A'), spaceAfter=20))
+        
+        title = '陕西非遗文化旅游规划'
+        for line in text_content.split('\n'):
+            stripped = line.strip()
+            if stripped and stripped.startswith('# '):
+                title = stripped[2:].strip()
+                break
+        
+        story.append(Paragraph(title, self.styles['title']))
+        
+        story.append(HRFlowable(width="40%", thickness=2, color=colors.HexColor('#D4A574'), spaceAfter=12))
+        
+        story.append(Paragraph("传承千年文化 · 领略三秦风韵", self.styles['subtitle']))
+        story.append(Spacer(1, 20))
+        
+        basic_info = plan_data.get('basic_info', {})
+        info_items = []
+        destination = basic_info.get('destination', '')
+        if destination:
+            info_items.append(['目的地', destination])
+        departure = basic_info.get('departure', '')
+        if departure:
+            info_items.append(['出发地', departure])
+        travel_days = basic_info.get('travel_days', '')
+        if travel_days:
+            info_items.append(['行程天数', f"{travel_days} 天"])
+        travel_mode = basic_info.get('travel_mode', '')
+        if travel_mode:
+            info_items.append(['出行方式', travel_mode])
+        budget_range = basic_info.get('budget_range', '')
+        if budget_range:
+            info_items.append(['预算范围', budget_range])
+        group_size = basic_info.get('group_size', '')
+        if group_size:
+            info_items.append(['出行人数', f"{group_size} 人"])
+        
+        if info_items:
+            table = Table(info_items, colWidths=[80, 200])
+            table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), self.chinese_font),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#C41A1A')),
+                ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#2D2D2D')),
+                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FDF6EC')),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#D4A574')),
+                ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#E8D5B7')),
+            ]))
+            story.append(table)
+        
+        story.append(Spacer(1, 25))
+        
+        highlights = []
+        for line in text_content.split('\n'):
+            stripped = line.strip()
+            if stripped.startswith('> ') and ('🌟' in stripped or '亮点' in stripped or '【行程亮点】' in stripped):
+                clean = stripped[2:]
+                for emoji in ['🌟', '✨']:
+                    clean = clean.replace(emoji, '').strip()
+                if clean:
+                    highlights.append(clean)
+                if len(highlights) >= 3:
+                    break
+        
+        if highlights:
+            story.append(Paragraph('<b>行程亮点</b>', ParagraphStyle(
+                'CoverHighlightTitle',
+                fontName=self.chinese_font,
+                fontSize=13,
+                leading=18,
+                textColor=colors.HexColor('#C41A1A'),
+                spaceAfter=8,
+            )))
+            for hl in highlights:
+                story.append(Paragraph(f'<font color="#D4A574">\u25C6</font>  {hl}', ParagraphStyle(
+                    'CoverHighlightItem',
+                    fontName=self.chinese_font,
+                    fontSize=10,
+                    leading=15,
+                    leftIndent=15,
+                    textColor=colors.HexColor('#2D2D2D'),
+                    spaceAfter=4,
+                )))
+        
+        story.append(Spacer(1, 30))
+        
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#D4A574'), spaceAfter=8))
+        story.append(Paragraph(f"生成时间: {datetime.now().strftime('%Y年%m月%d日 %H:%M')}", self.styles['footer']))
+        story.append(HRFlowable(width="100%", thickness=4, color=colors.HexColor('#C41A1A'), spaceAfter=0))
+        story.append(PageBreak())
+    
     def _add_cover_page(self, story: List, plan_data: Dict[str, Any]):
-        """添加封面"""
-        story.append(Spacer(1, 50))
+        story.append(Spacer(1, 60))
+        
+        story.append(HRFlowable(width="100%", thickness=4, color=colors.HexColor('#C41A1A'), spaceAfter=20))
         
         title = plan_data.get('basic_info', {}).get('title', '陕西非遗文化旅游规划')
         story.append(Paragraph(title, self.styles['title']))
-        story.append(HRFlowable(width="60%", thickness=2, color=colors.HexColor('#e67e22'), spaceAfter=30))
+        
+        story.append(HRFlowable(width="40%", thickness=2, color=colors.HexColor('#D4A574'), spaceAfter=10))
+        
+        story.append(Paragraph("—— 传承千年文化 · 领略三秦风韵 ——", self.styles['subtitle']))
+        story.append(Spacer(1, 20))
         
         basic_info = plan_data.get('basic_info', {})
         
@@ -550,19 +957,24 @@ class OptimizedPDFGenerator:
         table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), self.chinese_font),
             ('FONTSIZE', (0, 0), (-1, -1), 11),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#2980b9')),
-            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#C41A1A')),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#2D2D2D')),
             ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
             ('ALIGN', (1, 0), (1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FDF6EC')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#D4A574')),
+            ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#E8D5B7')),
         ]))
         
         story.append(table)
-        story.append(Spacer(1, 30))
+        story.append(Spacer(1, 40))
         
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#D4A574'), spaceAfter=10))
         story.append(Paragraph(f"生成时间: {datetime.now().strftime('%Y年%m月%d日')}", self.styles['footer']))
+        story.append(HRFlowable(width="100%", thickness=4, color=colors.HexColor('#C41A1A'), spaceAfter=0))
         story.append(PageBreak())
     
     def _add_day_section(self, story: List, day_plan: Dict[str, Any]):

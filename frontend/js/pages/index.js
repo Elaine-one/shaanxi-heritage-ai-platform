@@ -78,10 +78,7 @@ async function loadHeritageData() {
         return response.results || [];
     } catch (error) {
         console.error('API调用失败:', error);
-        // 不再回退到本地数据，直接抛出错误或显示错误信息
-        // showErrorMessage('从服务器获取非遗数据失败，请稍后重试。');
-        // return []; // 返回空数组以避免页面完全崩溃，错误将在initPage中处理
-        throw error; // 抛出错误，由调用者 (initPage) 处理
+        throw error;
     }
 }
 

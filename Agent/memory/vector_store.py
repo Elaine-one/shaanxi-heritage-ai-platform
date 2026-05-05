@@ -184,17 +184,63 @@ class VectorStore:
         return hashlib.md5(key_str.encode('utf-8')).hexdigest()
     
     def _init_collections(self):
-        """初始化所有集合"""
+        """初始化所有集合，自动修复损坏的HNSW索引"""
         for key, name in self.COLLECTIONS.items():
             try:
                 self.collections[key] = self.client.get_or_create_collection(
                     name=name,
                     metadata={"hnsw:space": "cosine"}
                 )
+                self.collections[key].count()
                 logger.info(f"集合 '{name}' 初始化完成")
             except Exception as e:
-                logger.error(f"集合 '{name}' 初始化失败: {e}")
+                logger.warning(f"集合 '{name}' 初始化异常，尝试重建: {e}")
+                self._rebuild_collection(key, name)
     
+    def _rebuild_collection(self, key: str, name: str):
+        """删除损坏集合并重新创建，重建后触发数据同步"""
+        import shutil
+        try:
+            self.client.delete_collection(name)
+            logger.info(f"已删除损坏集合: {name}")
+        except Exception:
+            pass
+
+        try:
+            self.collections[key] = self.client.get_or_create_collection(
+                name=name,
+                metadata={"hnsw:space": "cosine"}
+            )
+            logger.warning(f"集合 '{name}' 重建完成（数据已丢失），需要重新同步数据")
+            self._trigger_resync_if_needed(key)
+        except Exception as e2:
+            logger.error(f"集合 '{name}' 重建失败: {e2}")
+            self.collections.pop(key, None)
+
+    def _trigger_resync_if_needed(self, collection_key: str):
+        """重建后触发数据重新同步"""
+        try:
+            collection = self.collections.get(collection_key)
+            if collection and collection.count() == 0:
+                import asyncio
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(self._async_resync())
+                except RuntimeError:
+                    asyncio.run(self._async_resync())
+        except Exception as e:
+            logger.warning(f"触发重新同步失败: {e}")
+
+    async def _async_resync(self):
+        """异步触发数据重新同步"""
+        try:
+            from Agent.core.startup import get_startup_manager
+            manager = get_startup_manager()
+            result = await manager.auto_sync_heritage_data(force=True)
+            logger.info(f"重建后数据重新同步完成: {result}")
+        except Exception as e:
+            logger.warning(f"重建后数据重新同步失败（下次启动时会自动同步）: {e}")
+
     def add_conversation(self, session_id: str, user_id: str, role: str, 
                          content: str, metadata: Dict[str, Any] = None):
         """添加对话向量"""
@@ -355,7 +401,8 @@ class VectorStore:
             
             return formatted_results
         except Exception as e:
-            logger.error(f"检索非遗知识失败: {e}")
+            logger.warning(f"检索非遗知识失败，尝试重建集合: {e}")
+            self._rebuild_collection('heritage_knowledge', self.COLLECTIONS['heritage_knowledge'])
             return []
     
     def search_attractions(self, query: str, 

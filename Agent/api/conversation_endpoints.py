@@ -7,7 +7,7 @@ from loguru import logger
 from Agent.api.session_dependencies import get_current_user_from_session, TokenData
 from Agent.services.conversation_service import get_conversation_service
 from Agent.services.user_history_service import get_user_history_service
-from Agent.memory.session import get_session_pool
+from Agent.memory.session_provider import get_session_pool
 
 router = APIRouter(prefix="/api/conversations", tags=["对话管理"])
 
@@ -79,33 +79,6 @@ async def list_conversations(
         return ConversationListResponse(total=len(sessions), conversations=sessions)
     except Exception as e:
         logger.error(f"获取对话列表失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/{session_id}", summary="对话详情", response_model=ConversationDetailResponse)
-async def get_conversation(
-    session_id: str,
-    current_user: TokenData = Depends(get_current_user_from_session)
-):
-    """获取指定对话的完整信息，包括所有消息记录"""
-    try:
-        conversation_service = get_conversation_service()
-        conversation = conversation_service.get_conversation(session_id)
-        
-        if not conversation:
-            raise HTTPException(status_code=404, detail="对话记录不存在")
-        
-        session_pool = get_session_pool()
-        session = session_pool.get_session(session_id)
-        
-        if session and session.user_id and session.user_id != current_user.user_id:
-            raise HTTPException(status_code=403, detail="无权访问此对话")
-        
-        return ConversationDetailResponse(**conversation)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"获取对话详情失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -276,4 +249,31 @@ async def list_favorites(current_user: TokenData = Depends(get_current_user_from
         }
     except Exception as e:
         logger.error(f"获取收藏列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{session_id}", summary="对话详情", response_model=ConversationDetailResponse)
+async def get_conversation(
+    session_id: str,
+    current_user: TokenData = Depends(get_current_user_from_session)
+):
+    """获取指定对话的完整信息，包括所有消息记录"""
+    try:
+        conversation_service = get_conversation_service()
+        conversation = conversation_service.get_conversation(session_id)
+
+        if not conversation:
+            raise HTTPException(status_code=404, detail="对话记录不存在")
+
+        session_pool = get_session_pool()
+        session = session_pool.get_session(session_id)
+
+        if session and session.user_id and session.user_id != current_user.user_id:
+            raise HTTPException(status_code=403, detail="无权访问此对话")
+
+        return ConversationDetailResponse(**conversation)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取对话详情失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

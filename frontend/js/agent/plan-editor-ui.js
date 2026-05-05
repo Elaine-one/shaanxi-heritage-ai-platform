@@ -11,10 +11,16 @@ class PlanEditorUI {
     }
 
     createEditorUI() {
-        if (document.getElementById('plan-editor-modal')) return;
+        const oldModal = document.getElementById('plan-editor-modal');
+        const oldMinibar = document.getElementById('plan-editor-minibar');
+        const oldHalf = document.getElementById('plan-editor-half');
+
+        if (oldModal) oldModal.remove();
+        if (oldMinibar) oldMinibar.remove();
+        if (oldHalf) oldHalf.remove();
 
         const editorHTML = `
-            <div id="plan-editor-modal" class="plan-editor-modal">
+            <div id="plan-editor-modal" class="plan-editor-modal" style="display: none;">
                 <div id="plan-editor-header" class="editor-header">
                     <div class="header-title"><i class="fas fa-map-marked-alt me-2"></i>旅行规划助手</div>
                     <div class="header-controls">
@@ -48,6 +54,9 @@ class PlanEditorUI {
                 </div>
                 <div class="editor-footer">
                     <button type="button" class="footer-btn btn-secondary" id="plan-editor-close-btn">关闭</button>
+                    <button type="button" class="footer-btn btn-primary" id="export-pdf-btn" style="display:none;" onclick="planEditor.api.exportPlanWithWeather()">
+                        <i class="fas fa-file-pdf me-1"></i> 导出包含修改的 PDF
+                    </button>
                     <button type="button" class="footer-btn btn-success" id="apply-changes-btn" disabled><i class="fas fa-check me-1"></i> 应用修改</button>
                 </div>
             </div>
@@ -110,7 +119,67 @@ class PlanEditorUI {
         `;
 
         document.body.insertAdjacentHTML('beforeend', editorHTML);
+
+        this._applyInitialState();
         this.initDragAndDrop();
+    }
+
+    _applyInitialState() {
+        const modal = document.getElementById('plan-editor-modal');
+        const minibar = document.getElementById('plan-editor-minibar');
+        const halfExpanded = document.getElementById('plan-editor-half');
+
+        if (!modal) return;
+
+        const isMinimized = this.editor.isMinimized;
+        const isHalfExpanded = this.editor.isHalfExpanded;
+        const hasChatHistory = this.editor.chatHistory && this.editor.chatHistory.length > 0;
+
+        if (isMinimized) {
+            modal.style.display = 'none';
+            if (halfExpanded) halfExpanded.style.display = 'none';
+            if (minibar) minibar.style.display = 'flex';
+        } else if (isHalfExpanded) {
+            modal.style.display = 'none';
+            if (minibar) minibar.style.display = 'none';
+            if (halfExpanded) halfExpanded.style.display = 'flex';
+
+            if (hasChatHistory && this.editor.chat) {
+                requestAnimationFrame(() => {
+                    this.editor.chat.syncChatToHalf();
+                });
+            }
+        } else {
+            if (minibar) minibar.style.display = 'none';
+            if (halfExpanded) halfExpanded.style.display = 'none';
+            modal.style.display = 'flex';
+
+            if (hasChatHistory && this.editor.chat) {
+                requestAnimationFrame(() => {
+                    this.editor.chat.syncChatToFull();
+                });
+            }
+
+            if (this.editor.isEditing) {
+                const applyBtn = document.getElementById('apply-changes-btn');
+                if (applyBtn) applyBtn.disabled = false;
+            }
+        }
+
+        const exportBtn = document.getElementById('export-pdf-btn');
+        if (exportBtn && hasChatHistory) {
+            const hasAppliedChanges = this.editor.chatHistory.some(msg =>
+                msg.type === 'ai' && msg.content.includes('修改已应用')
+            );
+            const isExporting = this.editor.api && this.editor.api.isExporting;
+            if (hasAppliedChanges || isExporting) {
+                exportBtn.style.display = '';
+                exportBtn.disabled = !!isExporting;
+                if (isExporting) {
+                    exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> AI生成中...';
+                }
+            }
+        }
     }
 
     bindEvents() {
@@ -305,6 +374,8 @@ class PlanEditorUI {
         if (minibar) minibar.style.display = 'none';
         if (half) half.style.display = 'none';
 
+        this.editor.api.cleanup();
+
         this.editor.chatHistory = [];
         this.editor.sessionId = null;
         this.editor.currentPlan = null;
@@ -400,36 +471,64 @@ class PlanEditorUI {
         }
     }
 
-    restoreFromSavedState() {
+    restoreFromSavedState(isResumingExport = false) {
         const modal = document.getElementById('plan-editor-modal');
         const minibar = document.getElementById('plan-editor-minibar');
         const halfExpanded = document.getElementById('plan-editor-half');
-        
-        if (this.editor.chatHistory.length === 0) {
-            if (this.editor.isEditing) {
-                this.enableApplyButton();
-            }
-            return;
-        }
-        
-        if (this.editor.isHalfExpanded) {
-            if (modal) modal.style.display = 'none';
-            if (minibar) minibar.style.display = 'none';
-            if (halfExpanded) halfExpanded.style.display = 'flex';
-            this.editor.chat.syncChatToHalf();
-        } else if (this.editor.isMinimized) {
-            if (modal) modal.style.display = 'none';
+
+        if (!modal) return;
+
+        const hasChatHistory = this.editor.chatHistory && this.editor.chatHistory.length > 0;
+        const isHalfExpanded = this.editor.isHalfExpanded;
+        const isMinimized = this.editor.isMinimized;
+
+        if (isMinimized) {
+            modal.style.display = 'none';
             if (halfExpanded) halfExpanded.style.display = 'none';
             if (minibar) minibar.style.display = 'flex';
+        } else if (isHalfExpanded) {
+            modal.style.display = 'none';
+            if (minibar) minibar.style.display = 'none';
+            if (halfExpanded) halfExpanded.style.display = 'flex';
+
+            if (hasChatHistory) {
+                this.editor.chat.syncChatToHalf();
+                this.editor.chat.scrollToBottom();
+            }
         } else {
             if (minibar) minibar.style.display = 'none';
             if (halfExpanded) halfExpanded.style.display = 'none';
-            if (modal) modal.style.display = 'flex';
-            this.editor.chat.syncChatToFull();
+            modal.style.display = 'flex';
+
+            if (hasChatHistory) {
+                this.editor.chat.syncChatToFull();
+                this.editor.chat.scrollToBottom();
+            }
         }
-        
-        if (this.editor.isEditing) {
+
+        if (this.editor.isEditing && !isResumingExport) {
             this.enableApplyButton();
+        }
+
+        const exportBtn = document.getElementById('export-pdf-btn');
+        if (exportBtn) {
+            const hasAppliedChanges = hasChatHistory && this.editor.chatHistory.some(msg =>
+                msg.type === 'ai' && msg.content.includes('修改已应用')
+            );
+            const isCurrentlyExporting = this.editor.api ? this.editor.api.isExporting : false;
+
+            if (hasAppliedChanges || isCurrentlyExporting) {
+                exportBtn.style.display = '';
+                if (isCurrentlyExporting) {
+                    exportBtn.disabled = true;
+                    exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> AI生成中...';
+                } else {
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = '<i class="fas fa-file-pdf me-1"></i> 导出包含修改的 PDF';
+                }
+            } else {
+                exportBtn.style.display = 'none';
+            }
         }
     }
 
@@ -547,23 +646,13 @@ class PlanEditorUI {
         if (btn) btn.disabled = false;
     }
 
-    showExportOptions() {
-        const exportOptionsHtml = `
-            <div class="export-options-container">
-                <button type="button" id="export-pdf-btn" class="btn btn-primary w-100" onclick="planEditor.api.exportPlanWithWeather()">
-                    <i class="fas fa-file-pdf me-2"></i> 导出包含修改的 PDF
-                </button>
-            </div>
-        `;
-        const chatHistory = document.getElementById('chat-history');
-        const html = `
-            <div class="chat-message ai-message">
-                <div class="message-avatar"><i class="fas fa-robot"></i></div>
-                <div class="message-content">${exportOptionsHtml}</div>
-            </div>
-        `;
-        chatHistory.insertAdjacentHTML('beforeend', html);
-        this.editor.chat.scrollToBottom();
+    showExportButton() {
+        const exportBtn = document.getElementById('export-pdf-btn');
+        if (exportBtn) {
+            exportBtn.style.display = '';
+            exportBtn.disabled = false;
+            exportBtn.innerHTML = '<i class="fas fa-file-pdf me-1"></i> 导出包含修改的 PDF';
+        }
     }
 }
 

@@ -81,24 +81,28 @@ class RedisSessionPool(SessionPool):
         return self._conversation_service
     
     def _init_redis(self):
-        """初始化Redis连接"""
+        """初始化Redis连接 — Redis 是 L1 热数据存储的必要组件，不可降级"""
         try:
             self.redis_client = redis.Redis(
                 host=Config.REDIS_HOST,
                 port=Config.REDIS_PORT,
                 db=Config.REDIS_DB,
                 password=Config.REDIS_PASSWORD if Config.REDIS_PASSWORD else None,
-                decode_responses=True,  # 自动解码字符串
+                decode_responses=True,
                 socket_connect_timeout=5,
                 socket_timeout=5,
                 health_check_interval=30
             )
-            # 测试连接
             self.redis_client.ping()
             logger.info(f"Redis连接成功: {Config.REDIS_HOST}:{Config.REDIS_PORT}/{Config.REDIS_DB}")
         except Exception as e:
-            logger.error(f"Redis连接失败: {str(e)}")
-            raise RuntimeError(f"无法连接到Redis: {str(e)}")
+            logger.error(f"Redis连接失败: {str(e)} — L1 热数据存储不可用，系统无法正常工作")
+            self.redis_client = None
+            raise RuntimeError(f"Redis连接失败，L1热数据存储不可用: {str(e)}")
+    
+    def get_redis_client(self):
+        """获取 Redis 客户端（覆写基类方法）"""
+        return self.redis_client
     
     def _get_session_key(self, session_id: str) -> str:
         """获取会话在Redis中的key"""
@@ -117,10 +121,89 @@ class RedisSessionPool(SessionPool):
         """将字典转换为会话对象"""
         return SessionContext(**data)
     
+    def _extract_core_info(self, plan_data: Dict[str, Any]) -> Dict[str, Any]:
+        basic_info = plan_data.get('basic_info', {})
+        heritage_items = plan_data.get('heritage_items', [])
+
+        selected_heritage_items = []
+        location_coordinates = {}
+        for item in heritage_items:
+            entry = {
+                'id': item.get('id'),
+                'name': item.get('name', ''),
+                'region': item.get('region', ''),
+                'category': item.get('category', ''),
+            }
+            selected_heritage_items.append(entry)
+            lat = item.get('latitude') or item.get('lat')
+            lon = item.get('longitude') or item.get('lng')
+            if lat and lon:
+                location_coordinates[item.get('name', '')] = {
+                    'latitude': lat,
+                    'longitude': lon,
+                }
+
+        budget_constraints = {}
+        budget_range = (
+            basic_info.get('budget_range') or
+            basic_info.get('budgetRange') or
+            plan_data.get('budget_range')
+        )
+        if budget_range:
+            budget_constraints['budget_range'] = budget_range
+        budget = plan_data.get('budget')
+        if budget:
+            budget_constraints['budget'] = budget
+
+        time_constraints = {}
+        travel_days = (
+            basic_info.get('travel_days') or
+            basic_info.get('travelDays') or
+            plan_data.get('travel_days')
+        )
+        if travel_days:
+            time_constraints['travel_days'] = travel_days
+
+        return {
+            'departure_location': (
+                basic_info.get('departure') or
+                basic_info.get('departureLocation') or
+                plan_data.get('departure') or
+                plan_data.get('departure_location') or
+                plan_data.get('departureLocation')
+            ),
+            'travel_mode': (
+                basic_info.get('travel_mode') or
+                basic_info.get('travelMode') or
+                plan_data.get('travel_mode') or
+                plan_data.get('travelMode')
+            ),
+            'group_size': (
+                basic_info.get('group_size') or
+                basic_info.get('groupSize') or
+                plan_data.get('group_size') or
+                plan_data.get('groupSize')
+            ),
+            'budget_range': budget_range,
+            'travel_days': travel_days,
+            'heritage_ids': [item.get('id') for item in heritage_items if item.get('id')],
+            'heritage_names': [item.get('name', '') for item in heritage_items if item.get('name')],
+            'special_requirements': (
+                basic_info.get('special_requirements') or
+                plan_data.get('special_requirements', [])
+            ),
+            'weather_info': plan_data.get('weather_info') or plan_data.get('weather'),
+            'selected_heritage_items': selected_heritage_items,
+            'location_coordinates': location_coordinates,
+            'budget_constraints': budget_constraints,
+            'time_constraints': time_constraints,
+        }
+
     async def create_session(self, 
                            plan_id: str, 
                            original_plan: Dict[str, Any],
-                           user_id: Optional[str] = None) -> SessionContext:
+                           user_id: Optional[str] = None,
+                           username: Optional[str] = None) -> SessionContext:
         """创建新的编辑会话"""
         # 检查会话数量限制
         current_count = self.redis_client.zcard(self.session_index_key)
@@ -140,6 +223,7 @@ class RedisSessionPool(SessionPool):
             session_id=session_id,
             plan_id=plan_id,
             user_id=user_id,
+            username=username,
             current_plan=original_plan.copy(),
             original_plan=original_plan.copy(),
             **core_info
@@ -147,6 +231,17 @@ class RedisSessionPool(SessionPool):
         
         # 存储到Redis
         self._save_session_to_redis(session_context)
+
+        # 建立用户会话索引（支持对话列表/搜索）
+        if user_id:
+            try:
+                user_sessions_key = self.get_user_sessions_key(user_id)
+                pipe = self.redis_client.pipeline()
+                pipe.sadd(user_sessions_key, session_id)
+                pipe.expire(user_sessions_key, Config.REDIS_SESSION_TTL + 3600)
+                pipe.execute()
+            except Exception as e:
+                logger.warning(f"更新用户会话索引失败: {e}")
         
         # 添加到用户历史（如果有user_id）
         if user_id and self.user_history_service:
@@ -208,15 +303,6 @@ class RedisSessionPool(SessionPool):
         pipe.execute()
     
     def get_session(self, session_id: str) -> Optional[SessionContext]:
-        """
-        获取会话上下文
-        
-        Args:
-            session_id (str): 会话ID
-        
-        Returns:
-            Optional[SessionContext]: 会话上下文
-        """
         session_key = self._get_session_key(session_id)
         session_data = self.redis_client.get(session_key)
         
@@ -227,10 +313,21 @@ class RedisSessionPool(SessionPool):
             data = json.loads(session_data)
             session = self._dict_to_session(data)
             
-            # 更新最后活动时间
-            session.last_activity = datetime.now().isoformat()
-            self._save_session_to_redis(session)
+            now_iso = datetime.now().isoformat()
+            data['last_activity'] = now_iso
+            score = datetime.fromisoformat(now_iso).timestamp()
             
+            pipe = self.redis_client.pipeline()
+            pipe.setex(
+                session_key,
+                Config.REDIS_SESSION_TTL,
+                json.dumps(data, ensure_ascii=False)
+            )
+            pipe.zadd(self.session_index_key, {session_id: score})
+            pipe.expire(self.session_index_key, Config.REDIS_SESSION_TTL + 3600)
+            pipe.execute()
+            
+            session.last_activity = now_iso
             return session
         except Exception as e:
             logger.error(f"解析会话数据失败: {str(e)}")
@@ -288,11 +385,15 @@ class RedisSessionPool(SessionPool):
     
     def remove_session(self, session_id: str) -> bool:
         """移除会话"""
+        session = self.get_session(session_id)
         session_key = self._get_session_key(session_id)
 
         pipe = self.redis_client.pipeline()
         pipe.delete(session_key)
         pipe.zrem(self.session_index_key, session_id)
+        if session and session.user_id:
+            user_sessions_key = self.get_user_sessions_key(session.user_id)
+            pipe.srem(user_sessions_key, session_id)
         result = pipe.execute()
 
         if result[0]:
@@ -300,35 +401,129 @@ class RedisSessionPool(SessionPool):
             return True
         return False
 
-    def add_conversation(self, session_id: str, role: str, content: str):
-        """添加对话记录（同时更新Redis和SQLite）"""
-        with self.session_lock:
-            session = self.sessions.get(session_id)
-            if session:
-                session.add_conversation(role, content)
-                self._save_session_to_redis(session)
+    def update_session_user_id(self, session_id: str, user_id: str) -> bool:
+        """将会话绑定到指定用户（处理 user_id=None 的旧会话）"""
+        session_key = self._get_session_key(session_id)
+        session_data = self.redis_client.get(session_key)
+        if not session_data:
+            return False
+        data = json.loads(session_data)
+        data['user_id'] = user_id
+        data['last_activity'] = datetime.now().isoformat()
+        pipe = self.redis_client.pipeline()
+        pipe.setex(session_key, Config.REDIS_SESSION_TTL, json.dumps(data, ensure_ascii=False))
+        user_sessions_key = self.get_user_sessions_key(user_id)
+        pipe.sadd(user_sessions_key, session_id)
+        pipe.expire(user_sessions_key, Config.REDIS_SESSION_TTL + 3600)
+        pipe.execute()
+        logger.info(f"会话 {session_id} 已绑定用户 {user_id}")
+        return True
 
-                sqlite_store = self._get_sqlite_store()
-                if sqlite_store and session.user_id:
-                    sqlite_store.save_conversation(
-                        session_id=session_id,
-                        user_id=session.user_id,
-                        role=role,
-                        content=content
-                    )
+    def _ensure_session_exists(self, session_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """确保 session 存在，不存在则自动创建空 session 并返回 data 字典。
 
-                try:
-                    if self.conversation_service:
-                        asyncio.create_task(
-                            self.conversation_service.save_conversation_async(
-                                session_id=session_id,
-                                user_id=session.user_id,
-                                role=role,
-                                content=content
-                            )
-                        )
-                except Exception as e:
-                    logger.warning(f"保存对话记录失败: {e}")
+        设计原则：
+        1. 对话记录不应因 session 缺失而静默丢弃
+        2. 自动创建的 session 必须绑定 user_id，确保用户隔离
+        3. 已存在的 session 保持原 user_id 不变
+
+        当 add_conversation 被调用时，说明已有业务逻辑持有该 session_id，
+        session 缺失属于时序问题（如 chat-stream 先于 start_edit_session），
+        应自动补建而非拒绝写入。
+        """
+        session_key = self._get_session_key(session_id)
+        session_data = self.redis_client.get(session_key)
+        if session_data:
+            try:
+                return json.loads(session_data)
+            except Exception:
+                logger.warning(f"会话数据损坏，重建空会话: {session_id}")
+
+        now_iso = datetime.now().isoformat()
+        data = {
+            'session_id': session_id,
+            'plan_id': session_id,
+            'user_id': user_id,
+            'departure_location': None,
+            'travel_mode': None,
+            'group_size': None,
+            'budget_range': None,
+            'travel_days': None,
+            'heritage_ids': [],
+            'heritage_names': [],
+            'special_requirements': [],
+            'current_plan': {},
+            'original_plan': {},
+            'itinerary_summary': None,
+            'conversation_history': [],
+            'weather_info': None,
+            'selected_heritage_items': [],
+            'location_coordinates': {},
+            'budget_constraints': {},
+            'time_constraints': {},
+            'created_at': now_iso,
+            'last_updated': now_iso,
+            'last_activity': now_iso,
+            'edit_count': 0,
+        }
+        score = datetime.fromisoformat(now_iso).timestamp()
+        pipe = self.redis_client.pipeline()
+        pipe.setex(session_key, Config.REDIS_SESSION_TTL, json.dumps(data, ensure_ascii=False))
+        pipe.zadd(self.session_index_key, {session_id: score})
+        pipe.expire(self.session_index_key, Config.REDIS_SESSION_TTL + 3600)
+        if user_id:
+            user_sessions_key = self.get_user_sessions_key(user_id)
+            pipe.sadd(user_sessions_key, session_id)
+            pipe.expire(user_sessions_key, Config.REDIS_SESSION_TTL + 3600)
+        pipe.execute()
+        logger.info(f"自动创建缺失会话: {session_id}, user_id={user_id}")
+        return data
+
+    def add_conversation(self, session_id: str, role: str, content: str, user_id: Optional[str] = None):
+        """添加对话记录（Redis 实现）
+
+        核心逻辑：session 不存在时自动创建空 session，确保对话不丢失。
+        conversation_service.append_message 由本方法统一调用，
+        MemoryCoordinator.append_turn 不应重复调用。
+
+        Args:
+            session_id: 会话ID
+            role: 角色 (user/assistant/system)
+            content: 消息内容
+            user_id: 用户ID，用于自动创建 session 时的用户绑定
+        """
+        data = self._ensure_session_exists(session_id, user_id=user_id)
+        if data is None:
+            return
+
+        history = data.get('conversation_history', [])
+        history.append({
+            'role': role,
+            'content': content,
+            'timestamp': datetime.now().isoformat()
+        })
+        if len(history) > 20:
+            history = history[-20:]
+        data['conversation_history'] = history
+        data['last_activity'] = datetime.now().isoformat()
+
+        session_key = self._get_session_key(session_id)
+        pipe = self.redis_client.pipeline()
+        pipe.setex(session_key, Config.REDIS_SESSION_TTL, json.dumps(data, ensure_ascii=False))
+        pipe.execute()
+
+        try:
+            if self.conversation_service:
+                self.conversation_service.append_message(
+                    session_id=session_id,
+                    role=role,
+                    content=content,
+                    message_type="text",
+                    extra_data={"user_id": data.get('user_id')} if data.get('user_id') else None,
+                    sync_session_history=False
+                )
+        except Exception as e:
+            logger.warning(f"保存对话记录失败: {e}")
     
     def update_session_plan(self, session_id: str, new_plan: Dict[str, Any]) -> bool:
         """更新会话中的规划数据"""
@@ -465,23 +660,17 @@ _session_pool_instance = None
 def get_session_pool() -> SessionPool:
     """
     获取全局会话池实例
-    根据配置返回内存或Redis实现
+    生产环境必须使用 Redis (L1)，不再降级到内存模式
     
     Returns:
         SessionPool: 会话池实例
     """
     global _session_pool_instance
     if _session_pool_instance is None:
-        if Config.SESSION_STORAGE_MODE == 'redis' and REDIS_AVAILABLE:
-            try:
-                _session_pool_instance = RedisSessionPool()
-                logger.info("使用Redis会话存储")
-            except Exception as e:
-                logger.warning(f"Redis会话池初始化失败，回退到内存存储: {str(e)}")
-                _session_pool_instance = SessionPool()
-        else:
-            _session_pool_instance = SessionPool()
-            logger.info("使用内存会话存储")
+        if not REDIS_AVAILABLE:
+            raise RuntimeError("Redis库未安装，L1热数据存储不可用。请安装 redis 包。")
+        _session_pool_instance = RedisSessionPool()
+        logger.info("使用Redis会话存储 (L1)")
     return _session_pool_instance
 
 

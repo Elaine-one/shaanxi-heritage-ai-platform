@@ -76,16 +76,6 @@ class HeritageQueryService:
         return results[0] if results else None
     
     def query_by_semantic(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """
-        语义查询非遗项目
-        
-        Args:
-            query: 查询文本
-            top_k: 返回数量
-        
-        Returns:
-            匹配的非遗项目列表
-        """
         if not query or query.strip() == "":
             return []
         
@@ -106,8 +96,30 @@ class HeritageQueryService:
                     for r in results
                 ]
         
-        logger.warning(f"向量检索失败: {query}")
-        return []
+        logger.warning(f"向量检索失败，降级到知识图谱关键词搜索: {query}")
+        return self._fallback_kg_keyword_search(query, top_k)
+    
+    def _fallback_kg_keyword_search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        if not self.knowledge_graph or not self.knowledge_graph.is_connected():
+            return []
+        try:
+            with self.knowledge_graph.driver.session() as session:
+                result = session.run(
+                    "MATCH (h:Heritage) "
+                    "WHERE h.name CONTAINS $kw OR h.category CONTAINS $kw "
+                    "OR h.region CONTAINS $kw OR h.description CONTAINS $kw "
+                    "RETURN h.id AS id, h.name AS name, h.category AS category, "
+                    "h.region AS region, h.level AS level "
+                    "LIMIT $top_k",
+                    kw=query, top_k=top_k,
+                )
+                items = [dict(r) for r in result]
+            if items:
+                logger.info(f"知识图谱关键词搜索到 {len(items)} 条非遗: {query}")
+            return items
+        except Exception as e:
+            logger.debug(f"知识图谱关键词搜索失败: {e}")
+            return []
     
     def query_related(self, heritage_id: int, limit: int = 5) -> List[Dict[str, Any]]:
         """
@@ -183,20 +195,7 @@ class HeritageQueryService:
     
     def hybrid_query(self, query: str, region: str = None, 
                     category: str = None, top_k: int = 5) -> List[Dict[str, Any]]:
-        """
-        混合查询：语义检索 + 过滤条件
-        
-        Args:
-            query: 查询文本
-            region: 地区过滤
-            category: 类别过滤
-            top_k: 返回数量
-        
-        Returns:
-            匹配的非遗项目列表
-        """
         if not query or query.strip() == "":
-            logger.warning("hybrid_query: query 为空，返回空列表")
             return []
         
         semantic_results = self.query_by_semantic(query, top_k * 2)
@@ -208,11 +207,45 @@ class HeritageQueryService:
             if category and item.get('category') != category:
                 continue
             filtered_results.append(item)
-            
             if len(filtered_results) >= top_k:
                 break
         
+        if not filtered_results and (region or category):
+            filtered_results = self._kg_structured_query(query, region, category, top_k)
+        
         return filtered_results
+    
+    def _kg_structured_query(self, query: str, region: str, category: str, top_k: int) -> List[Dict[str, Any]]:
+        if not self.knowledge_graph or not self.knowledge_graph.is_connected():
+            return []
+        try:
+            conditions = ["h.name CONTAINS $kw OR h.category CONTAINS $kw OR h.description CONTAINS $kw"]
+            if region:
+                conditions.append("h.region CONTAINS $region")
+            if category:
+                conditions.append("h.category CONTAINS $category")
+            where_clause = " AND ".join(conditions)
+            params = {"kw": query, "top_k": top_k}
+            if region:
+                params["region"] = region
+            if category:
+                params["category"] = category
+            
+            with self.knowledge_graph.driver.session() as session:
+                result = session.run(
+                    f"MATCH (h:Heritage) WHERE {where_clause} "
+                    "RETURN h.id AS id, h.name AS name, h.category AS category, "
+                    "h.region AS region, h.level AS level "
+                    "LIMIT $top_k",
+                    **params,
+                )
+                items = [dict(r) for r in result]
+            if items:
+                logger.info(f"知识图谱结构化查询到 {len(items)} 条非遗: query={query}, region={region}, category={category}")
+            return items
+        except Exception as e:
+            logger.debug(f"知识图谱结构化查询失败: {e}")
+            return []
     
     def get_heritage_full_info(self, heritage_id: int) -> Dict[str, Any]:
         """

@@ -54,8 +54,6 @@ class ContextCompressor:
         'P3': 'vectorize',
     }
     
-    DEFAULT_TOKEN_BUDGET = 80000
-    
     def __init__(self, llm_client=None):
         self.llm_client = llm_client
         self._stats = {
@@ -64,6 +62,13 @@ class ContextCompressor:
             'avg_compression_ratio': 0.0,
         }
     
+    def _get_default_budget(self) -> int:
+        try:
+            from Agent.config.memory_budget import memory_budget
+            return memory_budget.compression_token_budget
+        except Exception:
+            return 12000
+
     def compress(
         self,
         context: Dict[str, Any],
@@ -81,7 +86,7 @@ class ContextCompressor:
         Returns:
             CompressionResult: 压缩结果
         """
-        token_budget = token_budget or self.DEFAULT_TOKEN_BUDGET
+        token_budget = token_budget or self._get_default_budget()
         
         layers = self._separate_layers(context, intent)
         
@@ -405,15 +410,9 @@ _compressor_instance: Optional[ContextCompressor] = None
 
 
 def get_context_compressor() -> ContextCompressor:
-    """获取上下文压缩器单例"""
     global _compressor_instance
     if _compressor_instance is None:
-        try:
-            from Agent.llm.llm_client import get_llm_client
-            llm_client = get_llm_client()
-            _compressor_instance = ContextCompressor(llm_client)
-        except Exception:
-            _compressor_instance = ContextCompressor()
+        _compressor_instance = ContextCompressor()
     return _compressor_instance
 
 

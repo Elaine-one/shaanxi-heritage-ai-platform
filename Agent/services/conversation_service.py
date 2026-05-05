@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from loguru import logger
 
-from Agent.memory.redis_session import RedisSessionPool, get_session_pool
+from Agent.memory.session_provider import get_session_pool
 from Agent.config.settings import Config
 
 
@@ -22,7 +22,7 @@ class ConversationService:
     
     def __init__(self):
         """初始化对话服务"""
-        self.session_pool: RedisSessionPool = get_session_pool()
+        self.session_pool = get_session_pool()
         self.minio_service = None
         
         # 延迟加载MinIO服务
@@ -46,7 +46,8 @@ class ConversationService:
                       role: str, 
                       content: str,
                       message_type: str = "text",
-                      extra_data: Optional[Dict[str, Any]] = None) -> bool:
+                      extra_data: Optional[Dict[str, Any]] = None,
+                      sync_session_history: bool = True) -> bool:
         """
         追加消息到对话记录
         
@@ -61,6 +62,11 @@ class ConversationService:
             bool: 是否成功
         """
         try:
+            redis_client = self.session_pool.get_redis_client()
+            if redis_client is None:
+                logger.debug("当前会话池无Redis客户端，跳过消息列表写入")
+                return True
+
             message = {
                 "id": f"msg_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}",
                 "role": role,
@@ -71,7 +77,6 @@ class ConversationService:
             }
             
             # 使用Redis列表存储消息
-            redis_client = self.session_pool.redis_client
             message_key = self._get_message_key(session_id)
             
             # 将消息添加到列表
@@ -80,17 +85,18 @@ class ConversationService:
             # 设置过期时间（与会话相同）
             redis_client.expire(message_key, Config.REDIS_SESSION_TTL)
             
-            # 更新会话中的对话历史
-            session = self.session_pool.get_session(session_id)
-            if session:
-                if session.conversation_history is None:
-                    session.conversation_history = []
-                session.conversation_history.append({
-                    "role": role,
-                    "content": content,
-                    "timestamp": message["timestamp"]
-                })
-                self.session_pool.update_session_context(session_id, session)
+            # 可选同步会话中的对话历史
+            if sync_session_history:
+                session = self.session_pool.get_session(session_id)
+                if session:
+                    if session.conversation_history is None:
+                        session.conversation_history = []
+                    session.conversation_history.append({
+                        "role": role,
+                        "content": content,
+                        "timestamp": message["timestamp"]
+                    })
+                    self.session_pool.update_session_context(session_id, session)
             
             logger.debug(f"消息已追加到会话 {session_id}")
             return True
@@ -110,7 +116,38 @@ class ConversationService:
             Optional[Dict]: 对话记录
         """
         try:
-            redis_client = self.session_pool.redis_client
+            redis_client = self.session_pool.get_redis_client()
+            if redis_client is None:
+                session = self.session_pool.get_session(session_id)
+                if not session:
+                    return None
+                history = session.conversation_history or []
+                messages = []
+                for idx, item in enumerate(history):
+                    messages.append({
+                        "id": item.get("id") or f"mem_{idx}",
+                        "role": item.get("role", ""),
+                        "content": item.get("content", ""),
+                        "type": item.get("type", "text"),
+                        "timestamp": item.get("timestamp", session.last_activity),
+                        "extra_data": item.get("extra_data", {}),
+                    })
+                return {
+                    "session_id": session_id,
+                    "metadata": {
+                        "created_at": session.created_at,
+                        "last_activity": session.last_activity,
+                        "message_count": len(messages),
+                        "plan_id": session.plan_id,
+                        "user_id": session.user_id,
+                    },
+                    "context": {
+                        "original_plan": session.original_plan,
+                        "current_plan": session.current_plan,
+                    },
+                    "messages": messages,
+                }
+
             message_key = self._get_message_key(session_id)
             metadata_key = self._get_metadata_key(session_id)
             
@@ -160,16 +197,20 @@ class ConversationService:
             session = self.session_pool.get_session(session_id)
             if not session:
                 return None
-            
-            redis_client = self.session_pool.redis_client
-            message_key = self._get_message_key(session_id)
-            message_count = redis_client.llen(message_key)
+
+            redis_client = self.session_pool.get_redis_client()
+            if redis_client is None:
+                message_count = len(session.conversation_history or [])
+                first_message = session.conversation_history[0] if message_count > 0 else None
+            else:
+                message_key = self._get_message_key(session_id)
+                message_count = redis_client.llen(message_key)
+                first_message = redis_client.lindex(message_key, 0)
             
             # 获取第一条用户消息作为标题
-            first_message = redis_client.lindex(message_key, 0)
             title = "未命名会话"
             if first_message:
-                msg_data = json.loads(first_message)
+                msg_data = first_message if isinstance(first_message, dict) else json.loads(first_message)
                 if msg_data.get("role") == "user":
                     title = msg_data.get("content", "")[:30] + "..."
             
@@ -224,10 +265,9 @@ class ConversationService:
             
             if result.get("success"):
                 # 更新会话的归档状态
-                session = self.session_pool.get_session(session_id)
-                if session:
-                    # 可以在这里标记会话已归档
-                    pass
+                session = self.session_pool.get_session()
+                if session and hasattr(session, 'archived'):
+                    session.archived = True
                 
                 logger.info(f"对话记录已归档: {result['object_path']}")
                 
@@ -244,7 +284,7 @@ class ConversationService:
     def _cleanup_redis_messages(self, session_id: str):
         """清理Redis中的消息数据"""
         try:
-            redis_client = self.session_pool.redis_client
+            redis_client = self.session_pool.get_redis_client()
             message_key = self._get_message_key(session_id)
             metadata_key = self._get_metadata_key(session_id)
             
@@ -269,11 +309,17 @@ class ConversationService:
             List[Dict]: 对话列表
         """
         try:
-            # 从Redis获取用户的会话索引
-            redis_client = self.session_pool.redis_client
-            user_sessions_key = f"agent:user:{user_id}:sessions"
-            
-            session_ids = redis_client.smembers(user_sessions_key)
+            redis_client = self.session_pool.get_redis_client()
+            if redis_client is not None:
+                user_sessions_key = self.session_pool.get_user_sessions_key(user_id)
+                session_ids = redis_client.smembers(user_sessions_key)
+            else:
+                session_ids = []
+                sessions_map = getattr(self.session_pool, "sessions", {}) or {}
+                for sid, sess in sessions_map.items():
+                    if getattr(sess, "user_id", None) == user_id:
+                        session_ids.append(sid)
+
             conversations = []
             
             for session_id in session_ids:
@@ -348,7 +394,9 @@ class ConversationService:
             bool: 是否成功
         """
         try:
-            redis_client = self.session_pool.redis_client
+            redis_client = self.session_pool.get_redis_client()
+            if redis_client is None:
+                return True
             metadata_key = self._get_metadata_key(session_id)
             
             default_metadata = {
@@ -384,7 +432,9 @@ class ConversationService:
             bool: 是否成功
         """
         try:
-            redis_client = self.session_pool.redis_client
+            redis_client = self.session_pool.get_redis_client()
+            if redis_client is None:
+                return True
             metadata_key = self._get_metadata_key(session_id)
             
             # 获取现有元数据
