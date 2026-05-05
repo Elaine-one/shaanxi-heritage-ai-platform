@@ -557,7 +557,7 @@ class UserCreation {
         // 文件大小验证（50MB限制）
         const maxSize = 50 * 1024 * 1024; // 50MB
         if (file.size > maxSize) {
-            validationMessage = '<div style="color: red;">❌ 文件大小超过50MB限制</div>';
+            validationMessage = '<div style="color: red;"><i class="fa-solid fa-circle-xmark"></i> 文件大小超过50MB限制</div>';
         }
         
         // 文件类型验证
@@ -579,9 +579,9 @@ class UserCreation {
         if (fileType !== 'article' && allowedTypes[fileType]) {
             if (!allowedTypes[fileType].includes(file.type)) {
                 const supportedFormats = allowedTypes[fileType].map(t => t.split('/')[1]).join(', ');
-                validationMessage += `<div style="color: red;">❌ 不支持的格式。${this.getTypeLabel(fileType)}类型支持: ${supportedFormats}</div>`;
+                validationMessage += `<div style="color: red;"><i class="fa-solid fa-circle-xmark"></i> 不支持的格式。${this.getTypeLabel(fileType)}类型支持: ${supportedFormats}</div>`;
             } else {
-                validationMessage += `<div style="color: green;">✅ 文件格式验证通过</div>`;
+                validationMessage += `<div style="color: green;"><i class="fa-solid fa-circle-check"></i> 文件格式验证通过</div>`;
             }
         }
         

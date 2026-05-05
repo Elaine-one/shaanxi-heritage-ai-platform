@@ -9,31 +9,26 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from enum import Enum
 from loguru import logger
-import json
-import threading
+import contextvars
 
-_current_context: Optional['UnifiedContext'] = None
-_context_lock = threading.Lock()
+_current_context: contextvars.ContextVar[Optional['UnifiedContext']] = contextvars.ContextVar(
+    '_current_context', default=None
+)
 
 
 def set_current_context(context: 'UnifiedContext') -> None:
-    """设置当前线程的上下文"""
-    global _current_context
-    with _context_lock:
-        _current_context = context
+    """设置当前协程的上下文"""
+    _current_context.set(context)
 
 
 def get_current_context() -> Optional['UnifiedContext']:
-    """获取当前线程的上下文"""
-    with _context_lock:
-        return _current_context
+    """获取当前协程的上下文"""
+    return _current_context.get()
 
 
 def clear_current_context() -> None:
-    """清除当前线程的上下文"""
-    global _current_context
-    with _context_lock:
-        _current_context = None
+    """清除当前协程的上下文"""
+    _current_context.set(None)
 
 
 class IntentType(str, Enum):
@@ -106,6 +101,7 @@ class UnifiedContext(BaseModel):
     
     session_id: str = ""
     user_id: Optional[str] = None
+    username: Optional[str] = None
     plan_id: str = ""
     
     plan_data: PlanData = Field(default_factory=PlanData)
@@ -139,43 +135,10 @@ class UnifiedContext(BaseModel):
             role=role,
             content=content
         ))
-        if len(self.conversation_history) > 20:
-            self.conversation_history = self.conversation_history[-20:]
-    
-    def add_step(self, thought: str, action: str, action_input: Dict, observation: str):
-        """添加执行步骤"""
-        self.intermediate_steps.append({
-            'thought': thought,
-            'action': action,
-            'action_input': action_input,
-            'observation': observation
-        })
-        if action:
-            action_key = f"{action}_{json.dumps(action_input, sort_keys=True)}"
-            self.action_history.append(action_key)
-    
-    def is_repeated_action(self, action: str, action_input: Dict = None) -> bool:
-        """检测重复动作（检查action和参数）"""
-        if len(self.action_history) < 1:
-            return False
-        
-        if action_input:
-            action_key = f"{action}_{json.dumps(action_input, sort_keys=True)}"
-            return action_key in self.action_history
-        
-        return self.action_history[-1].startswith(f"{action}_")
-    
-    def should_terminate(self) -> tuple:
-        """判断是否应该终止"""
-        if self.failed_count >= 3:
-            return True, "工具执行失败次数过多"
-        if self.no_progress_count >= 3:
-            return True, "多次迭代无进展"
-        if len(self.action_history) >= 3:
-            last_actions = self.action_history[-3:]
-            if all(act == last_actions[0] for act in last_actions):
-                return True, "检测到相同动作重复执行"
-        return False, ""
+        from Agent.config.memory_budget import memory_budget
+        max_turns = memory_budget.conversation_history_max_turns
+        if len(self.conversation_history) > max_turns:
+            self.conversation_history = self.conversation_history[-max_turns:]
     
     def to_tool_context(self) -> Dict[str, Any]:
         """转换为工具上下文字典"""
@@ -191,37 +154,3 @@ class UnifiedContext(BaseModel):
             'budget_range': self.plan_data.budget_range,
             'special_requirements': self.plan_data.special_requirements,
         }
-    
-    def build_plan_summary_text(self) -> str:
-        """构建规划摘要文本（用于提示词）"""
-        parts = []
-        
-        if self.plan_data.departure_location:
-            parts.append(f"出发地: {self.plan_data.departure_location}")
-        if self.plan_data.travel_days:
-            parts.append(f"天数: {self.plan_data.travel_days}天")
-        if self.plan_data.travel_mode:
-            parts.append(f"交通方式: {self.plan_data.travel_mode}")
-        if self.plan_data.group_size:
-            parts.append(f"人数: {self.plan_data.group_size}人")
-        if self.plan_data.budget_range:
-            parts.append(f"预算: {self.plan_data.budget_range}")
-        
-        if self.plan_data.heritage_items:
-            names = self.plan_data.get_heritage_names()
-            parts.append(f"已选非遗: {', '.join(names)}")
-        
-        if self.plan_data.special_requirements:
-            parts.append(f"特殊要求: {', '.join(self.plan_data.special_requirements)}")
-        
-        return '\n'.join(parts)
-    
-    def log_context_state(self, prefix: str = ""):
-        """记录上下文状态"""
-        logger.info(f"📦 {prefix}上下文状态:")
-        logger.info(f"  - session_id: {self.session_id}")
-        logger.info(f"  - intent: {self.detected_intent}")
-        logger.info(f"  - heritages: {len(self.plan_data.heritage_items)} items")
-        logger.debug(f"  - heritage_ids: {self.plan_data.get_heritage_ids()}")
-        logger.debug(f"  - departure: {self.plan_data.departure_location}")
-        logger.debug(f"  - travel_mode: {self.plan_data.travel_mode}")

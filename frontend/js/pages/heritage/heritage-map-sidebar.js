@@ -112,28 +112,15 @@ window.updateFilteredProjectList = function(items) {
             let stars = '';
             let levelClass = '';
             
-            switch (item.level) {
-                case '国家级': 
-                    stars = '★★★★★'; 
-                    levelClass = 'level-national';
-                    break;
-                case '省级': 
-                    stars = '★★★★'; 
-                    levelClass = 'level-provincial';
-                    break;
-                case '市级': 
-                    stars = '★★★'; 
-                    levelClass = 'level-city';
-                    break;
-                case '县级': 
-                    stars = '★★'; 
-                    levelClass = 'level-county';
-                    break;
-                default: 
-                    stars = '★'; 
-                    levelClass = 'level-other';
-                    break;
-            }
+            const starMap = {
+                '国家级': { stars: 5, cls: 'level-national' },
+                '省级': { stars: 4, cls: 'level-provincial' },
+                '市级': { stars: 3, cls: 'level-city' },
+                '县级': { stars: 2, cls: 'level-county' },
+            };
+            const mapping = starMap[item.level] || { stars: 1, cls: 'level-other' };
+            stars = '<i class="fa-solid fa-star"></i>'.repeat(mapping.stars);
+            levelClass = mapping.cls;
             
             // 设置项目内容
             projectItem.innerHTML = `
@@ -350,10 +337,10 @@ function updateCollectionButtonsState() {
             // 更新按钮状态
             if (isCollected) {
                 button.classList.add('collected');
-                button.textContent = '❤';
+                button.innerHTML = '<i class="fa-solid fa-heart"></i>';
             } else {
                 button.classList.remove('collected');
-                button.textContent = '♡';
+                button.innerHTML = '<i class="fa-regular fa-heart"></i>';
             }
         }
     });
@@ -585,10 +572,10 @@ function toggleCollection(itemId, event) {
                             console.log('直接更新收藏按钮状态:', isCollected, '项目ID:', itemId);
                             if (isCollected) {
                                 button.classList.add('collected');
-                                button.textContent = '❤';
+                                button.innerHTML = '<i class="fa-solid fa-heart"></i>';
                             } else {
                                 button.classList.remove('collected');
-                                button.textContent = '♡';
+                                button.innerHTML = '<i class="fa-regular fa-heart"></i>';
                             }
                         });
                 }
@@ -711,7 +698,7 @@ window.showHeritagePreview = function(item) {
                 
                 <div class="preview-actions">
                     <a href="heritage-detail.html?id=${item.id}" class="detail-btn" target="_blank">查看详情</a>
-                    <button class="collect-btn" data-id="${item.id}" title="收藏此项目">♡</button>
+                    <button class="collect-btn" data-id="${item.id}" title="收藏此项目"><i class="fa-regular fa-heart"></i></button>
                 </div>
             </div>
         </div>
@@ -728,10 +715,10 @@ window.showHeritagePreview = function(item) {
             .then(isCollected => {
                 if (isCollected) {
                     collectBtn.classList.add('collected');
-                    collectBtn.textContent = '❤';
+                    collectBtn.innerHTML = '<i class="fa-solid fa-heart"></i>';
                 } else {
                     collectBtn.classList.remove('collected');
-                    collectBtn.textContent = '♡';
+                    collectBtn.innerHTML = '<i class="fa-regular fa-heart"></i>';
                 }
             })
             .catch(error => {

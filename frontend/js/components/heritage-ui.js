@@ -259,7 +259,7 @@ function getStarsHTML(level) {
         default: starCount = 1;
     }
     
-    return '★'.repeat(starCount);
+    return '<i class="fa-solid fa-star"></i>'.repeat(starCount);
 }
 
 /**
@@ -287,11 +287,6 @@ window.HeritageUI = {
     addStyle: addStyle,
     showLoading: showLoading, //  确保 showLoading 也导出
     showConfirm: showConfirm, //  确保 showConfirm 也导出
-    getLevelClass: getLevelClass, // 确保 getLevelClass 也导出
-    getStarsHTML: getStarsHTML // 确保 getStarsHTML 也导出
+    getLevelClass: getLevelClass,
+    getStarsHTML: getStarsHTML
 };
-
-// 如果其他地方确实需要单独导出 showToast, 可以保留，但通常 window.showToast 已经够用
-// 如果不需要模块化导出，可以移除下面这行
-// export { showToast }; 
-// 为了解决报错，暂时注释或移除 export 语句

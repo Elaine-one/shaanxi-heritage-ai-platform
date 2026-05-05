@@ -494,10 +494,10 @@ function updateFavoriteButtonsState() {
                 .then(isFavorited => {
                     if (isFavorited) {
                         button.classList.add('collected');
-                        button.textContent = '❤';
+                        button.innerHTML = '<i class="fa-solid fa-heart"></i>';
                     } else {
                         button.classList.remove('collected');
-                        button.textContent = '♡';
+                        button.innerHTML = '<i class="fa-regular fa-heart"></i>';
                     }
                 })
                 .catch(error => {

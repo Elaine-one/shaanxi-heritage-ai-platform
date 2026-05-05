@@ -10,10 +10,10 @@ RETRY_DELAY = 1  # 重试延迟(秒)
 # SSL配置
 SSL_VERIFY = True  # 是否启用SSL验证
 
-# 缓存配置
-CACHE_ENABLED = True  # 是否启用缓存
-CACHE_TTL = 3600  # 天气数据缓存有效期：1小时（天气数据更新频率适中）
-CACHE_MAX_SIZE = 100  # 最大缓存项数量
+# 缓存配置（由 WeatherService 引用）
+CACHE_ENABLED = True
+CACHE_TTL = 600
+CACHE_MAX_SIZE = 100
 
 # 环境特定配置
 ENVIRONMENT_CONFIG = {

@@ -106,7 +106,7 @@ class NewsPage {
                 <img src="${news.image_url || '../static/images/news/hero-placeholder.jpg'}" alt="${news.title}" class="hero-image" onerror="this.src='../static/images/news/hero-placeholder.jpg'">
                 <div class="hero-overlay"></div>
                 <div class="hero-content">
-                    <span class="hero-badge">${index === 0 ? '🔥 今日头条' : '📰 热门资讯'}</span>
+                    <span class="hero-badge">${index === 0 ? '<i class="fa-solid fa-fire"></i> 今日头条' : '<i class="fa-solid fa-newspaper"></i> 热门资讯'}</span>
                     <h2 class="hero-title">${news.title}</h2>
                     <p class="hero-summary">${news.summary || '点击查看详情...'}</p>
                     <a href="#" class="hero-btn" data-news-id="${news.id}">

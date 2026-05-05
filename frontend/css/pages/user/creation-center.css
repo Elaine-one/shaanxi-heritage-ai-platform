@@ -388,69 +388,81 @@ nav {
 
 /* 为每个标签添加图标 */
 .tab-btn[data-tab="my-creations"]::before {
-    content: '📹';
+    content: '\f03d';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
     position: static;
     width: auto;
     height: auto;
     background: none;
     transform: none;
-    font-size: 18px;
-    margin-right: 0;
+    font-size: 16px;
+    margin-right: 6px;
 }
 
 .tab-btn[data-tab="view-history"]::before {
-    content: '🕐';
+    content: '\f1da';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
     position: static;
     width: auto;
     height: auto;
     background: none;
     transform: none;
-    font-size: 18px;
-    margin-right: 0;
+    font-size: 16px;
+    margin-right: 6px;
 }
 
 .tab-btn[data-tab="favorites"]::before {
-    content: '❤️';
+    content: '\f004';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
     position: static;
     width: auto;
     height: auto;
     background: none;
     transform: none;
-    font-size: 18px;
-    margin-right: 0;
+    font-size: 16px;
+    margin-right: 6px;
 }
 
 .tab-btn[data-tab="liked"]::before {
-    content: '👍';
+    content: '\f164';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
     position: static;
     width: auto;
     height: auto;
     background: none;
     transform: none;
-    font-size: 18px;
-    margin-right: 0;
+    font-size: 16px;
+    margin-right: 6px;
 }
 
 .tab-btn[data-tab="analytics"]::before {
-    content: '📊';
+    content: '\f080';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
     position: static;
     width: auto;
     height: auto;
     background: none;
     transform: none;
-    font-size: 18px;
-    margin-right: 0;
+    font-size: 16px;
+    margin-right: 6px;
 }
 
 .tab-btn[data-tab="settings"]::before {
-    content: '⚙️';
+    content: '\f013';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
     position: static;
     width: auto;
     height: auto;
     background: none;
     transform: none;
-    font-size: 18px;
-    margin-right: 0;
+    font-size: 16px;
+    margin-right: 6px;
 }
 
 /* 覆盖active状态的图标样式 */

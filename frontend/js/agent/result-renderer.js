@@ -174,9 +174,9 @@ class ResultRenderer {
                     <div class="recommendations-header">
                         <h4>智能出行建议</h4>
                         <div class="recommendations-tabs">
-                            <button class="tab-btn active" data-tab="tips">💡 贴士</button>
-                            <button class="tab-btn" data-tab="packing">🎒 装备</button>
-                            <button class="tab-btn" data-tab="budget">💰 预算</button>
+                            <button class="tab-btn active" data-tab="tips"><i class="fa-solid fa-lightbulb"></i> 贴士</button>
+                            <button class="tab-btn" data-tab="packing"><i class="fa-solid fa-person-hiking"></i> 装备</button>
+                            <button class="tab-btn" data-tab="budget"><i class="fa-solid fa-coins"></i> 预算</button>
                         </div>
                     </div>
                     <div class="recommendations-content">
@@ -231,10 +231,10 @@ class ResultRenderer {
         if (planData.itinerary && planData.itinerary.length > 0) {
             const days = planData.itinerary.length;
             if (days >= 5) {
-                tips.push('🗓️ 行程较长，建议安排1-2天的休息时间，避免过度疲劳');
+                tips.push('<i class="fa-solid fa-calendar-days"></i> 行程较长，建议安排1-2天的休息时间，避免过度疲劳');
             }
             if (days <= 2) {
-                tips.push('⏰ 行程紧凑，建议提前规划路线，合理安排时间');
+                tips.push('<i class="fa-regular fa-clock"></i> 行程紧凑，建议提前规划路线，合理安排时间');
             }
         }
         

@@ -176,10 +176,8 @@ class SafetyChecker:
         
         return SafetyResult.safe()
     
-    def check(self, user_input: str) -> SafetyResult:
-        """
-        同步执行安全检测
-        """
+    def quick_check(self, user_input: str) -> bool:
+        """快速检测，仅返回是否安全"""
         import asyncio
         try:
             loop = asyncio.get_event_loop()
@@ -187,34 +185,22 @@ class SafetyChecker:
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(asyncio.run, self.check_async(user_input))
-                    return future.result()
+                    return future.result().is_safe
             else:
-                return loop.run_until_complete(self.check_async(user_input))
-        except Exception as e:
-            logger.warning(f"安全检测异常: {e}")
-            return SafetyResult.safe()
-    
-    def quick_check(self, user_input: str) -> bool:
-        """快速检测，仅返回是否安全"""
-        return self.check(user_input).is_safe
+                return loop.run_until_complete(self.check_async(user_input)).is_safe
+        except Exception:
+            return True
 
 
 _safety_checker: Optional[SafetyChecker] = None
 
 
 def get_safety_checker() -> SafetyChecker:
-    """获取安全检测器单例"""
     global _safety_checker
     if _safety_checker is None:
         _safety_checker = SafetyChecker()
     return _safety_checker
 
 
-def check_safety(user_input: str) -> SafetyResult:
-    """便捷函数：检测输入安全性"""
-    return get_safety_checker().check(user_input)
-
-
 async def check_safety_async(user_input: str) -> SafetyResult:
-    """便捷函数：异步检测输入安全性"""
     return await get_safety_checker().check_async(user_input)

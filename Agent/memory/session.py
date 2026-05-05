@@ -2,7 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 会话池管理系统
-用于管理编辑会话的生命周期，支持内存缓存和 SQLite 持久化
+用于管理编辑会话的生命周期
+
+存储职责：
+- L0/L1 Redis (RedisSessionPool): 热数据 — 会话、最近对话、摘要
+- L2 Neo4j: 长期偏好 — 用户偏好、兴趣地区
+- L3 SQLite (l3_sqlite_ledger): 审计账本 — 对话事件记录
+
+本基类仅提供内存存储，用于测试。生产环境必须使用 RedisSessionPool。
+不再使用 SQLite 作为 Redis 的降级后端。
 """
 
 from typing import Dict, Any, List, Optional
@@ -21,6 +29,7 @@ class SessionContext:
     session_id: str
     plan_id: str
     user_id: Optional[str] = None
+    username: Optional[str] = None
     
     departure_location: Optional[str] = None
     travel_mode: Optional[str] = None
@@ -106,19 +115,45 @@ class SessionPool:
         self.sessions: Dict[str, SessionContext] = {}
         self.session_lock = threading.RLock()
         
-        self._sqlite_store = None
         self._start_cleanup_task()
         
-        logger.info(f"会话池初始化完成，最大会话数: {max_sessions}，清理间隔: {cleanup_interval}秒")
+        logger.info(f"会话池初始化完成（内存模式），最大会话数: {max_sessions}，清理间隔: {cleanup_interval}秒")
     
-    def _get_sqlite_store(self):
-        if self._sqlite_store is None:
-            try:
-                from .sqlite_store import get_sqlite_store
-                self._sqlite_store = get_sqlite_store()
-            except Exception as e:
-                logger.warning(f"SQLite 存储初始化失败: {e}")
-        return self._sqlite_store
+    def get_redis_client(self):
+        """获取 Redis 客户端（基类返回 None，RedisSessionPool 覆写）"""
+        return None
+
+    @staticmethod
+    def get_user_sessions_key(user_id: str) -> str:
+        """获取用户会话索引的 Redis Key"""
+        return f"agent:user:{user_id}:sessions"
+
+    def update_session_context(self, session_id: str, session_context) -> bool:
+        """更新整个会话上下文（基类实现，RedisSessionPool 覆写）"""
+        with self.session_lock:
+            if session_id in self.sessions:
+                self.sessions[session_id] = session_context
+                return True
+        return False
+
+    def update_session_plan(self, session_id: str, new_plan) -> bool:
+        """更新会话中的规划数据"""
+        return self.update_session(session_id, new_plan)
+
+    def get_optimized_context(self, session_id: str):
+        """获取优化的AI上下文（基类实现，RedisSessionPool 覆写）"""
+        session = self.get_session(session_id)
+        if not session:
+            return None
+        return {
+            'session_id': session.session_id,
+            'plan_id': session.plan_id,
+            'weather_info': session.weather_info,
+            'heritage_items': session.selected_heritage_items,
+            'location': session.location_coordinates,
+            'budget': session.budget_constraints,
+            'time_constraints': session.time_constraints,
+        }
     
     def _start_cleanup_task(self):
         def cleanup_worker():
@@ -153,25 +188,6 @@ class SessionPool:
             self._extract_plan_info(session, original_plan)
             
             self.sessions[session_id] = session
-            
-            sqlite_store = self._get_sqlite_store()
-            if sqlite_store and user_id:
-                sqlite_store.save_session_memory(
-                    session_id=session_id,
-                    user_id=user_id,
-                    plan_id=plan_id,
-                    session_data={
-                        'departure_location': session.departure_location,
-                        'travel_mode': session.travel_mode,
-                        'group_size': session.group_size,
-                        'budget_range': session.budget_range,
-                        'travel_days': session.travel_days,
-                        'heritage_ids': session.heritage_ids,
-                        'heritage_names': session.heritage_names,
-                        'itinerary_summary': session.itinerary_summary,
-                        'current_plan': session.current_plan
-                    }
-                )
             
             logger.info(f"创建会话: {session_id}, 用户: {user_id}, 出发地: {session.departure_location}")
             return session
@@ -239,26 +255,6 @@ class SessionPool:
             session = self.sessions.get(session_id)
             if session:
                 session.update_activity()
-            else:
-                sqlite_store = self._get_sqlite_store()
-                if sqlite_store:
-                    session_data = sqlite_store.get_session_memory(session_id)
-                    if session_data:
-                        session = SessionContext(
-                            session_id=session_id,
-                            plan_id=session_data.get('plan_id', ''),
-                            user_id=session_data.get('user_id')
-                        )
-                        session.departure_location = session_data.get('departure_location')
-                        session.travel_mode = session_data.get('travel_mode')
-                        session.group_size = session_data.get('group_size')
-                        session.budget_range = session_data.get('budget_range')
-                        session.travel_days = session_data.get('travel_days')
-                        session.heritage_ids = session_data.get('heritage_ids', [])
-                        session.heritage_names = session_data.get('heritage_names', [])
-                        session.itinerary_summary = session_data.get('itinerary_summary')
-                        session.current_plan = session_data.get('current_plan', {})
-                        self.sessions[session_id] = session
             return session
     
     def update_session(self, session_id: str, updated_plan: Dict[str, Any]) -> bool:
@@ -271,55 +267,14 @@ class SessionPool:
             session.last_updated = datetime.now().isoformat()
             session.edit_count += 1
             
-            sqlite_store = self._get_sqlite_store()
-            if sqlite_store and session.user_id:
-                sqlite_store.save_session_memory(
-                    session_id=session_id,
-                    user_id=session.user_id,
-                    plan_id=session.plan_id,
-                    session_data={
-                        'departure_location': session.departure_location,
-                        'travel_mode': session.travel_mode,
-                        'group_size': session.group_size,
-                        'budget_range': session.budget_range,
-                        'travel_days': session.travel_days,
-                        'heritage_ids': session.heritage_ids,
-                        'heritage_names': session.heritage_names,
-                        'itinerary_summary': session.itinerary_summary,
-                        'current_plan': session.current_plan
-                    }
-                )
-            
             logger.info(f"会话 {session_id} 已更新，编辑次数: {session.edit_count}")
             return True
     
-    def add_conversation(self, session_id: str, role: str, content: str):
+    def add_conversation(self, session_id: str, role: str, content: str, user_id: Optional[str] = None):
         with self.session_lock:
             session = self.sessions.get(session_id)
             if session:
                 session.add_conversation(role, content)
-                
-                sqlite_store = self._get_sqlite_store()
-                if sqlite_store and session.user_id:
-                    sqlite_store.save_conversation(
-                        session_id=session_id,
-                        user_id=session.user_id,
-                        role=role,
-                        content=content
-                    )
-                
-                try:
-                    from .conversation_vector_service import get_conversation_vector_service
-                    vector_service = get_conversation_vector_service()
-                    if vector_service and session.user_id:
-                        vector_service.save_conversation(
-                            session_id=session_id,
-                            user_id=session.user_id,
-                            role=role,
-                            content=content
-                        )
-                except Exception as e:
-                    logger.warning(f"保存对话向量失败: {e}")
     
     def remove_session(self, session_id: str) -> bool:
         with self.session_lock:
@@ -380,13 +335,3 @@ class SessionPool:
                 'total_edits': total_edits,
                 'average_edits_per_session': total_edits / max(total_sessions, 1)
             }
-
-
-_session_pool_instance = None
-
-
-def get_session_pool() -> SessionPool:
-    global _session_pool_instance
-    if _session_pool_instance is None:
-        _session_pool_instance = SessionPool()
-    return _session_pool_instance

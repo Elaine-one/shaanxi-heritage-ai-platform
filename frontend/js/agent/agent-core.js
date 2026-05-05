@@ -469,8 +469,7 @@ class TravelPlanningAgent {
             }
             
             const controller = new AbortController();
-            // PDF导出超时：6分钟（AI生成的旅游规划内容可能较大）
-            const PDF_EXPORT_TIMEOUT_MS = 6 * 60 * 1000;
+            const PDF_EXPORT_TIMEOUT_MS = 10 * 60 * 1000;
             const timeoutId = setTimeout(() => controller.abort(), PDF_EXPORT_TIMEOUT_MS);
 
             try {

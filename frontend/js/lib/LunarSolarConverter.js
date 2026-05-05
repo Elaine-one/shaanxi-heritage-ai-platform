@@ -374,11 +374,9 @@ LunarSolarConverter.prototype.LunarToSolar = function (lunar) {
     var leap = this.leapMonth(lunar.lunarYear);
     var days = this.monthDays(lunar.lunarYear, lunar.lunarMonth);
     if (lunar.isLeap && leap != lunar.lunarMonth) {
-        //console.log("传入的月份并非闰月");
         return null;
     }
     if (lunar.lunarDay > days) {
-        //console.log("传入的日期不存在");
         return null;
     }
     var offset = 0;

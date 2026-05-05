@@ -21,31 +21,6 @@ def format_datetime(dt, format_str='%Y-%m-%d %H:%M'):
     return dt.strftime(format_str) if dt else None
 
 
-def handle_redis_operation(operation_name, fallback_func, *args, **kwargs):
-    """
-    统一处理Redis操作的错误处理
-    
-    Args:
-        operation_name: 操作名称，用于日志记录
-        fallback_func: 降级处理函数
-        *args, **kwargs: 传递给操作的参数
-    
-    Returns:
-        操作结果或降级处理结果
-    """
-    try:
-        # 这里可以添加实际的Redis操作逻辑
-        # 目前只是一个框架，需要根据实际情况实现
-        logger.debug(f"执行 {operation_name} 操作")
-        # 实际的操作逻辑应该在这里
-        pass
-    except Exception as e:
-        logger.error(f"{operation_name} 操作失败: {e}")
-        if fallback_func:
-            return fallback_func(*args, **kwargs)
-        return None
-
-
 def get_client_ip(request):
     """
     获取客户端IP地址

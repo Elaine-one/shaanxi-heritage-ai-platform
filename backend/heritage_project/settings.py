@@ -21,8 +21,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # 使用dotenv库加载.env文件，确保配置与代码分离
 env_path = BASE_DIR / '.env'
 if env_path.exists():
-    load_dotenv(env_path)
-    print(f"✅ 已加载环境变量文件: {env_path}")
+    loaded = load_dotenv(env_path, override=False)
+    if loaded:
+        print(f"✅ 已加载环境变量文件: {env_path}")
 else:
     print(f"⚠️  未找到环境变量文件: {env_path}")
 

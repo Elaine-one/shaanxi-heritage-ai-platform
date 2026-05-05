@@ -6,6 +6,7 @@
 
 import json
 import hashlib
+import asyncio
 import aiohttp
 from typing import Dict, Any, List
 from datetime import datetime
@@ -59,60 +60,59 @@ class StartupManager:
         return hashlib.md5(data_str.encode()).hexdigest()
     
     async def initialize_all(self) -> Dict[str, Any]:
-        """并行初始化所有组件"""
+        """并行初始化所有组件（按依赖分层并行）"""
         logger.info("开始并行初始化...")
         start_time = datetime.now()
         
         results = {}
         
-        try:
-            result = await self._init_llm()
-            results['llm'] = {'success': True, 'result': result}
-            logger.info("✓ llm 初始化完成")
-        except Exception as e:
-            results['llm'] = {'success': False, 'error': str(e)}
-            logger.error(f"✗ llm 初始化失败: {e}")
-        
-        try:
-            result = await self._init_knowledge_graph()
-            results['knowledge_graph'] = {'success': True, 'result': result}
-            logger.info("✓ knowledge_graph 初始化完成")
-        except Exception as e:
-            results['knowledge_graph'] = {'success': False, 'error': str(e)}
-            logger.error(f"✗ knowledge_graph 初始化失败: {e}")
-        
-        try:
-            result = await self._init_vector_store()
-            results['vector_store'] = {'success': True, 'result': result}
-            logger.info("✓ vector_store 初始化完成")
-        except Exception as e:
-            results['vector_store'] = {'success': False, 'error': str(e)}
-            logger.error(f"✗ vector_store 初始化失败: {e}")
-        
-        try:
-            result = await self._init_session_pool()
-            results['session_pool'] = {'success': True, 'result': result}
-            logger.info("✓ session_pool 初始化完成")
-        except Exception as e:
-            results['session_pool'] = {'success': False, 'error': str(e)}
-            logger.error(f"✗ session_pool 初始化失败: {e}")
-        
-        try:
-            result = await self._init_mcp_client()
-            results['mcp_client'] = {'success': True, 'result': result}
-            tools_count = result.get('tools_count', 0)
+        async def _safe_init(name: str, coro):
+            try:
+                result = await coro
+                results[name] = {'success': True, 'result': result}
+                return result
+            except Exception as e:
+                results[name] = {'success': False, 'error': str(e)}
+                logger.error(f"✗ {name} 初始化失败: {e}")
+                return None
+
+        # 第一层：无依赖，完全并行
+        layer1 = await asyncio.gather(
+            _safe_init('llm', self._init_llm()),
+            _safe_init('knowledge_graph', self._init_knowledge_graph()),
+            _safe_init('vector_store', self._init_vector_store()),
+            _safe_init('session_pool', self._init_session_pool()),
+        )
+        for name in ['llm', 'knowledge_graph', 'vector_store', 'session_pool']:
+            if results.get(name, {}).get('success'):
+                logger.info(f"✓ {name} 初始化完成")
+
+        # 第二层：依赖第一层
+        layer2 = await asyncio.gather(
+            _safe_init('mcp_client', self._init_mcp_client()),
+        )
+        if results.get('mcp_client', {}).get('success'):
+            tools_count = results['mcp_client']['result'].get('tools_count', 0)
             logger.info(f"✓ mcp_client 初始化完成，工具数量: {tools_count}")
-        except Exception as e:
-            results['mcp_client'] = {'success': False, 'error': str(e)}
-            logger.warning(f"⚠ mcp_client 初始化失败: {e}")
-        
-        try:
-            result = await self._init_langchain_agent()
-            results['langchain_agent'] = {'success': True, 'result': result}
-            logger.info(f"✓ langchain_agent 初始化完成，工具数量: {result.get('tools_count', 0)}")
-        except Exception as e:
-            results['langchain_agent'] = {'success': False, 'error': str(e)}
-            logger.error(f"✗ langchain_agent 初始化失败: {e}")
+        else:
+            logger.warning(f"⚠ mcp_client 初始化失败: {results.get('mcp_client', {}).get('error', '')}")
+
+        # 第三层：依赖第二层
+        layer3 = await asyncio.gather(
+            _safe_init('langchain_agent', self._init_langchain_agent()),
+        )
+        if results.get('langchain_agent', {}).get('success'):
+            tools_count = results['langchain_agent']['result'].get('tools_count', 0)
+            logger.info(f"✓ langchain_agent 初始化完成，工具数量: {tools_count}")
+
+        # 第四层：依赖 session_pool
+        layer4 = await asyncio.gather(
+            _safe_init('memory_coordinator', self._init_memory_coordinator()),
+        )
+        if results.get('memory_coordinator', {}).get('success'):
+            logger.info("✓ memory_coordinator 初始化完成")
+        else:
+            logger.warning(f"⚠ memory_coordinator 初始化失败: {results.get('memory_coordinator', {}).get('error', '')}")
         
         elapsed = (datetime.now() - start_time).total_seconds()
         logger.info(f"并行初始化完成，耗时 {elapsed:.2f}s")
@@ -161,7 +161,7 @@ class StartupManager:
     
     async def _init_session_pool(self) -> Dict[str, Any]:
         """初始化会话池"""
-        from Agent.memory.session import get_session_pool
+        from Agent.memory.session_provider import get_session_pool
         
         sp = get_session_pool()
         return {
@@ -212,6 +212,27 @@ class StartupManager:
                 'error': str(e)
             }
     
+    async def _init_memory_coordinator(self) -> Dict[str, Any]:
+        """初始化记忆协调器"""
+        try:
+            from Agent.memory.coordinator import get_memory_coordinator
+            
+            coordinator = get_memory_coordinator()
+            stats = coordinator.get_stats()
+            
+            return {
+                'initialized': True,
+                'l2_enabled': stats.get('l2_enabled', False),
+                'l3_enabled': stats.get('l3_enabled', False),
+                'sifter_enabled': stats.get('sifter_enabled', False),
+            }
+        except Exception as e:
+            logger.warning(f"MemoryCoordinator 初始化失败: {e}")
+            return {
+                'initialized': False,
+                'error': str(e)
+            }
+    
     async def auto_sync_heritage_data(self, force: bool = False) -> Dict[str, Any]:
         """自动同步非遗数据到知识图谱和向量数据库"""
         from Agent.config.settings import config
@@ -240,8 +261,9 @@ class StartupManager:
             stored_hash = self.sync_status.get('data_hash')
             
             kg_empty = await self._check_knowledge_graph_empty()
+            vs_empty = self._check_vector_store_empty()
             
-            if not force and current_hash == stored_hash and not kg_empty:
+            if not force and current_hash == stored_hash and not kg_empty and not vs_empty:
                 logger.info("数据无变化，跳过同步")
                 return {
                     'success': True,
@@ -251,6 +273,8 @@ class StartupManager:
             
             if kg_empty:
                 logger.info("知识图谱为空，强制同步")
+            if vs_empty:
+                logger.info("向量数据库为空，强制同步")
             
             logger.info(f"检测到数据变化，开始同步 {len(heritage_list)} 条数据...")
             
@@ -294,6 +318,24 @@ class StartupManager:
             count = kg.get_heritage_count()
             return count == 0
         except:
+            return True
+    
+    def _check_vector_store_empty(self) -> bool:
+        from Agent.memory.vector_store import get_vector_store
+        vs = get_vector_store()
+        if not vs:
+            return True
+        try:
+            stats = vs.get_collection_stats()
+            hk_count = 0
+            for col_stat in stats.values():
+                if isinstance(col_stat, dict) and col_stat.get('collection_name') == 'heritage_knowledge':
+                    hk_count = col_stat.get('count', 0)
+                    break
+            if hk_count == 0:
+                return True
+            return False
+        except Exception:
             return True
     
     async def _fetch_heritage_from_mysql(self) -> List[Dict]:

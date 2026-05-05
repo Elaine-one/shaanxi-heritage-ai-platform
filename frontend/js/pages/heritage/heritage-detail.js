@@ -216,7 +216,7 @@ function loadGalleryImages(item) {
             
             // 创建放大图标
             const zoomIcon = document.createElement('div');
-            zoomIcon.innerHTML = '🔍';
+            zoomIcon.innerHTML = '<i class="fa-solid fa-magnifying-glass-plus"></i>';
             zoomIcon.style.transform = 'scale(0)';
             zoomIcon.style.transition = 'transform 0.3s ease';
             overlay.appendChild(zoomIcon);
@@ -261,7 +261,7 @@ function loadGalleryImages(item) {
 
     } else {
         // 没有图片时显示美化后的提示信息，使用emoji代替图标
-        galleryContainer.innerHTML = '<div class="no-images-message"><div class="icon">🖼️</div><p class="title">暂无项目图片</p><p class="subtitle">该非遗项目暂未上传相关图片资料</p></div>';
+        galleryContainer.innerHTML = '<div class="no-images-message"><div class="icon"><i class="fa-regular fa-image"></i></div><p class="title">暂无项目图片</p><p class="subtitle">该非遗项目暂未上传相关图片资料</p></div>';
     }
 }
 

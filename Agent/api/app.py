@@ -201,8 +201,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """健康检查端点"""
-    from Agent.memory.session import get_session_pool
-    from Agent.memory.redis_session import RedisSessionPool
+    from Agent.memory.session_provider import get_session_pool
     
     health_info = {
         "status": "healthy",
@@ -213,18 +212,11 @@ async def health_check():
     # 检查会话存储
     try:
         session_pool = get_session_pool()
-        if isinstance(session_pool, RedisSessionPool):
-            redis_health = session_pool.health_check()
-            health_info["components"]["session_storage"] = {
-                "type": "redis",
-                **redis_health
-            }
-        else:
-            stats = session_pool.get_session_stats()
-            health_info["components"]["session_storage"] = {
-                "type": "memory",
-                **stats
-            }
+        redis_health = session_pool.health_check()
+        health_info["components"]["session_storage"] = {
+            "type": "redis",
+            **redis_health
+        }
     except Exception as e:
         health_info["components"]["session_storage"] = {
             "type": "unknown",
@@ -404,7 +396,7 @@ async def export_plan_pdf(request: PDFExportRequest, background_tasks: Backgroun
 
         if request.session_id:
             try:
-                from Agent.memory.session import get_session_pool
+                from Agent.memory.session_provider import get_session_pool
                 session_pool = get_session_pool()
                 session = session_pool.get_session(request.session_id)
                 if session:
@@ -535,18 +527,27 @@ async def export_travel_plan(plan_id: str, export_request: ExportRequest, backgr
         final_plan_data = result
         conversation_history = []
         
-        active_session = None
-        if hasattr(plan_editor, 'active_sessions'):
-            for sess_id, sess_data in plan_editor.active_sessions.items():
-                if sess_data.get('plan_id') == plan_id:
-                    active_session = sess_data
+        try:
+            from Agent.memory.session_provider import get_session_pool
+            session_pool = get_session_pool()
+            all_sessions = getattr(session_pool, 'sessions', {})
+            if not all_sessions and hasattr(session_pool, '_redis_client'):
+                all_sessions = {}
+            for sess_id, sess in all_sessions.items():
+                if getattr(sess, 'plan_id', None) == plan_id:
+                    active_session = sess
+                    final_plan_data = sess.current_plan if hasattr(sess, 'current_plan') and sess.current_plan else result
+                    if hasattr(sess, 'conversation_history') and sess.conversation_history:
+                        conversation_history = [
+                            {"role": t.role, "content": t.content}
+                            for t in sess.conversation_history
+                            if hasattr(t, 'role') and hasattr(t, 'content')
+                        ]
+                        final_plan_data['conversation_history'] = conversation_history
+                    logger.info(f"使用活跃会话数据导出: {sess_id}")
                     break
-        
-        if active_session:
-            logger.info(f"使用活跃会话数据导出: {active_session.get('session_id')}")
-            final_plan_data = active_session.get('current_plan', result)
-            conversation_history = active_session.get('conversation_history', [])
-            final_plan_data['conversation_history'] = conversation_history
+        except Exception as e:
+            logger.debug(f"查找活跃会话失败（使用原始数据）: {e}")
 
         fmt = export_request.format.lower()
         if fmt == "pdf":
@@ -633,7 +634,35 @@ async def agent_chat_stream(request: Dict[str, Any], current_user: TokenData = D
     """与AI助手进行流式对话交互，支持状态反馈"""
     try:
         msg = request.get('message', '')
-        sid = request.get('session_id', str(uuid.uuid4()))
+        sid = request.get('session_id') or str(uuid.uuid4())
+
+        from Agent.memory.session_provider import get_session_pool
+        session_pool = get_session_pool()
+        existing_session = session_pool.get_session(sid)
+        if not existing_session:
+            logger.warning(
+                f"chat-stream: session 不存在 sid={sid}, user_id={current_user.user_id}. "
+                f"前端可能未调用 start_edit_session 或会话已过期，创建无规划数据的空会话"
+            )
+            await session_pool.create_session(
+                plan_id=sid,
+                original_plan={},
+                user_id=current_user.user_id
+            )
+        else:
+            logger.info(
+                f"chat-stream: session 已存在 sid={sid}, "
+                f"departure={getattr(existing_session, 'departure_location', None)}, "
+                f"heritage_ids={getattr(existing_session, 'heritage_ids', [])}, "
+                f"user_id={existing_session.user_id}"
+            )
+            if existing_session.user_id is not None and str(existing_session.user_id) != str(current_user.user_id):
+                logger.warning(f"chat-stream: 用户 {current_user.user_id} 尝试访问非本人会话 {sid} (owner={existing_session.user_id})")
+                raise HTTPException(status_code=403, detail="无权访问此会话")
+            if existing_session.user_id is None:
+                session_pool.update_session_user_id(sid, current_user.user_id)
+                logger.info(f"chat-stream: 会话 {sid} 未绑定用户，已绑定到 {current_user.user_id}")
+
         agent = get_agent()
         
         async def event_generator():
@@ -684,4 +713,4 @@ if __name__ == "__main__":
     import uvicorn
     os.makedirs("logs", exist_ok=True)
     os.makedirs("pdf_cache", exist_ok=True)
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host=os.getenv("AGENT_HOST", "0.0.0.0"), port=int(os.getenv("AGENT_PORT", "8001")))

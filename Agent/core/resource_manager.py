@@ -41,10 +41,17 @@ class ResourceManager:
     
     async def cleanup_all(self):
         """清理所有资源（仅在关闭时调用）"""
+        try:
+            from Agent.api.app import progress_callbacks
+            if not progress_callbacks:
+                return
+        except Exception:
+            pass
+        
         logger.info("开始清理资源...")
         
         try:
-            from Agent.memory.session import get_session_pool
+            from Agent.memory.session_provider import get_session_pool
             session_pool = get_session_pool()
             session_pool.cleanup_expired_sessions(max_age_hours=12)
         except Exception as e:
@@ -72,7 +79,7 @@ class ResourceManager:
         logger.info("资源清理完成")
     
     async def start_scheduler(self, interval: int = 300):
-        """启动定时清理（静默运行，不输出日志）"""
+        """启动定时清理"""
         while not self._shutdown_event.is_set():
             try:
                 await asyncio.wait_for(
@@ -80,7 +87,10 @@ class ResourceManager:
                     timeout=interval
                 )
             except asyncio.TimeoutError:
-                pass
+                try:
+                    await self.cleanup_all()
+                except Exception as e:
+                    logger.warning(f"定时清理失败: {e}")
             except Exception:
                 await asyncio.sleep(60)
     

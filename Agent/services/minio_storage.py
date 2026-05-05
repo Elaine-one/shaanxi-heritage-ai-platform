@@ -135,29 +135,6 @@ class MinIOStorageService:
                 "error": str(e)
             }
     
-    def download_conversation(self, object_path: str) -> Optional[Dict[str, Any]]:
-        """
-        从MinIO下载对话记录
-        
-        Args:
-            object_path: 对象路径
-        
-        Returns:
-            Optional[Dict]: 对话记录数据
-        """
-        try:
-            response = self.client.get_object(self.bucket_name, object_path)
-            data = json.loads(response.read().decode('utf-8'))
-            response.close()
-            response.release_conn()
-            return data
-        except S3Error as e:
-            logger.error(f"下载对话记录失败: {str(e)}")
-            return None
-        except Exception as e:
-            logger.error(f"解析对话记录失败: {str(e)}")
-            return None
-    
     def upload_pdf(self, 
                   username: str,
                   pdf_bytes: bytes,
@@ -176,7 +153,14 @@ class MinIOStorageService:
         try:
             destination = metadata.get("destination", "unknown")
             timestamp = datetime.now().strftime("%H%M%S")
-            filename = f"travel_plan_{destination}_{timestamp}.pdf"
+            safe_dest = destination.encode('ascii', 'ignore').decode('ascii').strip('_').strip()
+            if not safe_dest:
+                try:
+                    from urllib.parse import quote
+                    safe_dest = quote(destination, safe='')
+                except Exception:
+                    safe_dest = "plan"
+            filename = f"travel_plan_{safe_dest}_{timestamp}.pdf"
             
             object_path = self._generate_object_path(
                 "exports/pdf", username, filename
@@ -218,155 +202,6 @@ class MinIOStorageService:
                 "error": str(e)
             }
     
-    def upload_json_export(self,
-                          username: str,
-                          json_data: Dict[str, Any],
-                          plan_id: str) -> Dict[str, Any]:
-        """
-        上传JSON导出文件
-        
-        Args:
-            username: 用户名
-            json_data: JSON数据
-            plan_id: 规划ID
-        
-        Returns:
-            Dict: 上传结果
-        """
-        try:
-            timestamp = datetime.now().strftime("%H%M%S")
-            filename = f"plan_export_{plan_id}_{timestamp}.json"
-            
-            object_path = self._generate_object_path(
-                "exports/json", username, filename
-            )
-            
-            json_bytes = json.dumps(json_data, ensure_ascii=False, indent=2).encode('utf-8')
-            data_stream = io.BytesIO(json_bytes)
-            
-            self.client.put_object(
-                bucket_name=self.bucket_name,
-                object_name=object_path,
-                data=data_stream,
-                length=len(json_bytes),
-                content_type="application/json",
-                metadata={
-                    "username": username,
-                    "plan_id": plan_id,
-                    "upload_time": datetime.now().isoformat()
-                }
-            )
-            
-            logger.info(f"JSON导出已上传: {object_path}")
-            return {
-                "success": True,
-                "object_path": object_path,
-                "size": len(json_bytes)
-            }
-            
-        except Exception as e:
-            logger.error(f"上传JSON导出失败: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
-    def upload_media(self,
-                    username: str,
-                    file_bytes: bytes,
-                    filename: str,
-                    media_type: str = "images") -> Dict[str, Any]:
-        """
-        上传媒体文件
-        
-        Args:
-            username: 用户名
-            file_bytes: 文件字节
-            filename: 文件名
-            media_type: 媒体类型 (images, audio, documents)
-        
-        Returns:
-            Dict: 上传结果
-        """
-        try:
-            content_type_map = {
-                "images": "image/jpeg",
-                "audio": "audio/mpeg",
-                "documents": "application/octet-stream"
-            }
-            
-            object_path = self._generate_object_path(
-                f"media/{media_type}", username, filename, date_folder=True
-            )
-            
-            data_stream = io.BytesIO(file_bytes)
-            
-            self.client.put_object(
-                bucket_name=self.bucket_name,
-                object_name=object_path,
-                data=data_stream,
-                length=len(file_bytes),
-                content_type=content_type_map.get(media_type, "application/octet-stream"),
-                metadata={
-                    "username": username,
-                    "upload_time": datetime.now().isoformat(),
-                    "original_filename": filename
-                }
-            )
-            
-            logger.info(f"媒体文件已上传: {object_path}")
-            return {
-                "success": True,
-                "object_path": object_path,
-                "size": len(file_bytes),
-                "url": self.generate_presigned_url(object_path)
-            }
-            
-        except Exception as e:
-            logger.error(f"上传媒体文件失败: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
-    def get_user_objects(self, 
-                        username: str, 
-                        prefix: str = "",
-                        recursive: bool = True) -> List[Dict[str, Any]]:
-        """
-        获取用户的所有对象列表
-        
-        Args:
-            username: 用户名
-            prefix: 路径前缀筛选
-            recursive: 是否递归
-        
-        Returns:
-            List[Dict]: 对象列表
-        """
-        try:
-            user_prefix = f"{prefix}/{username}/" if prefix else f"conversations/{username}/"
-            
-            objects = []
-            for obj in self.client.list_objects(
-                self.bucket_name, 
-                prefix=user_prefix,
-                recursive=recursive
-            ):
-                objects.append({
-                    "object_name": obj.object_name,
-                    "size": obj.size,
-                    "last_modified": obj.last_modified.isoformat() if obj.last_modified else None,
-                    "etag": obj.etag,
-                    "content_type": obj.content_type
-                })
-            
-            return objects
-            
-        except Exception as e:
-            logger.error(f"获取用户对象列表失败: {str(e)}")
-            return []
-    
     def generate_presigned_url(self, 
                               object_path: str, 
                               expiry: int = 3600,
@@ -391,47 +226,6 @@ class MinIOStorageService:
             return url
         except Exception as e:
             logger.error(f"生成预签名URL失败: {str(e)}")
-            return None
-    
-    def delete_object(self, object_path: str) -> bool:
-        """
-        删除对象
-        
-        Args:
-            object_path: 对象路径
-        
-        Returns:
-            bool: 是否成功
-        """
-        try:
-            self.client.remove_object(self.bucket_name, object_path)
-            logger.info(f"对象已删除: {object_path}")
-            return True
-        except Exception as e:
-            logger.error(f"删除对象失败: {str(e)}")
-            return False
-    
-    def get_object_metadata(self, object_path: str) -> Optional[Dict[str, Any]]:
-        """
-        获取对象元数据
-        
-        Args:
-            object_path: 对象路径
-        
-        Returns:
-            Optional[Dict]: 元数据
-        """
-        try:
-            stat = self.client.stat_object(self.bucket_name, object_path)
-            return {
-                "size": stat.size,
-                "last_modified": stat.last_modified.isoformat() if stat.last_modified else None,
-                "etag": stat.etag,
-                "content_type": stat.content_type,
-                "metadata": stat.metadata
-            }
-        except Exception as e:
-            logger.error(f"获取对象元数据失败: {str(e)}")
             return None
     
     def health_check(self) -> Dict[str, Any]:

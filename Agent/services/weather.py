@@ -13,7 +13,8 @@ from Agent.config.settings import Config
 # 导入配置
 from .weather_config import (
     NETWORK_TIMEOUT, MAX_RETRIES, RETRY_DELAY, 
-    SSL_VERIFY, ENVIRONMENT_CONFIG
+    SSL_VERIFY, ENVIRONMENT_CONFIG,
+    CACHE_ENABLED, CACHE_TTL, CACHE_MAX_SIZE
 )
 
 class WeatherService:
@@ -76,11 +77,9 @@ class WeatherService:
         self.retry_delay = env_config.get('RETRY_DELAY', RETRY_DELAY)
         self.ssl_verify = env_config.get('SSL_VERIFY', SSL_VERIFY)
         
-        # 使用settings.py中的全局缓存配置
-        self.cache_enabled = Config.CACHE_CONFIG['enabled']
-        # 缩短缓存时间为10分钟，确保获取最新天气数据
-        self.cache_ttl = 600  # 10分钟
-        self.cache_max_size = Config.CACHE_CONFIG['max_size']
+        self.cache_enabled = Config.CACHE_CONFIG.get('enabled', CACHE_ENABLED)
+        self.cache_ttl = CACHE_TTL
+        self.cache_max_size = CACHE_MAX_SIZE
         
         # 设置超时
         self.timeout = aiohttp.ClientTimeout(total=NETWORK_TIMEOUT)
@@ -308,159 +307,19 @@ class WeatherService:
         if expired_sessions:
             logger.info(f"清理了{len(expired_sessions)}个过期会话及其缓存")
     
-    async def _retry_request(self, func, *args, **kwargs):
-        """
-        带重试机制的请求方法，针对不同类型的错误采用不同的重试策略
-        支持Windows和Ubuntu两种环境的请求头尝试
-        
-        Args:
-            func: 要执行的函数
-            *args: 函数参数
-            **kwargs: 函数关键字参数
-            
-        Returns:
-            函数执行结果
-        """
-        last_exception = None
-        
-        # 定义Windows和Ubuntu环境的User-Agent
-        user_agents = [
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        ]
-        
-        # 备用天气API端点（故障转移）
-        backup_endpoints = [
-            "https://api.open-meteo.com/v1/forecast",  # 主端点
-            "https://api.open-meteo.com/v1/forecast",  # 相同端点，但可能通过不同网络路径
-        ]
-        
-        for attempt in range(self.max_retries + 1):
-            try:
-                # 每次尝试使用不同的User-Agent
-                user_agent_index = attempt % len(user_agents)
-                await self._update_session_headers({"User-Agent": user_agents[user_agent_index]})
-                
-                # 对于天气预报请求，尝试不同的端点
-                if hasattr(func, '__name__') and 'weather' in func.__name__.lower():
-                    # 如果是天气相关请求，尝试故障转移
-                    endpoint_index = attempt % len(backup_endpoints)
-                    if endpoint_index > 0:
-                        logger.info(f"尝试备用端点 {endpoint_index + 1}/{len(backup_endpoints)}")
-                        # 这里可以修改func的端点，但需要更复杂的实现
-                
-                # 在任务中执行函数，确保async context manager在正确的上下文中
-                task = asyncio.create_task(func(*args, **kwargs))
-                return await task
-            except aiohttp.ClientConnectorError as e:
-                # 连接错误，可能是网络问题
-                last_exception = e
-                if attempt < self.max_retries:
-                    delay = self._calculate_retry_delay(attempt, 'network')
-                    logger.warning(f"连接错误，{delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {str(e)}")
-                    await asyncio.sleep(delay)
-                    # 对于连接错误，尝试重新创建会话
-                    await self._recreate_session()
-                    
-                    # 如果是Ubuntu环境，尝试网络诊断
-                    if self.environment == 'ubuntu' and attempt == 1:
-                        await self._diagnose_ubuntu_network()
-                else:
-                    logger.error(f"连接错误，已达到最大重试次数: {str(e)}")
-            except aiohttp.ClientSSLError as e:
-                # SSL错误，可能是证书问题
-                last_exception = e
-                if attempt < self.max_retries:
-                    if attempt == 0 and self.ssl_verify:
-                        # 第一次尝试SSL错误时，尝试禁用SSL验证
-                        logger.warning("SSL验证失败，尝试禁用SSL验证后重试")
-                        self.ssl_verify = False
-                        await self._recreate_session()
-                    else:
-                        delay = self._calculate_retry_delay(attempt, 'ssl')
-                        logger.warning(f"SSL错误，{delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {str(e)}")
-                        await asyncio.sleep(delay)
-                else:
-                    logger.error(f"SSL错误，已达到最大重试次数: {str(e)}")
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                # 其他客户端错误或超时
-                last_exception = e
-                if attempt < self.max_retries:
-                    delay = self._calculate_retry_delay(attempt, 'timeout')
-                    logger.warning(f"请求失败，{delay}秒后重试 (尝试 {attempt + 1}/{self.max_retries + 1}): {str(e)}")
-                    await asyncio.sleep(delay)
-                else:
-                    logger.error(f"请求失败，已达到最大重试次数: {str(e)}")
-            except Exception as e:
-                logger.error(f"请求发生未知错误: {str(e)}")
-                raise
-        
-        raise last_exception
-    
     def _calculate_retry_delay(self, attempt: int, error_type: str) -> float:
-        """计算重试延迟时间"""
         base_delay = self.retry_delay
-        
-        # 根据错误类型调整延迟策略
-        if error_type == 'network':
-            # 网络错误使用更长的延迟
-            return base_delay * (3 ** attempt)  # 更激进的指数退避
-        elif error_type == 'ssl':
-            # SSL错误使用中等延迟
-            return base_delay * (2 ** attempt)
-        elif error_type == 'timeout':
-            # 超时错误使用标准延迟
-            return base_delay * (2 ** attempt)
-        else:
-            # 默认延迟策略
-            return base_delay * (2 ** attempt)
-    
-    async def _diagnose_ubuntu_network(self):
-        """诊断Ubuntu环境的网络问题"""
-        if self.environment != 'ubuntu':
-            return
-            
-        logger.info("执行Ubuntu网络诊断...")
-        
-        # 检查网络连通性
-        test_hosts = [
-            'api.open-meteo.com',
-            '8.8.8.8',  # Google DNS
-            '1.1.1.1'   # Cloudflare DNS
-        ]
-        
-        for host in test_hosts:
-            try:
-                # 使用系统ping命令检查连通性
-                import subprocess
-                result = subprocess.run(
-                    ['ping', '-c', '1', '-W', '3', host],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
-                if result.returncode == 0:
-                    logger.info(f"网络诊断: {host} 可达")
-                else:
-                    logger.warning(f"网络诊断: {host} 不可达")
-            except Exception as e:
-                logger.warning(f"网络诊断失败: {str(e)}")
-        
-        logger.info("Ubuntu网络诊断完成")
+        multipliers = {'network': 3, 'ssl': 2, 'timeout': 2}
+        return base_delay * (multipliers.get(error_type, 2) ** attempt)
     
     async def _update_session_headers(self, new_headers):
-        """更新会话请求头"""
         if self.session and not self.session.closed:
-            # 更新现有会话的请求头
             self.session.headers.update(new_headers)
-            logger.info(f"已更新请求头: {new_headers}")
     
     async def _recreate_session(self):
-        """重新创建HTTP会话"""
         if self.session and not self.session.closed:
             await self.session.close()
         self.session = None
-        logger.info("已重新创建HTTP会话")
     
     async def get_weather_forecast(self, latitude: float, longitude: float, days: int = 7, session_id: str = "default") -> Dict[str, Any]:
         """

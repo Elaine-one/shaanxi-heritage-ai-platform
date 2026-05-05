@@ -94,6 +94,78 @@ class NearbyHeritageTool(BaseTool):
             }
 
 
+class UserRecommendTool(BaseTool):
+    """个性化非遗推荐工具"""
+
+    @property
+    def name(self) -> str:
+        return "user_heritage_recommend"
+
+    @property
+    def description(self) -> str:
+        return """基于用户历史偏好、规划记录和导出行为，推荐可能感兴趣的非遗项目。
+【功能说明】
+通过知识图谱的四级推理实现个性化推荐：
+- Level 1: 语义映射推荐（LLM将用户自然语言偏好映射到图谱类别，再查找对应非遗）
+- Level 2: 偏好桥接推荐（通过Preference→TARGETS→Category→Heritage路径）
+- Level 3: 关联推荐（通过已选非遗→同类/同区→新非遗路径）
+
+【数据结构】
+知识图谱存储结构：
+- 节点：User（用户）、Preference（偏好）、Heritage（非遗）、Category（类别）、Region（地区）
+- 边：HAS_PREFERENCE、TARGETS、PREFERS、PLANNED、EXPORTED、BELONGS_TO、LOCATED_AT
+- 推理路径：User→Preference→LLM语义映射→Category←BELONGS_TO←Heritage
+
+【应用场景】
+1. 用户询问推荐：基于历史偏好推荐可能感兴趣的项目
+2. 行程扩展：在已有规划基础上推荐更多可添加的项目
+3. 新用户引导：基于已有偏好信息推荐初始项目
+
+【使用示例】
+用户："有没有什么推荐的非遗项目？"
+调用：user_heritage_recommend(user_id="3", limit=5)
+返回：5个推荐项目及推荐理由"""
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "user_id": {
+                    "type": "string",
+                    "description": "用户ID"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "推荐数量，默认5",
+                    "default": 5
+                }
+            },
+            "required": ["user_id"]
+        }
+
+    async def execute(self, user_id: str = None, limit: int = 5, **kwargs) -> Dict[str, Any]:
+        if not user_id:
+            return {"success": False, "error": "请提供user_id"}
+
+        try:
+            from Agent.memory.l2_graph_store import get_l2_graph_store
+            l2_store = get_l2_graph_store()
+            if not l2_store.is_available():
+                return {"success": False, "error": "知识图谱未连接"}
+            recommendations = l2_store.recommend_for_user(user_id, limit)
+            return {
+                "success": True,
+                "user_id": user_id,
+                "recommendations": recommendations,
+                "count": len(recommendations),
+                "hint": f"基于用户偏好和历史行为，推荐{len(recommendations)}个非遗项目" if recommendations else "暂无足够偏好数据生成推荐"
+            }
+        except Exception as e:
+            logger.error(f"个性化推荐失败: {e}")
+            return {"success": False, "error": str(e)}
+
+
 class RelatedHeritageTool(BaseTool):
     """查询相关非遗项目工具"""
     

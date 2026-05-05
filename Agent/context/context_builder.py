@@ -25,8 +25,10 @@ class ContextBuilder:
     """
     
     def __init__(self):
-        from Agent.memory.session import get_session_pool
+        from Agent.memory.session_provider import get_session_pool
+        from Agent.memory.coordinator import get_memory_coordinator
         self.session_pool = get_session_pool()
+        self.memory_coordinator = get_memory_coordinator()
         
         self._cache_manager = None
         self._stats = {
@@ -44,54 +46,80 @@ class ContextBuilder:
         return self._cache_manager
     
     def build_from_session(self, session_id: str) -> UnifiedContext:
-        """从会话构建上下文 - 带缓存"""
+        """从会话构建上下文 - 带缓存
+
+        容错策略：session 不存在时，仍尝试从 L1 记忆恢复对话历史，
+        确保上下文不会因 session 缺失而完全为空。
+        """
         self._stats['contexts_built'] += 1
-        
+
         if not session_id:
             logger.warning("session_id 为空，返回空上下文")
             return UnifiedContext(session_id="")
-        
+
         cache_key = f"context:{session_id}"
         cached_context = self.cache_manager.get(cache_key)
         if cached_context:
             self._stats['cache_hits'] += 1
             logger.debug(f"📦 上下文缓存命中: {session_id}")
             return self._dict_to_context(cached_context)
-        
+
         self._stats['cache_misses'] += 1
-        
+
         context = UnifiedContext(session_id=session_id)
-        
+
         session = self.session_pool.get_session(session_id)
         if not session:
-            logger.warning(f"会话不存在: {session_id}")
+            logger.warning(f"会话不存在，尝试从 L1 记忆恢复: {session_id}")
+            l1_snapshot = self.memory_coordinator.get_l1_snapshot(session_id)
+            recent_turns = l1_snapshot.get("recent_turns", []) if l1_snapshot else []
+            if recent_turns:
+                for m in recent_turns[-10:]:
+                    if isinstance(m, dict):
+                        context.conversation_history.append(ConversationTurn(
+                            role=m.get('role', ''),
+                            content=m.get('content', ''),
+                            timestamp=m.get('timestamp', '')
+                        ))
+                logger.info(f"📦 从 L1 记忆恢复 {len(context.conversation_history)} 条对话: session={session_id}")
+            if l1_snapshot and l1_snapshot.get("summary"):
+                context.cached_data["session_summary"] = l1_snapshot.get("summary")
             return context
-        
+
         context.user_id = session.user_id
+        context.username = getattr(session, 'username', None)
         context.plan_id = session.plan_id
-        
+
         context.plan_data = self._build_plan_data(session)
-        
-        if hasattr(session, 'conversation_history') and session.conversation_history:
-            for m in session.conversation_history:
+
+        l1_snapshot = self.memory_coordinator.get_l1_snapshot(session_id)
+        recent_turns = l1_snapshot.get("recent_turns", []) if l1_snapshot else []
+
+        source_turns = recent_turns if recent_turns else getattr(session, 'conversation_history', [])
+        if len(source_turns) > 10:
+            source_turns = source_turns[-10:]
+        if source_turns:
+            for m in source_turns:
                 if isinstance(m, dict):
                     context.conversation_history.append(ConversationTurn(
                         role=m.get('role', ''),
                         content=m.get('content', ''),
                         timestamp=m.get('timestamp', '')
                     ))
-        
+
         context.cached_data = self._get_cached_data(session)
-        
+        if l1_snapshot and l1_snapshot.get("summary"):
+            context.cached_data["session_summary"] = l1_snapshot.get("summary")
+
         context_dict = self._context_to_dict(context)
         self.cache_manager.set(cache_key, context_dict, ttl=300, priority=1)
-        
+
         logger.info(f"📦 上下文构建完成: session={session_id}")
         logger.info(f"  - heritages: {len(context.plan_data.heritage_items)} items")
         logger.info(f"  - cached_data: {len(context.cached_data)} items")
         logger.debug(f"  - heritage_ids: {context.plan_data.get_heritage_ids()}")
         logger.debug(f"  - departure: {context.plan_data.departure_location}")
-        
+
         return context
     
     def _context_to_dict(self, context: UnifiedContext) -> Dict[str, Any]:
@@ -179,6 +207,7 @@ class ContextBuilder:
             **self._stats,
             'cache_hit_rate': f"{hit_rate:.2%}",
             'cache_manager_stats': self.cache_manager.get_stats(),
+            'memory_coordinator_stats': self.memory_coordinator.get_stats(),
         }
     
     def _get_cached_data(self, session) -> Dict[str, Any]:

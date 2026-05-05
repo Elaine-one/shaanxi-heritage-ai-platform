@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from collections import OrderedDict
 import threading
 import json
-import hashlib
 from loguru import logger
 
 try:
@@ -228,57 +227,6 @@ class LayeredCacheManager:
                     pass
             self._stats['invalidations'] += 1
     
-    def invalidate_pattern(self, pattern: str):
-        """批量使缓存失效"""
-        with self._lock:
-            keys_to_delete = [k for k in self._l1_cache.keys() if pattern in k]
-            for k in keys_to_delete:
-                self._delete_l1(k)
-            
-            if self._l2_enabled:
-                try:
-                    cursor = 0
-                    while True:
-                        cursor, keys = self._redis.scan(
-                            cursor, match=f"context:cache:*{pattern}*", count=100
-                        )
-                        if keys:
-                            self._redis.delete(*keys)
-                        if cursor == 0:
-                            break
-                except Exception as e:
-                    logger.warning(f"L2批量删除失败: {e}")
-            
-            self._stats['invalidations'] += len(keys_to_delete)
-    
-    def warmup(self, session_id: str, session_data: Dict[str, Any]):
-        """
-        缓存预热
-        在会话开始时预加载关键数据
-        """
-        if session_data.get('plan_id'):
-            self.set(
-                f"plan:{session_id}:core",
-                {
-                    'departure': session_data.get('departure_location'),
-                    'heritage_ids': session_data.get('heritage_ids', []),
-                    'heritage_names': session_data.get('heritage_names', []),
-                    'travel_days': session_data.get('travel_days'),
-                    'travel_mode': session_data.get('travel_mode'),
-                },
-                priority=2
-            )
-        
-        heritage_names = list(session_data.get('heritage_names', []))
-        departure = session_data.get('departure_location')
-        if departure:
-            heritage_names.append(departure)
-        
-        for name in set(heritage_names):
-            cache_key = f"geo:{name}"
-            if self.get(cache_key) is None:
-                logger.debug(f"预热地理编码: {name}")
-    
     def get_stats(self) -> Dict[str, Any]:
         """获取缓存统计"""
         total_requests = self._stats['l1_hits'] + self._stats['l1_misses']
@@ -322,14 +270,6 @@ class LayeredCacheManager:
                             break
                 except Exception as e:
                     logger.warning(f"清空L2缓存失败: {e}")
-    
-    @staticmethod
-    def generate_key(*args, **kwargs) -> str:
-        """生成缓存键"""
-        key_parts = [str(arg) for arg in args]
-        key_parts.extend(f"{k}={v}" for k, v in sorted(kwargs.items()))
-        key_str = ":".join(key_parts)
-        return hashlib.md5(key_str.encode('utf-8')).hexdigest()[:16]
 
 
 _cache_manager_instance: Optional[LayeredCacheManager] = None

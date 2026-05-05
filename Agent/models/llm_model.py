@@ -8,9 +8,11 @@ LLM 模型调用模块
 from typing import Dict, Any, AsyncIterator
 from loguru import logger
 from langchain_openai import ChatOpenAI
-from langchain.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from Agent.config import config
+from Agent.config.memory_budget import memory_budget
 import asyncio
+import os
 
 
 LLM_SEMAPHORE = asyncio.Semaphore(4)
@@ -45,9 +47,9 @@ class LLMModel:
             base_url=llm_config.base_url,
             model=llm_config.model,
             temperature=llm_config.temperature,
-            max_tokens=max(llm_config.max_tokens, 4096) if llm_config.max_tokens > 0 else 4096,
+            max_tokens=llm_config.max_tokens if llm_config.max_tokens > 0 else memory_budget.output_budget_max,
             request_timeout=600,
-            max_retries=2,
+            max_retries=1,
         )
 
         self.model_name = llm_config.model
@@ -101,10 +103,16 @@ class LLMModel:
         Raises:
             ValueError: 当 API Key 验证失败时
         """
+        validate_on_start = os.getenv("LLM_VALIDATE_ON_START", "true").lower() == "true"
+        if not validate_on_start:
+            logger.info("跳过 API Key 启动验证（LLM_VALIDATE_ON_START=false）")
+            return
+
         try:
             messages = [HumanMessage(content="Hi")]
-            response = asyncio.run(self.llm.ainvoke(messages, timeout=15))
-            if response.content:
+            # 避免在已有事件循环环境中调用 asyncio.run 导致崩溃
+            response = self.llm.invoke(messages)
+            if getattr(response, "content", None):
                 return
         except Exception as e:
             error_msg = str(e)
@@ -170,6 +178,10 @@ class LLMModel:
     async def _call_model_stream(self, prompt: str) -> AsyncIterator[str]:
         """
         流式调用 LLM 模型（带并发控制）
+        
+        当前 Agent 使用 LangGraph 的 astream 模式实现流式输出，此方法暂未被直接调用。
+        保留原因：PDF 导出中的 LLM 调用目前是非流式的（_call_model），
+        未来若需为 PDF 导出增加流式进度反馈，此方法可作为基础。
         
         Args:
             prompt: 提示词（已包含完整上下文）

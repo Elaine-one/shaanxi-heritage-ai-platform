@@ -67,14 +67,14 @@ class ProgressManager {
         
         const steps = ['分析非遗项目', '获取天气信息', '生成AI建议', '路径规划计算', '生成路书', '完成'];
         
-        // 根据进度百分比确定当前步骤索引
+        const thresholds = [0, 10, 30, 50, 70, 90];
         let activeIndex = 0;
-        if (progress >= 90) activeIndex = 5;
-        else if (progress >= 70) activeIndex = 4;
-        else if (progress >= 50) activeIndex = 3;
-        else if (progress >= 30) activeIndex = 2;
-        else if (progress >= 10) activeIndex = 1;
-        else activeIndex = 0;
+        for (let i = thresholds.length - 1; i >= 0; i--) {
+            if (progress >= thresholds[i]) {
+                activeIndex = i;
+                break;
+            }
+        }
         
         // 只在步骤变化时更新DOM
         const currentActive = stepsContainer.querySelector('.active');

@@ -509,7 +509,7 @@
 }
 
 .result-section h4::before {
-    content: '📋';
+    content: '\f0cb'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     font-size: 1.1rem;
 }
 
@@ -636,7 +636,7 @@
 }
 
 .day-header h5::before {
-    content: '📅';
+    content: '\f073'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     font-size: 1rem;
 }
 
@@ -700,7 +700,7 @@
 }
 
 .heritage-item h6::before {
-    content: '🏛️';
+    content: '\f66f'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     font-size: 1rem;
 }
 
@@ -725,7 +725,7 @@
 }
 
 .heritage-item .time-info::before {
-    content: '⏰';
+    content: '\f017'; font-family: 'Font Awesome 6 Free'; font-weight: 400;
     font-size: 0.8rem;
 }
 
@@ -746,7 +746,7 @@
 }
 
 .weather-info::before {
-    content: '🌤️';
+    content: '\f185'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     position: absolute;
     top: 16px;
     right: 16px;
@@ -755,7 +755,7 @@
 }
 
 .weather-info h6::before {
-    content: '🌦️';
+    content: '\f0c2'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     margin-right: 4px;
 }
 
@@ -766,7 +766,7 @@
 }
 
 .recommendations::before {
-    content: '💡';
+    content: '\f0eb'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     position: absolute;
     top: 16px;
     right: 16px;
@@ -775,7 +775,7 @@
 }
 
 .recommendations h6::before {
-    content: '📝';
+    content: '\f044'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     margin-right: 4px;
 }
 
@@ -786,7 +786,7 @@
 }
 
 .tips-section::before {
-    content: '🎯';
+    content: '\f140'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     position: absolute;
     top: 16px;
     right: 16px;
@@ -795,7 +795,7 @@
 }
 
 .tips-section h5::before {
-    content: '💡';
+    content: '\f0eb'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     margin-right: 4px;
 }
 
@@ -838,7 +838,7 @@
 }
 
 .packing-section::before {
-    content: '🎒';
+    content: '\f6ec'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     position: absolute;
     top: 16px;
     right: 16px;
@@ -847,7 +847,7 @@
 }
 
 .packing-section h5::before {
-    content: '🧳';
+    content: '\f5ad'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
     margin-right: 4px;
 }
 

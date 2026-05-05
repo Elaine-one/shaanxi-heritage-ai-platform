@@ -255,7 +255,7 @@
 }
 
 .post-time::before {
-    content: '🕒';
+    content: '\f017'; font-family: 'Font Awesome 6 Free'; font-weight: 400;
     font-size: 0.8rem;
 }
 

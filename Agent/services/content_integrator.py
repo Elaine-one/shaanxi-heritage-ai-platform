@@ -6,6 +6,7 @@ AI内容集成器
 
 import json
 import hashlib
+import asyncio
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 from loguru import logger
@@ -73,7 +74,7 @@ class AIContentIntegrator:
         plan_id = result.get('plan_id', 'unknown')
         history_str = json.dumps(conversation_history[-3:] if conversation_history else [], ensure_ascii=False)
         content_hash = hashlib.md5(history_str.encode()).hexdigest()[:10]
-        return str(datetime.now().timestamp())
+        return f"{plan_id}_{content_hash}"
     
     def _is_cache_valid(self, cache_entry: Dict[str, Any]) -> bool:
         if not cache_entry:
@@ -212,13 +213,41 @@ class AIContentIntegrator:
             
             slim_itinerary = []
             for day in itinerary_raw:
+                day_weather = day.get('weather', {})
+                weather_text = ''
+                if day_weather:
+                    cond = day_weather.get('condition', '')
+                    temp = day_weather.get('temperature', '')
+                    if cond or temp:
+                        weather_text = f"{cond} {temp}".strip()
+                
                 day_slim = {
                     "day": day.get('day'),
+                    "date": day.get('date', ''),
+                    "weekday": day.get('weekday', ''),
                     "theme": day.get('theme'),
-                    "items": [{"name": i.get('name'), "time": i.get('time', '待定')} for i in day.get('items', [])]
+                    "pace": day.get('pace_label', ''),
+                    "weather": weather_text,
+                    "start_location": day.get('start_location', ''),
+                    "items": [
+                        {
+                            "name": i.get('name'),
+                            "time": i.get('time', '待定'),
+                            "region": i.get('region', ''),
+                            "category": i.get('category', ''),
+                            "visit_duration": i.get('visit_duration', ''),
+                            "distance_from_prev": i.get('distance_from_prev', ''),
+                            "travel_time_hours": i.get('travel_time_hours', '')
+                        }
+                        for i in day.get('items', [])
+                    ]
                 }
                 slim_itinerary.append(day_slim)
             slim_itinerary_json = json.dumps(slim_itinerary, ensure_ascii=False)
+            
+            route_info = actual_data.get('route_info', {})
+            total_distance = route_info.get('total_distance', 0)
+            route_summary = f"{total_distance}公里" if total_distance else "详见行程"
             
             day_dates = self._calculate_day_dates(travel_dates.split('~')[0].strip() if '~' in travel_dates else travel_dates, travel_days)
             day_dates_str = "、".join(day_dates) if day_dates else "根据实际出行日期"
@@ -237,13 +266,18 @@ class AIContentIntegrator:
                 slim_itinerary_json=slim_itinerary_json,
                 heritage_context_str=heritage_context_str,
                 sys_recs=sys_recs,
-                day_dates_str=day_dates_str
+                day_dates_str=day_dates_str,
+                route_summary=route_summary
             )
 
             logger.info(f"发送 AI 请求。Prompt 长度: {len(prompt)} 字符")
             
-            response = await self.llm_model._call_model(prompt)
-            if not response or not response.get('success'):
+            response = await self._call_llm_with_retry(prompt, timeout=540, max_retries=0)
+            if not response:
+                logger.error("LLM主内容生成超时，使用降级内容")
+                return self._create_fallback_content(actual_data)
+            if not response.get('success'):
+                logger.error(f"LLM主内容生成API错误: {response.get('error', '未知错误')}")
                 return self._create_fallback_content(actual_data)
             
             return {
@@ -258,6 +292,28 @@ class AIContentIntegrator:
             logger.error(f"AI自主内容整合失败: {str(e)}")
             return self._create_fallback_content(result.get('plan_data', result))
     
+    async def _call_llm_with_retry(self, prompt: str, timeout: int = 480, max_retries: int = 1) -> Optional[Dict]:
+        for attempt in range(max_retries + 1):
+            try:
+                response = await asyncio.wait_for(
+                    self.llm_model._call_model(prompt), timeout=timeout
+                )
+                if response and response.get('success'):
+                    return response
+                logger.warning(f"LLM返回无效响应(尝试 {attempt+1}/{max_retries+1})")
+            except asyncio.TimeoutError:
+                if attempt < max_retries:
+                    logger.warning(f"LLM第{attempt+1}次超时({timeout}s)，{2}s后重试...")
+                    await asyncio.sleep(2)
+                else:
+                    logger.warning(f"LLM主内容生成超时({timeout}s)，已重试{max_retries}次，使用降级内容")
+                    return None
+            except Exception as e:
+                logger.error(f"LLM调用异常(尝试 {attempt+1}/{max_retries+1}): {e}")
+                if attempt >= max_retries:
+                    return None
+        return None
+
     async def _build_conversation_summary(self, conversation_history: List[Dict] = None, actual_data: Dict = None) -> str:
         if not conversation_history and actual_data:
             conversation_history = self._extract_conversation_history_list(actual_data)
@@ -274,7 +330,11 @@ class AIContentIntegrator:
                 conversation_history=conversation_text
             )
             
-            response = await self.llm_model._call_model(summary_prompt)
+            try:
+                response = await asyncio.wait_for(self.llm_model._call_model(summary_prompt), timeout=60)
+            except asyncio.TimeoutError:
+                logger.warning("LLM摘要生成超时(60s)，使用降级方案")
+                return self._build_conversation_summary_fallback(conversation_history)
             
             if response and response.get('success'):
                 summary = response.get('content', '').strip()
@@ -312,4 +372,29 @@ class AIContentIntegrator:
         return "\n".join(user_demands) if user_demands else "暂无特殊要求。"
     
     def _create_fallback_content(self, result: Dict[str, Any]) -> Dict[str, Any]:
-        raise Exception("AI 内容生成失败，无法生成 PDF 内容。请检查 LLM 服务是否正常。")
+        actual_data = result if not isinstance(result, dict) or 'plan_data' not in result else result.get('plan_data', result)
+        if not isinstance(actual_data, dict):
+            actual_data = {}
+
+        destination = actual_data.get('departure_location', '陕西')
+        travel_days = actual_data.get('travel_days', 3)
+
+        lines = [
+            f"# {destination}非遗旅行路书",
+            "",
+            "> ⚠️ **导出异常**：AI内容生成超时，此PDF为空壳路书，请重新导出。",
+            "",
+            f"目的地：{destination} | 天数：{travel_days}天",
+            "",
+            "---",
+            "",
+            "此路书因AI生成超时未包含详细内容，请关闭后重新点击「导出包含修改的PDF」。",
+        ]
+
+        return {
+            'content_type': 'rich_text',
+            'text_content': "\n".join(lines),
+            'generation_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'ai_generated': False,
+            'source_data': {'destination': destination, 'travel_days': travel_days}
+        }

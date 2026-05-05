@@ -2,7 +2,9 @@
 .env
 .env.local
 .env.*.local
-
+# 测试文件
+tests/*
+Agent/tests/*
 # 日志文件
 *.log
 logs/
