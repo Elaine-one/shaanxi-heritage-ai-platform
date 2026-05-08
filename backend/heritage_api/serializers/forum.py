@@ -85,7 +85,11 @@ class ForumCommentSerializer(serializers.ModelSerializer):
     
     def get_level(self, obj):
         return obj.get_level()
-    
+
+    def validate_content(self, value):
+        from ..utils import sanitize_html_content
+        return sanitize_html_content(value)
+
     def create(self, validated_data):
         request = self.context.get('request')
         validated_data['author'] = request.user
@@ -179,21 +183,24 @@ class ForumPostDetailSerializer(serializers.ModelSerializer):
             'author', 'view_count', 'like_count', 'comment_count',
             'favorite_count', 'created_at', 'updated_at', 'last_reply_at'
         ]
-    
+
+    def validate_content(self, value):
+        from ..utils import sanitize_html_content
+        return sanitize_html_content(value)
+
     def get_is_liked(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
-    
+
     def get_is_favorited(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.favorites.filter(user=request.user).exists()
         return False
-    
+
     def get_comments(self, obj):
-        # 只返回顶级评论，回复通过嵌套获取
         top_level_comments = obj.comments.filter(
             parent=None, is_deleted=False
         ).order_by('created_at')
@@ -202,25 +209,25 @@ class ForumPostDetailSerializer(serializers.ModelSerializer):
             many=True,
             context=self.context
         ).data
-    
+
     def get_can_edit(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.author == request.user or request.user.is_staff
         return False
-    
+
     def get_can_delete(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.author == request.user or request.user.is_staff
         return False
-    
+
     def get_can_manage(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return request.user.is_staff
         return False
-    
+
     def create(self, validated_data):
         request = self.context.get('request')
         tag_names = validated_data.pop('tag_names', [])
@@ -229,7 +236,6 @@ class ForumPostDetailSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             post = super().create(validated_data)
             
-            # 处理标签
             if tag_names:
                 tags = []
                 for tag_name in tag_names:
@@ -244,27 +250,23 @@ class ForumPostDetailSerializer(serializers.ModelSerializer):
                     tags.append(tag)
                 post.tags.set(tags)
             
-            # 增加用户经验值
             stats, created = ForumUserStats.objects.get_or_create(user=request.user)
             stats.post_count += 1
-            stats.add_experience(5)  # 发帖获得5经验值
+            stats.add_experience(5)
             
         return post
-    
+
     def update(self, instance, validated_data):
         tag_names = validated_data.pop('tag_names', None)
         
         with transaction.atomic():
             post = super().update(instance, validated_data)
             
-            # 更新标签
             if tag_names is not None:
-                # 减少旧标签的计数
                 for old_tag in post.tags.all():
                     old_tag.post_count = max(0, old_tag.post_count - 1)
                     old_tag.save()
                 
-                # 设置新标签
                 tags = []
                 for tag_name in tag_names:
                     tag, created = ForumTag.objects.get_or_create(

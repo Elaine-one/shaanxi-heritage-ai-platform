@@ -19,3 +19,4 @@ jieba>=0.42.0
 Pillow>=10.0.0
 httpx>=0.25.0
 python-dotenv>=1.0.0
+bleach>=6.0.0

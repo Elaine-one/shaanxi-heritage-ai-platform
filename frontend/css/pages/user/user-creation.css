@@ -85,6 +85,84 @@
     height: 100%;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
     flex-shrink: 0;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 侧边栏折叠按钮 */
+.sidebar-toggle {
+    position: absolute;
+    top: 12px;
+    right: -16px;
+    width: 32px;
+    height: 32px;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 100;
+    color: #8c7a6b;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.sidebar-toggle:hover {
+    background: var(--shaanxi-red);
+    color: white;
+    border-color: var(--shaanxi-red);
+    box-shadow: 0 4px 12px rgba(188, 46, 36, 0.25);
+    transform: scale(1.1);
+}
+
+.sidebar-toggle i {
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 折叠状态下的侧边栏 */
+.creation-sidebar.collapsed {
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    padding: 20px 4px;
+    overflow: hidden;
+}
+
+.creation-sidebar.collapsed .sidebar-toggle {
+    right: calc(50% - 16px);
+    top: 16px;
+    background: var(--shaanxi-red);
+    color: white;
+    border-color: var(--shaanxi-red);
+}
+
+.creation-sidebar.collapsed .sidebar-toggle i {
+    transform: rotate(180deg);
+}
+
+.creation-sidebar.collapsed > *:not(.sidebar-toggle) {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(-10px);
+    transition: all 0.3s ease;
+}
+
+/* 侧边栏展开/折叠动画 */
+.creation-sidebar > *:not(.sidebar-toggle) {
+    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+}
+
+.creation-feed {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 折叠时右侧内容区自适应扩展 */
+.creation-sidebar.collapsed ~ .creation-feed {
+    flex: 1;
 }
 
 /* 页脚处理 - 参考非遗地图页面方案 */
@@ -1394,4 +1472,299 @@ footer {
 * {
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+/* 评论模态框样式 */
+.comments-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: commentsModalFadeIn 0.3s ease-out;
+}
+
+@keyframes commentsModalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.comments-modal-content {
+    background: #ffffff;
+    padding: 0;
+    border-radius: 16px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(188, 46, 36, 0.08);
+    display: flex;
+    flex-direction: column;
+    animation: commentsModalSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes commentsModalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.comments-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 2px solid var(--shaanxi-red);
+    background: linear-gradient(135deg, rgba(188, 46, 36, 0.03) 0%, rgba(218, 165, 32, 0.03) 100%);
+}
+
+.comments-modal-header h3 {
+    margin: 0;
+    color: var(--shaanxi-red);
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.comments-modal-header h3::before {
+    content: '\f075';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 16px;
+}
+
+.comments-close-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: #999;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.comments-close-btn:hover {
+    color: var(--shaanxi-red);
+    background: rgba(188, 46, 36, 0.06);
+}
+
+.comments-list {
+    margin: 0;
+    padding: 16px 24px;
+    overflow-y: auto;
+    max-height: 45vh;
+    flex-shrink: 0;
+}
+
+.comments-empty {
+    text-align: center;
+    color: #999;
+    padding: 30px 20px;
+    font-size: 14px;
+}
+
+.comments-empty::before {
+    content: '\f4ad';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 32px;
+    color: #ddd;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.comment-item {
+    padding: 14px 16px;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    position: relative;
+    transition: all 0.2s ease;
+    background: #fafaf7;
+}
+
+.comment-item:hover {
+    border-color: #e0d5c5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.comment-item:last-child {
+    margin-bottom: 0;
+}
+
+.comment-item-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.comment-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.comment-item-meta {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 10px;
+}
+
+.comment-item-author {
+    color: var(--shaanxi-dark);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.comment-item-time {
+    color: #999;
+    font-size: 12px;
+}
+
+.comment-item-text {
+    margin: 0;
+    color: #555;
+    line-height: 1.6;
+    font-size: 14px;
+    word-break: break-word;
+}
+
+.delete-comment-btn {
+    background: transparent;
+    color: #ccc;
+    border: 1px solid #eee;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.delete-comment-btn:hover {
+    background: var(--shaanxi-red);
+    color: white;
+    border-color: var(--shaanxi-red);
+}
+
+.comments-form-section {
+    border-top: 1px solid #f0f0f0;
+    padding: 20px 24px;
+    background: #fafaf7;
+}
+
+.comments-form-title {
+    margin: 0 0 12px 0;
+    color: var(--shaanxi-dark);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.comments-form-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px 14px;
+    border: 2px solid #e8e0d5;
+    border-radius: 10px;
+    font-size: 14px;
+    resize: vertical;
+    margin-bottom: 14px;
+    font-family: inherit;
+    line-height: 1.5;
+    color: var(--shaanxi-dark);
+    background: #ffffff;
+    outline: none;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    box-sizing: border-box;
+}
+
+.comments-form-textarea:focus {
+    border-color: var(--shaanxi-red);
+    box-shadow: 0 0 0 3px rgba(188, 46, 36, 0.08);
+}
+
+.comments-form-textarea::placeholder {
+    color: #c4b8a8;
+}
+
+.comments-form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.comments-cancel-btn {
+    padding: 8px 18px;
+    background: #f8f9fa;
+    color: #666;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.comments-cancel-btn:hover {
+    background: #e9ecef;
+    border-color: #ccc;
+}
+
+.comments-submit-btn {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, var(--shaanxi-red) 0%, var(--shaanxi-dark-red) 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.comments-submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(188, 46, 36, 0.25);
+}
+
+.comments-submit-btn:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+    .comments-modal-content {
+        width: 95%;
+        max-height: 85vh;
+    }
+
+    .comments-modal-header {
+        padding: 16px 18px;
+    }
+
+    .comments-list {
+        padding: 12px 18px;
+    }
+
+    .comments-form-section {
+        padding: 16px 18px;
+    }
 }

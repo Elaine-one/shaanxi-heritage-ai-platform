@@ -64,7 +64,13 @@ class UserCreation {
             return;
         }
         this.eventListenersBound = true;
-        
+
+        // 侧边栏折叠/展开按钮
+        this.sidebarCollapsed = false;
+        document.getElementById('sidebarToggle').addEventListener('click', () => {
+            this.toggleSidebar();
+        });
+
         // 发布创作按钮
         document.getElementById('createBtn').addEventListener('click', async () => {
             await this.openCreationModal();
@@ -906,75 +912,33 @@ class UserCreation {
     }
 
     showCommentsModal(comments, creationId) {
-        // 创建评论管理模态框
         const modal = document.createElement('div');
         modal.className = 'comments-modal';
-        modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        `;
         
         const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
         
         modal.innerHTML = `
-            <div class="comments-modal-content" style="
-                background: white;
-                padding: 30px;
-                border-radius: 15px;
-                max-width: 600px;
-                width: 90%;
-                max-height: 80vh;
-                overflow-y: auto;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            ">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="margin: 0; color: #333;">评论管理</h3>
-                    <button id="closeComments" style="
-                        background: none;
-                        border: none;
-                        font-size: 24px;
-                        cursor: pointer;
-                        color: #999;
-                    ">&times;</button>
+            <div class="comments-modal-content">
+                <div class="comments-modal-header">
+                    <h3>评论管理</h3>
+                    <button id="closeComments" class="comments-close-btn">&times;</button>
                 </div>
                 
-                <div id="commentsList" style="margin-bottom: 20px;">
+                <div id="commentsList" class="comments-list">
                     ${comments.length === 0 ? 
-                        '<p style="text-align: center; color: #999; padding: 20px;">暂无评论</p>' :
+                        '<p class="comments-empty">暂无评论，快来发表第一条评论吧</p>' :
                         comments.map(comment => `
-                            <div class="comment-item" style="
-                                padding: 15px;
-                                border: 1px solid #eee;
-                                border-radius: 8px;
-                                margin-bottom: 10px;
-                                position: relative;
-                            ">
-                                <div style="display: flex; justify-content: space-between; align-items: start;">
-                                    <div style="flex: 1;">
-                                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                                            <strong style="color: #333; margin-right: 10px;">${comment.user.username}</strong>
-                                            <span style="color: #999; font-size: 12px;">${this.formatDate(comment.created_at)}</span>
+                            <div class="comment-item">
+                                <div class="comment-item-inner">
+                                    <div class="comment-item-body">
+                                        <div class="comment-item-meta">
+                                            <span class="comment-item-author">${comment.user.username}</span>
+                                            <span class="comment-item-time">${this.formatDate(comment.created_at)}</span>
                                         </div>
-                                        <p style="margin: 0; color: #666; line-height: 1.5;">${comment.content}</p>
+                                        <p class="comment-item-text">${comment.content}</p>
                                     </div>
                                     ${(currentUser && (currentUser.id === comment.user.id || currentUser.is_staff)) ? 
-                                        `<button class="delete-comment-btn" data-comment-id="${comment.id}" style="
-                                            background: #ff4757;
-                                            color: white;
-                                            border: none;
-                                            padding: 5px 10px;
-                                            border-radius: 4px;
-                                            cursor: pointer;
-                                            font-size: 12px;
-                                        ">删除</button>` : ''
+                                        `<button class="delete-comment-btn" data-comment-id="${comment.id}">删除</button>` : ''
                                     }
                                 </div>
                             </div>
@@ -982,35 +946,12 @@ class UserCreation {
                     }
                 </div>
                 
-                <div style="border-top: 1px solid #eee; padding-top: 20px;">
-                    <h4 style="margin-bottom: 15px; color: #333;">发表评论</h4>
-                    <textarea id="newCommentContent" placeholder="请输入您的评论..." style="
-                        width: 100%;
-                        min-height: 80px;
-                        padding: 12px;
-                        border: 2px solid #e0e0e0;
-                        border-radius: 8px;
-                        font-size: 14px;
-                        resize: vertical;
-                        margin-bottom: 15px;
-                    "></textarea>
-                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                        <button id="cancelNewComment" style="
-                            padding: 8px 16px;
-                            background: #f8f9fa;
-                            color: #666;
-                            border: 1px solid #ddd;
-                            border-radius: 6px;
-                            cursor: pointer;
-                        ">取消</button>
-                        <button id="submitNewComment" style="
-                            padding: 8px 16px;
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            color: white;
-                            border: none;
-                            border-radius: 6px;
-                            cursor: pointer;
-                        ">发布评论</button>
+                <div class="comments-form-section">
+                    <h4 class="comments-form-title">发表评论</h4>
+                    <textarea id="newCommentContent" class="comments-form-textarea" placeholder="请输入您的评论..."></textarea>
+                    <div class="comments-form-actions">
+                        <button id="cancelNewComment" class="comments-cancel-btn">取消</button>
+                        <button id="submitNewComment" class="comments-submit-btn">发布评论</button>
                     </div>
                 </div>
             </div>
@@ -1959,7 +1900,22 @@ class UserCreation {
             }
         }
     }
-    
+
+    toggleSidebar() {
+        const sidebar = document.querySelector('.creation-sidebar');
+        const toggleIcon = document.querySelector('.sidebar-toggle i');
+
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+
+        if (this.sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+            toggleIcon.className = 'fas fa-chevron-right';
+        } else {
+            sidebar.classList.remove('collapsed');
+            toggleIcon.className = 'fas fa-chevron-left';
+        }
+    }
+
     startMedia(mediaEl) {
         // 开始媒体加载或播放
         const video = mediaEl.querySelector('video');
