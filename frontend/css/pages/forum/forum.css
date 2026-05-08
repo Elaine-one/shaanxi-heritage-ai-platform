@@ -638,34 +638,70 @@
 
 /* 加载更多 */
 .load-more-container {
-    padding: 2rem;
+    padding: 2rem 2.5rem;
     text-align: center;
     background: var(--bg-secondary);
     border-top: 1px solid var(--border-light);
+    border-bottom-left-radius: var(--radius-medium);
+    border-bottom-right-radius: var(--radius-medium);
 }
 
 .load-more-btn {
-    background: var(--shaanxi-red);
+    background: linear-gradient(135deg, var(--shaanxi-red) 0%, var(--shaanxi-dark-red) 100%);
     color: white;
     border: none;
-    padding: 0.75rem 2rem;
+    padding: 0.85rem 2.5rem;
     border-radius: 25px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     font-size: 1rem;
+    font-weight: 600;
     box-shadow: var(--shadow-light);
+    position: relative;
+    overflow: hidden;
+}
+
+.load-more-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
 }
 
 .load-more-btn:hover {
-    background: var(--shaanxi-dark-red);
     transform: translateY(-2px);
     box-shadow: var(--shadow-medium);
 }
 
+.load-more-btn:hover::before {
+    left: 100%;
+}
+
+.load-more-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.load-more-btn:disabled::before {
+    display: none;
+}
+
 .pagination-info {
-    margin-top: 1rem;
-    color: #666;
+    margin-top: 1.2rem;
+    padding: 0.6rem 1.2rem;
+    display: inline-block;
+    background: rgba(188, 46, 36, 0.06);
+    color: var(--shaanxi-red);
     font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 20px;
+    border: 1px solid rgba(188, 46, 36, 0.12);
 }
 
 

@@ -102,16 +102,20 @@ class RedisClient:
             
         try:
             pattern = f"{content_type}:view_count:*"
-            keys = self.redis_client.keys(pattern)
-            
             result = {}
-            for key in keys:
-                # 从key中提取ID
-                content_id = int(key.split(':')[-1])
-                count = self.redis_client.get(key)
-                if count:
-                    result[content_id] = int(count)
-            
+            cursor = 0
+            while True:
+                cursor, keys = self.redis_client.scan(cursor, match=pattern, count=100)
+                for key in keys:
+                    try:
+                        content_id = int(key.split(':')[-1])
+                        count = self.redis_client.get(key)
+                        if count:
+                            result[content_id] = int(count)
+                    except (ValueError, IndexError):
+                        continue
+                if cursor == 0:
+                    break
             return result
         except Exception as e:
             logger.error(f"Redis获取所有浏览量失败: {e}")

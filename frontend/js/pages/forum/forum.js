@@ -476,8 +476,8 @@ class ForumManager {
                 });
             }
             
-            await this.editPostEditor.setPostData(postId);
             this.editPostEditor.show();
+            await this.editPostEditor.setPostData(postId);
             
         } catch (error) {
             console.error('获取帖子详情失败:', error);

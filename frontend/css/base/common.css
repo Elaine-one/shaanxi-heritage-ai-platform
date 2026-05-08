@@ -13,6 +13,35 @@
     box-sizing: border-box;
 }
 
+html {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+    transition: background 0.3s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
 /* 头部样式 */
 header {
     background-color: var(--shaanxi-red);
@@ -133,12 +162,12 @@ nav {
 /* 主体内容样式 */
 main {
     position: relative;
-    min-height: 70vh;
+    min-height: calc(100vh - 180px);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 20px 20px 60px;
+    padding: 20px 20px 40px;
     background-image: linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)), url('/static/common/shaanxi-bg.jpg');
     background-size: cover;
     background-position: center;
@@ -460,6 +489,33 @@ footer::before {
     .featured-item {
         width: 300px;
     }
+
+    .main-title h2 {
+        font-size: 42px;
+    }
+
+    .additional-content {
+        gap: 20px;
+    }
+}
+
+@media (max-width: 900px) {
+    .main-title h2 {
+        font-size: 36px;
+    }
+
+    .featured-item {
+        width: 260px;
+    }
+
+    .featured-items {
+        gap: 25px;
+    }
+
+    .additional-content {
+        grid-template-columns: 1fr;
+        gap: 25px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -474,12 +530,48 @@ footer::before {
     .item-image {
         height: 200px;
     }
+
+    .main-title h2 {
+        font-size: 30px;
+        letter-spacing: 2px;
+    }
+
+    .main-title {
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+    }
+
+    .additional-content {
+        grid-template-columns: 1fr;
+        padding: 0 15px;
+    }
+    
+    .stats-section {
+        flex-wrap: wrap;
+    }
+    
+    .stat-item {
+        width: 50%;
+        margin-bottom: 15px;
+    }
 }
 
 @media (max-width: 576px) {
     .featured-item {
         width: 100%;
         max-width: 340px;
+    }
+
+    .main-title h2 {
+        font-size: 24px;
+    }
+
+    .featured-items {
+        gap: 20px;
+    }
+
+    main {
+        padding: 15px 10px 40px;
     }
 }
 
@@ -492,13 +584,6 @@ footer::before {
     grid-template-columns: 1fr 1fr;
     gap: 30px;
     padding: 0 20px;
-}
-
-/* 主内容区域通用样式 */
-main {
-    min-height: calc(100vh - 200px);/* 确保主内容区域有足够高度 */
-    padding-bottom: 20px;/* 添加底部内边距 */
-    position: relative;
 }
 
 /* 介绍部分 */
@@ -632,21 +717,6 @@ main {
     text-decoration: underline;
 }
 
-/* 响应式调整 */
-@media (max-width: 768px) {
-    .additional-content {
-        grid-template-columns: 1fr;
-    }
-    
-    .stats-section {
-        flex-wrap: wrap;
-    }
-    
-    .stat-item {
-        width: 50%;
-        margin-bottom: 15px;
-    }
-}
 /* 添加错误提示样式 */
 .error-message {
     color: #721c24;

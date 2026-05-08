@@ -851,75 +851,30 @@ class CreationCenter {
     }
 
     showCommentsModal(comments, creationId) {
-        // 创建评论管理模态框
         const modal = document.createElement('div');
         modal.className = 'comments-modal';
-        modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        `;
 
         modal.innerHTML = `
-            <div class="comments-modal-content" style="
-                background: white;
-                padding: 30px;
-                border-radius: 15px;
-                max-width: 600px;
-                width: 90%;
-                max-height: 80vh;
-                overflow-y: auto;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            ">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="margin: 0; color: #333;">评论管理</h3>
-                    <button id="closeComments" style="
-                        background: none;
-                        border: none;
-                        font-size: 24px;
-                        cursor: pointer;
-                        color: #666;
-                    ">&times;</button>
+            <div class="comments-modal-content">
+                <div class="comments-modal-header">
+                    <h3>评论管理</h3>
+                    <button id="closeComments" class="comments-close-btn">&times;</button>
                 </div>
-                <div id="commentsList" style="margin-bottom: 20px;">
+                <div id="commentsList" class="comments-list">
                     ${comments.length > 0 ? comments.map(comment => `
-                        <div class="comment-item" style="
-                            border-bottom: 1px solid #eee;
-                            padding: 15px 0;
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: start;
-                        ">
-                            <div style="flex: 1;">
-                                <div style="font-weight: bold; color: #333; margin-bottom: 5px;">
-                                    ${comment.user.username}
+                        <div class="comment-item">
+                            <div class="comment-item-inner">
+                                <div class="comment-item-body">
+                                    <div class="comment-item-meta">
+                                        <span class="comment-item-author">${comment.user.username}</span>
+                                        <span class="comment-item-time">${new Date(comment.created_at).toLocaleString('zh-CN')}${comment.like_count > 0 ? ` | 👍 ${comment.like_count}` : ''}</span>
+                                    </div>
+                                    <p class="comment-item-text">${comment.content}</p>
                                 </div>
-                                <div style="color: #666; margin-bottom: 5px;">
-                                    ${comment.content}
-                                </div>
-                                <div style="font-size: 12px; color: #999;">
-                                    ${new Date(comment.created_at).toLocaleString('zh-CN')}
-                                    ${comment.like_count > 0 ? ` | 👍 ${comment.like_count}` : ''}
-                                </div>
+                                <button class="delete-comment-btn" data-comment-id="${comment.id}">删除</button>
                             </div>
-                            <button class="delete-comment-btn" data-comment-id="${comment.id}" style="
-                                background: #dc3545;
-                                color: white;
-                                border: none;
-                                padding: 5px 10px;
-                                border-radius: 4px;
-                                cursor: pointer;
-                                font-size: 12px;
-                            ">删除</button>
                         </div>
-                    `).join('') : '<p style="text-align: center; color: #999;">暂无评论</p>'}
+                    `).join('') : '<p class="comments-empty">暂无评论</p>'}
                 </div>
             </div>
         `;

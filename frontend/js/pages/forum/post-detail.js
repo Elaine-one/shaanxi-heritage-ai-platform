@@ -232,7 +232,7 @@ class PostDetailManager {
         
         // 渲染帖子内容
         document.getElementById('postTitle').textContent = post.title;
-        document.getElementById('postContent').innerHTML = post.content;
+        Sanitizer.safeSetRichHTML('postContent', post.content);
         
         // 渲染标签
         const tagsContainer = document.getElementById('postTags');
@@ -395,7 +395,7 @@ class PostDetailManager {
                 <a href="/pages/profile.html?user=${comment.author.id || ''}" class="comment-author">${comment.author.username}</a>
                 <span class="comment-time">${this.formatRelativeTime(comment.created_at)}</span>
             </div>
-            <div class="comment-content">${comment.content}</div>
+            <div class="comment-content">${Sanitizer.sanitizeRichHTML(comment.content)}</div>
             <div class="comment-actions">
                 <button class="comment-action comment-like ${comment.is_liked ? 'active' : ''}" data-comment-id="${comment.id}">
                     <i class="fas fa-heart"></i>

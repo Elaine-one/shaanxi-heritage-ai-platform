@@ -10,10 +10,10 @@ from django.shortcuts import get_object_or_404
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import json
 import uuid
+import mimetypes
 
 from ..forum_models import (
     ForumPost, ForumComment, ForumTag, ForumPostLike, ForumCommentLike,
@@ -641,7 +641,6 @@ def active_users(request):
     return Response(user_data)
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
@@ -671,9 +670,14 @@ def upload_image(request):
         )
     
     try:
-        # 生成唯一文件名
-        file_extension = image_file.name.split('.')[-1]
-        filename = f"forum_images/{uuid.uuid4()}.{file_extension}"
+        content_type = image_file.content_type
+        ext = mimetypes.guess_extension(content_type)
+        if not ext or ext.lower() not in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
+            ext = '.jpg'
+        if ext.lower() == '.jpeg':
+            ext = '.jpg'
+
+        filename = f"forum_images/{uuid.uuid4()}{ext}"
         
         # 保存文件
         file_path = default_storage.save(filename, ContentFile(image_file.read()))

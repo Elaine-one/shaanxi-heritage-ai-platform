@@ -11,7 +11,6 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.http import HttpResponse
 import re
 from datetime import datetime, timedelta
 import logging
@@ -358,7 +357,7 @@ def request_password_reset(request):
         
         # 发送密码重置邮件
         try:
-            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:8000')
+            frontend_url = getattr(settings, 'FRONTEND_URL', None) or 'http://localhost'
             reset_url = f'{frontend_url}/pages/reset-password.html?token={reset_token}'
             
             send_mail(
@@ -388,10 +387,10 @@ def request_password_reset(request):
             
         except Exception as e:
             logger.error(f'发送密码重置邮件失败: {str(e)}')
-            # 开发环境下仍然返回调试令牌
+            if getattr(settings, 'DEBUG', False):
+                logger.debug(f'密码重置令牌（仅开发环境）: {reset_token}')
             return Response({
-                'message': '邮件发送失败，请检查邮箱配置',
-                'debug_token': reset_token  # 仅开发环境使用
+                'message': '邮件发送失败，请稍后重试'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         logger.info(f'密码重置请求: {user.email}', extra={
@@ -399,9 +398,11 @@ def request_password_reset(request):
             'ip_address': request.META.get('REMOTE_ADDR', 'unknown')
         })
         
+        if getattr(settings, 'DEBUG', False):
+            logger.debug(f'密码重置令牌（仅开发环境）: {reset_token}')
+        
         return Response({
-            'message': '密码重置链接已发送到您的邮箱（开发环境中请查看控制台日志）',
-            'debug_token': reset_token  # 仅开发环境使用
+            'message': '密码重置链接已发送到您的邮箱'
         })
         
     except User.DoesNotExist:

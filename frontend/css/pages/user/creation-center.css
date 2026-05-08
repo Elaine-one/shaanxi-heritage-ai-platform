@@ -1197,6 +1197,199 @@ footer {
     margin-top: 0;
 }
 
+/* 评论模态框样式 */
+.comments-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: commentsModalFadeIn 0.3s ease-out;
+}
+
+@keyframes commentsModalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.comments-modal-content {
+    background: #ffffff;
+    padding: 0;
+    border-radius: 16px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(188, 46, 36, 0.08);
+    display: flex;
+    flex-direction: column;
+    animation: commentsModalSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes commentsModalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.comments-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 2px solid var(--shaanxi-red);
+    background: linear-gradient(135deg, rgba(188, 46, 36, 0.03) 0%, rgba(218, 165, 32, 0.03) 100%);
+}
+
+.comments-modal-header h3 {
+    margin: 0;
+    color: var(--shaanxi-red);
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.comments-modal-header h3::before {
+    content: '\f075';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 16px;
+}
+
+.comments-close-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: #999;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.comments-close-btn:hover {
+    color: var(--shaanxi-red);
+    background: rgba(188, 46, 36, 0.06);
+}
+
+.comments-list {
+    margin: 0;
+    padding: 16px 24px;
+    overflow-y: auto;
+    max-height: 45vh;
+    flex-shrink: 0;
+}
+
+.comments-empty {
+    text-align: center;
+    color: #999;
+    padding: 30px 20px;
+    font-size: 14px;
+}
+
+.comments-empty::before {
+    content: '\f4ad';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 32px;
+    color: #ddd;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.comment-item {
+    padding: 14px 16px;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    position: relative;
+    transition: all 0.2s ease;
+    background: #fafaf7;
+}
+
+.comment-item:hover {
+    border-color: #e0d5c5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.comment-item:last-child {
+    margin-bottom: 0;
+}
+
+.comment-item-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.comment-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.comment-item-meta {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 10px;
+}
+
+.comment-item-author {
+    color: var(--shaanxi-dark);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.comment-item-time {
+    color: #999;
+    font-size: 12px;
+}
+
+.comment-item-text {
+    margin: 0;
+    color: #555;
+    line-height: 1.6;
+    font-size: 14px;
+    word-break: break-word;
+}
+
+.delete-comment-btn {
+    background: transparent;
+    color: #ccc;
+    border: 1px solid #eee;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.delete-comment-btn:hover {
+    background: var(--shaanxi-red);
+    color: white;
+    border-color: var(--shaanxi-red);
+}
+
 /* 响应式设计 */
 @media (max-width: 1199px) {
     /* 在中等屏幕上调整网格布局 */

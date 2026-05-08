@@ -3,14 +3,18 @@ const COMMON_API_BASE_URL = '/api';
 
 // 通用API请求函数
 async function apiRequest(endpoint, options = {}) {
-    // 设置默认请求头
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers
-    };
-    
-    // 添加CSRF token到请求头（用于POST、PUT、DELETE等请求）
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes((options.method || 'GET').toUpperCase())) {
+    const method = (options.method || 'GET').toUpperCase();
+    const isFormData = options.body instanceof FormData;
+
+    const headers = {};
+
+    if (!isFormData) {
+        headers['Content-Type'] = 'application/json';
+    }
+
+    Object.assign(headers, options.headers || {});
+
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
         const csrfToken = window.getCookie('csrftoken');
         if (csrfToken) {
             headers['X-CSRFToken'] = csrfToken;
@@ -162,47 +166,7 @@ const heritageAPI = {
     }
 };
 
-// 用户账户API
-const accountAPI = {
-    // 用户注册
-    register: (userData) => {
-        return apiRequest('/accounts/register/', {
-            method: 'POST',
-            body: JSON.stringify(userData)
-        });
-    },
-    
-    // 用户登录
-    login: (credentials) => {
-        return apiRequest('/accounts/login/', {
-            method: 'POST',
-            body: JSON.stringify(credentials)
-        });
-    },
-    
-    // 用户退出
-    logout: () => {
-        return apiRequest('/accounts/logout/', {
-            method: 'POST'
-        });
-    },
-    
-    // 获取用户资料
-    getProfile: () => {
-        return apiRequest('/accounts/profile/');
-    },
-    
-    // 更新用户资料
-    updateProfile: (profileData) => {
-        return apiRequest('/accounts/profile/', {
-            method: 'PATCH',
-            body: JSON.stringify(profileData)
-        });
-    }
-};
-
 // 导出API模块
 window.API = {
-    heritage: heritageAPI,
-    account: accountAPI
+    heritage: heritageAPI
 };

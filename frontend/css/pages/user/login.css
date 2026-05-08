@@ -1,128 +1,294 @@
-/* 登录和注册页面样式 */
+/* 登录和注册页面样式 - 非遗文化主题精美设计 */
+
 .auth-container {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 70vh;
-    background-color: var(--light-bg);
-    padding: 20px;
+    min-height: calc(100vh - 120px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.88)), url('/static/common/shaanxi-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    padding: 30px 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 15% 85%, rgba(188, 46, 36, 0.06) 0%, transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(218, 165, 32, 0.05) 0%, transparent 45%);
+    pointer-events: none;
+}
+
+.auth-container::after {
+    display: none;
 }
 
 .auth-box {
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow:
+        0 20px 60px rgba(58, 42, 29, 0.12),
+        0 4px 16px rgba(58, 42, 29, 0.06),
+        0 0 0 1px rgba(188, 46, 36, 0.06);
     width: 100%;
-    max-width: 450px;
-    padding: 30px;
+    max-width: 440px;
+    padding: 32px 36px 28px;
+    position: relative;
+    z-index: 1;
+    animation: authCardEnter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes authCardEnter {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.auth-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #bc2e24, #d4b054, #bc2e24);
+    border-radius: 16px 16px 0 0;
+}
+
+.auth-box::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, rgba(212, 176, 84, 0.06) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
 }
 
 .auth-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 22px;
+    position: relative;
+}
+
+.auth-header::after {
+    content: '';
+    display: block;
+    width: 50px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #d4b054, transparent);
+    margin: 12px auto 0;
+    border-radius: 2px;
 }
 
 .auth-header h2 {
-    color: var(--shaanxi-red);
+    color: #2C1810;
     font-size: 24px;
-    margin-bottom: 10px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
 }
 
 .auth-header p {
-    color: #666;
+    color: #8c7a6b;
     font-size: 14px;
+    line-height: 1.5;
 }
 
 .auth-form .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .auth-form label {
     display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: var(--dark-text);
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #3a2a1d;
+    font-size: 13px;
+    letter-spacing: 0.3px;
 }
 
-.auth-form input {
+.auth-form input[type="email"],
+.auth-form input[type="password"],
+.auth-form input[type="text"] {
     width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 16px;
-    transition: border-color 0.3s;
-}
-
-.auth-form input:focus {
-    border-color: var(--dark-gold);
+    padding: 11px 14px;
+    border: 2px solid #e8e0d5;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #2C1810;
+    background: #fafaf7;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
     outline: none;
 }
 
+.auth-form input[type="email"]:hover,
+.auth-form input[type="password"]:hover,
+.auth-form input[type="text"]:hover {
+    border-color: #d4b054;
+    background: #fff;
+}
+
+.auth-form input[type="email"]:focus,
+.auth-form input[type="password"]:focus,
+.auth-form input[type="text"]:focus {
+    border-color: #bc2e24;
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(188, 46, 36, 0.08);
+}
+
+.auth-form input::placeholder {
+    color: #c4b8a8;
+}
+
 .form-actions {
-    margin-top: 25px;
+    margin-top: 20px;
 }
 
 .btn-primary {
-    background-color: var(--shaanxi-red);
+    background: linear-gradient(135deg, #bc2e24 0%, #9a1f17 100%);
     color: white;
     border: none;
-    border-radius: 4px;
-    padding: 12px 20px;
-    font-size: 16px;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
     width: 100%;
-    transition: background-color 0.3s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transition: left 0.6s;
 }
 
 .btn-primary:hover {
-    background-color: var(--accent-color);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(188, 46, 36, 0.25);
+}
+
+.btn-primary:hover::before {
+    left: 100%;
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(188, 46, 36, 0.15);
+}
+
+.auth-button {
+    background: linear-gradient(135deg, #bc2e24 0%, #9a1f17 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transition: left 0.6s;
+}
+
+.auth-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(188, 46, 36, 0.25);
+}
+
+.auth-button:hover::before {
+    left: 100%;
+}
+
+.auth-button:active {
+    transform: translateY(0);
 }
 
 .form-footer-links {
-    margin-top: 15px;
+    margin-top: 12px;
     text-align: center;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .forgot-password-link {
-    color: var(--shaanxi-red);
+    color: #bc2e24;
     text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
 }
 
 .forgot-password-link:hover {
+    color: #9a1f17;
     text-decoration: underline;
 }
 
 .form-footer {
-    margin-top: 20px;
+    margin-top: 14px;
     text-align: center;
-    font-size: 14px;
-    color: #666;
+    font-size: 13px;
+    color: #8c7a6b;
 }
 
 .form-footer a {
-    color: var(--shaanxi-red);
+    color: #bc2e24;
     text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
 }
 
 .form-footer a:hover {
+    color: #9a1f17;
     text-decoration: underline;
 }
 
 /* 复选框样式 */
-.checkbox-container {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
 .checkbox-label {
     display: flex;
     align-items: center;
     cursor: pointer;
-    font-size: 14px;
-    color: #666;
+    font-size: 13px;
+    color: #8c7a6b;
     margin-bottom: 0;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -132,25 +298,30 @@
 .checkmark {
     width: 18px;
     height: 18px;
-    border: 2px solid #ddd;
-    border-radius: 3px;
-    margin-right: 10px;
+    border: 2px solid #d4c8b0;
+    border-radius: 5px;
+    margin-right: 8px;
     position: relative;
     transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.checkbox-label:hover .checkmark {
+    border-color: #bc2e24;
 }
 
 .checkbox-label input[type="checkbox"]:checked + .checkmark {
-    background-color: var(--shaanxi-red);
-    border-color: var(--shaanxi-red);
+    background-color: #bc2e24;
+    border-color: #bc2e24;
 }
 
 .checkbox-label input[type="checkbox"]:checked + .checkmark::after {
     content: '';
     position: absolute;
     left: 5px;
-    top: 2px;
-    width: 6px;
-    height: 10px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
     border: solid white;
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
@@ -158,16 +329,16 @@
 
 /* 密码强度指示器样式 */
 .password-strength {
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 .strength-bar {
     width: 100%;
-    height: 6px;
-    background-color: #f0f0f0;
+    height: 5px;
+    background-color: #ede8df;
     border-radius: 3px;
     overflow: hidden;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
 }
 
 .strength-fill {
@@ -175,50 +346,72 @@
     width: 0%;
     border-radius: 3px;
     transition: all 0.3s ease;
+    background: linear-gradient(90deg, #ff4757, #ffa502, #2ed573);
 }
 
 .strength-text {
-    font-size: 12px;
-    color: #666;
+    font-size: 11px;
+    color: #8c7a6b;
     text-align: center;
 }
 
 /* 密码匹配指示器样式 */
 .password-match {
-    font-size: 12px;
-    margin-top: 5px;
+    font-size: 11px;
+    margin-top: 4px;
     text-align: center;
     opacity: 0;
     transition: opacity 0.3s ease;
 }
 
 .password-match.match {
-    color: #2ed573;
+    color: #2e7d32;
     opacity: 1;
 }
 
 .password-match.no-match {
-    color: #ff4757;
+    color: #c62828;
     opacity: 1;
 }
 
 .auth-message {
-    margin-top: 20px;
-    padding: 10px;
-    border-radius: 4px;
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
     text-align: center;
+    font-size: 13px;
 }
 
 .auth-message.error {
-    background-color: #ffebee;
+    background-color: #fef2f2;
     color: #c62828;
-    border: 1px solid #ffcdd2;
+    border: 1px solid #fecaca;
 }
 
 .auth-message.success {
-    background-color: #e8f5e9;
-    color: #2e7d32;
-    border: 1px solid #c8e6c9;
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.message {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 13px;
+}
+
+.message.error {
+    background-color: #fef2f2;
+    color: #c62828;
+    border: 1px solid #fecaca;
+}
+
+.message.success {
+    background-color: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
 }
 
 /* 密码输入容器样式 */
@@ -236,22 +429,21 @@
     position: absolute;
     right: 12px;
     cursor: pointer;
-    font-size: 18px;
+    font-size: 16px;
     user-select: none;
-    color: #666;
+    color: #8c7a6b;
     transition: color 0.3s ease;
     display: inline-block;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     text-align: center;
     line-height: 1;
 }
 
 .toggle-password:hover {
-    color: var(--dark-gold);
+    color: #bc2e24;
 }
 
-/* 显示密码状态时添加斜杠效果 */
 .toggle-password.show-password::after {
     content: '';
     position: absolute;
@@ -266,7 +458,7 @@
 
 /* 验证码样式 */
 .captcha-group {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .captcha-container {
@@ -285,35 +477,68 @@
     width: 100%;
     max-width: 390px;
     height: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border: 2px solid #e8e0d5;
+    border-radius: 10px;
     cursor: pointer;
     object-fit: contain;
-    background-color: #f9f9f9;
-    /* 减小验证码图片高度 */
+    background-color: #fafaf7;
     max-height: 50px;
+    transition: border-color 0.3s ease;
+}
+
+#captcha-image:hover {
+    border-color: #d4b054;
 }
 
 #captcha {
-    height: 38px;
+    height: 42px;
     font-size: 14px;
 }
 
 /* 响应式调整 */
 @media (max-width: 768px) {
+    .auth-container {
+        padding: 16px 12px;
+        min-height: calc(100vh - 100px);
+    }
+
     .auth-box {
-        padding: 20px;
+        padding: 28px 22px 24px;
+        border-radius: 14px;
     }
-    
-    .auth-form input {
-        padding: 10px;
+
+    .auth-header h2 {
+        font-size: 22px;
     }
-    
-    .btn-primary {
-        padding: 10px 16px;
+
+    .auth-form input[type="email"],
+    .auth-form input[type="password"],
+    .auth-form input[type="text"] {
+        padding: 10px 12px;
+        font-size: 14px;
     }
-    
+
+    .btn-primary,
+    .auth-button {
+        padding: 11px 20px;
+        font-size: 14px;
+    }
+
     #captcha-image {
         max-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .auth-box {
+        padding: 24px 18px 20px;
+    }
+
+    .auth-header h2 {
+        font-size: 20px;
+    }
+
+    .auth-header p {
+        font-size: 12px;
     }
 }

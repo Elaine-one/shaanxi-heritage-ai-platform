@@ -58,36 +58,61 @@ def validate_file_size(file, max_size_mb=10):
 def sanitize_html_content(content):
     """
     清理HTML内容，移除危险标签和属性
-    
+
     Args:
         content: HTML内容字符串
-    
+
     Returns:
         清理后的HTML内容
     """
-    # 这里可以集成bleach等HTML清理库
-    # 目前只是一个简单的实现
     if not content:
         return content
-    
-    # 移除script标签
-    import re
-    content = re.sub(r'<script.*?</script>', '', content, flags=re.DOTALL | re.IGNORECASE)
-    
-    # 移除事件处理器属性
-    content = re.sub(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', '', content, flags=re.IGNORECASE)
-    
-    return content
+
+    try:
+        import bleach
+
+        allowed_tags = [
+            'b', 'i', 'em', 'strong', 'u', 's', 'del', 'ins', 'mark',
+            'a', 'p', 'br', 'hr',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'ul', 'ol', 'li',
+            'blockquote', 'pre', 'code',
+            'img', 'span', 'div',
+            'table', 'thead', 'tbody', 'tr', 'th', 'td',
+            'sub', 'sup'
+        ]
+
+        allowed_attrs = {
+            '*': ['class', 'id'],
+            'a': ['href', 'title', 'target', 'rel'],
+            'img': ['src', 'alt', 'width', 'height'],
+            'td': ['colspan', 'rowspan'],
+            'th': ['colspan', 'rowspan'],
+        }
+
+        allowed_protocols = ['http', 'https', 'mailto', 'ftp']
+
+        cleaned = bleach.clean(
+            content,
+            tags=allowed_tags,
+            attributes=allowed_attrs,
+            protocols=allowed_protocols,
+            strip=True,
+        )
+
+        return cleaned
+    except ImportError:
+        return content
 
 
 def handle_view_count_increase(instance, content_type='generic'):
     """
     统一处理浏览量增加的通用函数
-    
+
     Args:
         instance: 模型实例（如News, Policy等）
-        content_type: 内容类型，用于Redis键名区分（如'news', 'policy'）
-    
+        content_type: 内容类型，用于Redis键名区分
+
     Returns:
         更新后的浏览量数值
     """
@@ -95,20 +120,12 @@ def handle_view_count_increase(instance, content_type='generic'):
         from .redis_utils import redis_client
         redis_client.incr_view_count(content_type, instance.id)
         logger.debug(f"{content_type} {instance.id} 浏览量已通过Redis增加")
-        
-        # 获取当前浏览量（优先从Redis读取）
-        current_view_count = redis_client.get_view_count(content_type, instance.id)
-        if current_view_count is not None:
-            # 临时设置实例的浏览量为Redis中的值（不保存到数据库）
-            instance.view_count = current_view_count
-            return current_view_count
-            
+
     except Exception as e:
         logger.error(f"Redis增加浏览量失败: {e}，降级到数据库直接更新")
-        # 降级到直接数据库更新
         instance.view_count += 1
         instance.save(update_fields=['view_count'])
-        
+
     return instance.view_count
 
 

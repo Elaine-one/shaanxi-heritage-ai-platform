@@ -18,7 +18,11 @@ class PostEditor {
         this.availableTags = [];
         this.isSubmitting = false;
         this.modal = null;
-        
+        this._readyResolve = null;
+        this.ready = new Promise(resolve => {
+            this._readyResolve = resolve;
+        });
+
         this.init();
     }
     
@@ -267,6 +271,10 @@ class PostEditor {
                     });
                     
                     console.log('Quill编辑器初始化成功');
+                    if (this._readyResolve) {
+                        this._readyResolve();
+                        this._readyResolve = null;
+                    }
                 } catch (e) {
                     console.error('Quill初始化失败:', e);
                     this.fallbackToTextarea();
@@ -544,6 +552,12 @@ class PostEditor {
             
             if (this.options.mode === 'create') {
                 this.loadDraft();
+            } else if (this.options.mode === 'edit' && this.editor) {
+                setTimeout(() => {
+                    if (this.editor && this.editor.root) {
+                        this.editor.root.scrollTop = 0;
+                    }
+                }, 100);
             }
         }
     }
@@ -589,15 +603,19 @@ class PostEditor {
     
     async setPostData(postId) {
         try {
+            await this.ready;
+
             const post = await forumAPI.getPostDetail(postId);
-            
+
             this.modal.querySelector('#postTitle').value = post.title;
             this.modal.querySelector('#titleCount').textContent = post.title.length;
-            
-            if (this.editor) {
+
+            if (this.editor && typeof this.editor.setContents === 'function') {
+                this.editor.root.innerHTML = post.content;
+            } else if (this.editor && this.editor.root) {
                 this.editor.root.innerHTML = post.content;
             }
-            
+
             this.selectedTags = post.tags.map(tag => tag.name);
             this.updateSelectedTagsDisplay();
             this.updateTagDropdownHeader();
