@@ -1,16 +1,28 @@
 """URL configuration for heritage_project project."""
 
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
 from django.shortcuts import redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse
+import os
 
 def health_check(request):
     """健康检查端点"""
     return JsonResponse({'status': 'healthy', 'service': 'heritage-app'})
+
+
+def admin_spa_view(request, path=''):
+    admin_static_dir = settings.BASE_DIR / 'admin_static'
+    if path and os.path.isfile(admin_static_dir / path):
+        return FileResponse(open(admin_static_dir / path, 'rb'))
+    index_path = admin_static_dir / 'index.html'
+    if os.path.exists(index_path):
+        return FileResponse(open(index_path, 'rb'))
+    return JsonResponse({'error': 'Admin frontend not built'}, status=404)
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -36,6 +48,9 @@ urlpatterns = [
     path("forum", TemplateView.as_view(template_name='pages/forum.html'), name='forum'),
     path("forum/", TemplateView.as_view(template_name='pages/forum.html'), name='forum-slash'),
     path("forum/post/<int:post_id>", TemplateView.as_view(template_name='pages/forum-post-detail.html'), name='forum-post-detail'),
+
+    path("vue-admin/", admin_spa_view, name='admin-spa'),
+    re_path(r'^vue-admin/(?P<path>.+)$', admin_spa_view, name='admin-spa-assets'),
 ]
 
 if settings.DEBUG:

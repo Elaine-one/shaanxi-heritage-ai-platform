@@ -1,10 +1,14 @@
-# 忽略.env文件
+# 环境变量文件
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
+
 # 测试文件
 tests/*
 Agent/tests/*
+
 # 日志文件
 *.log
 logs/
@@ -15,52 +19,90 @@ Agent/data/
 
 # Nginx 日志
 nginx_logs/
+
 # 脚本文件
 scripts/
-# 缓存文件
+
+# Python 缓存文件
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.pyi
+
+# 文档
 docs/
+
 # 测试缓存
 .pytest_cache/
 .coverage
 coverage.xml
+htmlcov/
 
 # 导出和缓存目录
 pdf_cache/
 font_cache/
 
-# 媒体文件
+# 媒体文件（用户上传）
 media/
 media/*
 
-# IDE和编辑器文件
+# IDE 和编辑器文件
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
 # 操作系统文件
 Thumbs.db
 .DS_Store
+desktop.ini
+ehthumbs.db
 
 # 构建文件
 build/
 dist/
 *.egg-info/
 
+# Vue3 管理后台构建产物
+backend/admin_static/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+
 # 环境文件
 venv/
 env/
 ENV/
+.venv/
+
+# 数据库文件
+*.sqlite3
+*.sqlite
+*.db
 
 # 其他临时文件
 *.tmp
 *.temp
 .temp/
 
+# Nginx 配置
 nginx.conf
+
+# Trae IDE
 .trae/
+
+# 敏感配置
+*.pem
+*.key
+*.cert
+*.crt
+*.p12

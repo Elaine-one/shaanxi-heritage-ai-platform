@@ -320,6 +320,9 @@ function updateCollectionButtonsState() {
         if (typeof c === 'number') {
             return c;
         } else if (typeof c === 'object' && c) {
+            if (c.heritage && typeof c.heritage === 'object' && c.heritage.id) {
+                return c.heritage.id;
+            }
             return c.heritage_id || c.id;
         }
         return parseInt(c);
@@ -557,33 +560,12 @@ function toggleCollection(itemId, event) {
         })
         .then(favorites => {
             console.log('获取到的收藏列表:', favorites);
-            // 更新本地收藏列表，确保favorites是数组
             collections = Array.isArray(favorites) ? favorites : [];
             console.log('更新后的本地收藏列表:', collections);
             saveCollectionsToStorage();
             
-            // 直接更新UI中的收藏按钮状态，不依赖事件系统
-            const collectButtons = document.querySelectorAll('.collect-btn');
-            collectButtons.forEach(button => {
-                if (button.dataset.id == itemId) {
-                    // 直接检查最新的收藏状态
-                    window.heritageAPI.checkFavoriteStatus(itemId)
-                        .then(isCollected => {
-                            console.log('直接更新收藏按钮状态:', isCollected, '项目ID:', itemId);
-                            if (isCollected) {
-                                button.classList.add('collected');
-                                button.innerHTML = '<i class="fa-solid fa-heart"></i>';
-                            } else {
-                                button.classList.remove('collected');
-                                button.innerHTML = '<i class="fa-regular fa-heart"></i>';
-                            }
-                        });
-                }
-            });
-            
-            // 更新UI
-            updateCollectionCount();
             updateCollectionButtonsState();
+            updateCollectionCount();
         })
         .catch(error => {
             console.error('切换收藏状态失败:', error);

@@ -82,12 +82,31 @@ function showMessage(message, type = 'error') {
     messageDiv.className = `message ${type}`;
     messageDiv.style.display = 'block';
     
-    setTimeout(() => {
-        messageDiv.style.display = 'none';
-    }, 5000);
+    if (type !== 'success') {
+        setTimeout(() => {
+            messageDiv.style.display = 'none';
+        }, 5000);
+    }
 }
 
-
+// 确保CSRF Token已设置
+async function ensureCsrfToken() {
+    let csrfToken = window.getCsrfToken();
+    if (csrfToken) return csrfToken;
+    
+    try {
+        const response = await fetch('/api/auth/csrf/', {
+            method: 'GET',
+            credentials: 'include'
+        });
+        if (response.ok) {
+            csrfToken = window.getCsrfToken();
+        }
+    } catch (error) {
+        console.error('获取CSRF Token失败:', error);
+    }
+    return csrfToken;
+}
 
 // 表单提交处理
 document.getElementById('reset-password-form').addEventListener('submit', async function(e) {
@@ -121,12 +140,18 @@ document.getElementById('reset-password-form').addEventListener('submit', async 
         return;
     }
     
-    // 获取CSRF令牌 - 使用全局getCsrfToken函数
-    const csrfToken = window.getCsrfToken();
+    // 获取CSRF令牌
+    const csrfToken = await ensureCsrfToken();
     if (!csrfToken) {
-        showMessage('系统错误，请稍后重试');
+        showMessage('系统错误，无法获取安全令牌，请刷新页面重试');
         return;
     }
+    
+    // 显示加载状态
+    const submitBtn = document.querySelector('.auth-button');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = '处理中...';
+    submitBtn.disabled = true;
     
     // 发送重置请求
     try {
@@ -143,23 +168,22 @@ document.getElementById('reset-password-form').addEventListener('submit', async 
             })
         });
         
+        const data = await response.json();
+        
         if (response.ok) {
             showMessage('密码重置成功，请使用新密码登录', 'success');
             setTimeout(() => {
                 window.location.href = 'login.html';
             }, 2000);
         } else {
-            const errorData = await response.json();
-            if (response.status === 400) {
-                showMessage(errorData.error || '重置链接已过期或无效');
-            } else if (response.status === 429) {
-                showMessage('重置尝试次数过多，请稍后重试');
-            } else {
-                showMessage('密码重置失败，请稍后重试');
-            }
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+            showMessage(data.message || data.error || '密码重置失败，请稍后重试');
         }
     } catch (error) {
         console.error('密码重置请求失败:', error);
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
         showMessage('网络错误，请检查网络连接后重试');
     }
 });
@@ -172,10 +196,12 @@ document.getElementById('new-password').addEventListener('input', function() {
 
 document.getElementById('confirm-password').addEventListener('input', checkPasswordMatch);
 
-// 页面加载时检查token
-document.addEventListener('DOMContentLoaded', function() {
+// 页面加载时检查token并确保CSRF
+document.addEventListener('DOMContentLoaded', async function() {
     const token = getUrlParameter('token');
     if (!token) {
         showMessage('重置链接无效，请重新申请密码重置');
     }
+    // 预先获取CSRF Token
+    await ensureCsrfToken();
 });

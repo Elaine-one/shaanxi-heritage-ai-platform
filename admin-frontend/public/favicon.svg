@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B2500"/>
+      <stop offset="100%" stop-color="#6F1E00"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C5963A"/>
+      <stop offset="100%" stop-color="#A67B2E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 外圆 -->
+  <circle cx="32" cy="32" r="30" fill="url(#bg)" stroke="url(#gold)" stroke-width="2"/>
+
+  <!-- 内圆边框 -->
+  <circle cx="32" cy="32" r="26" fill="none" stroke="url(#gold)" stroke-width="0.8" opacity="0.6"/>
+
+  <!-- "非" 字 -->
+  <g fill="url(#gold)">
+    <!-- 三横 -->
+    <rect x="18" y="16" width="28" height="2.5" rx="1"/>
+    <rect x="18" y="24" width="28" height="2.5" rx="1"/>
+    <rect x="18" y="32" width="28" height="2.5" rx="1"/>
+    <!-- 竖 -->
+    <rect x="29" y="16" width="2.5" height="20" rx="1"/>
+    <!-- 竖弯钩 -->
+    <path d="M 38 16 L 38 34 Q 38 40 32 40 L 28 40" fill="none" stroke="url(#gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- 底部两点 -->
+    <circle cx="22" cy="44" r="1.8"/>
+    <circle cx="30" cy="44" r="1.8"/>
+  </g>
+
+  <!-- 底部装饰线 -->
+  <rect x="16" y="50" width="32" height="1" rx="0.5" fill="url(#gold)" opacity="0.4"/>
+</svg>

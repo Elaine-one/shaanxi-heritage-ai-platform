@@ -1,0 +1,26 @@
+{
+  "name": "shaanxi-heritage-admin",
+  "private": true,
+  "version": "1.0.0",
+  "description": "陕西非物质文化遗产保护平台 - 管理后台前端",
+  "author": "Shaanxi Heritage Team",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "axios": "^1.16.0",
+    "element-plus": "^2.14.0",
+    "pinia": "^3.0.4",
+    "sass": "^1.99.0",
+    "vue": "^3.5.32",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.6",
+    "vite": "^8.0.10"
+  }
+}

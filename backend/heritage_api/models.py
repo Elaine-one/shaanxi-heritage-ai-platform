@@ -4,6 +4,36 @@ from django.contrib.auth.models import User
 from .user_models import UserProfile
 from .forum_models import *
 
+class AdminOperationLog(models.Model):
+    ACTION_CHOICES = [
+        ('create', '创建'),
+        ('update', '更新'),
+        ('delete', '删除'),
+        ('login', '登录'),
+        ('logout', '登出'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="操作用户")
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="操作类型")
+    resource_type = models.CharField(max_length=50, verbose_name="资源类型")
+    resource_id = models.IntegerField(null=True, blank=True, verbose_name="资源ID")
+    resource_name = models.CharField(max_length=200, blank=True, default='', verbose_name="资源名称")
+    detail = models.JSONField(default=dict, blank=True, verbose_name="操作详情")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP地址")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="操作时间")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "管理操作日志"
+        verbose_name_plural = "管理操作日志"
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['resource_type', 'resource_id']),
+            models.Index(fields=['user', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user} {self.action} {self.resource_type}:{self.resource_id}"
+
 class Heritage(models.Model):
     level = models.CharField(max_length=50, default='未知级别', blank=True, null=True, verbose_name="级别")
     name = models.CharField(max_length=100, unique=True, verbose_name="项目名称")

@@ -234,10 +234,9 @@ async function removeFavorite(heritageId) {
             throw new Error(`获取收藏列表失败: ${favoritesResponse.status}`);
         }
         
-        const favorites = await favoritesResponse.json();
+        const favoritesData = await favoritesResponse.json();
         
-        // 确保favorites是数组
-        const favoritesArray = Array.isArray(favorites) ? favorites : [];
+        const favoritesArray = favoritesData.results || (Array.isArray(favoritesData) ? favoritesData : []);
         
         console.log('所有收藏:', favoritesArray);
         console.log('要删除的项目ID:', heritageId);
@@ -443,7 +442,10 @@ async function getUserFavorites() {
         }
         
         const data = await response.json();
-        return data;
+        if (data && data.results) {
+            return data.results;
+        }
+        return Array.isArray(data) ? data : [];
     } catch (error) {
         console.error('getUserFavorites API调用失败:', error);
         return []; // 出错时返回空数组，而不是抛出异常

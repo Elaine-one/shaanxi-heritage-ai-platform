@@ -357,7 +357,15 @@ def request_password_reset(request):
         
         # 发送密码重置邮件
         try:
-            frontend_url = getattr(settings, 'FRONTEND_URL', None) or 'http://localhost'
+            # 优先从请求头获取前端地址（支持局域网访问）
+            origin = request.META.get('HTTP_ORIGIN') or request.META.get('HTTP_REFERER')
+            if origin:
+                # 从 Origin 或 Referer 中提取基础 URL
+                from urllib.parse import urlparse
+                parsed = urlparse(origin)
+                frontend_url = f"{parsed.scheme}://{parsed.netloc}"
+            else:
+                frontend_url = getattr(settings, 'FRONTEND_URL', None) or 'http://localhost'
             reset_url = f'{frontend_url}/pages/reset-password.html?token={reset_token}'
             
             send_mail(
