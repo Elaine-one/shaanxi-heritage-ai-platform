@@ -12,6 +12,16 @@ from .api.auth import register_user, login_user, logout_user, get_user_info, get
 from .api.user import UserProfileViewSet, UserAnalyticsView, UserStatsView
 from .api.history import UserHistoryViewSet
 from .api.agent import get_agent_service_url, proxy_agent_request
+from .api.admin_api import (
+    admin_login, admin_user_list, admin_user_detail, admin_user_create,
+    admin_user_reset_password, admin_stats, admin_operation_log_list,
+    admin_forum_tag_list, admin_forum_tag_detail,
+    admin_forum_announcement_list, admin_forum_announcement_detail,
+    admin_forum_rule_list, admin_forum_rule_detail,
+    admin_forum_report_list, admin_forum_report_detail,
+    admin_forum_post_list, admin_forum_post_detail,
+    admin_creation_list, admin_creation_detail,
+)
 
 # 创建路由器并设置API根视图的中文描述
 class ChineseDefaultRouter(DefaultRouter):
@@ -126,4 +136,25 @@ urlpatterns = [
     path('travel-plan/export/', TravelPlanExportView.as_view(), name='travel-plan-export'),
     
     path('forum/', include('heritage_api.forum_urls')),
+
+    # 管理后台 API
+    path('admin/login/', admin_login, name='admin-login'),
+    path('admin/users/', admin_user_list, name='admin-user-list'),
+    path('admin/users/create/', admin_user_create, name='admin-user-create'),
+    path('admin/users/<int:pk>/', admin_user_detail, name='admin-user-detail'),
+    path('admin/users/<int:pk>/reset-password/', admin_user_reset_password, name='admin-user-reset-password'),
+    path('admin/stats/', admin_stats, name='admin-stats'),
+    path('admin/operation-logs/', admin_operation_log_list, name='admin-operation-log-list'),
+    path('admin/forum/tags/', admin_forum_tag_list, name='admin-forum-tag-list'),
+    path('admin/forum/tags/<int:pk>/', admin_forum_tag_detail, name='admin-forum-tag-detail'),
+    path('admin/forum/announcements/', admin_forum_announcement_list, name='admin-forum-announcement-list'),
+    path('admin/forum/announcements/<int:pk>/', admin_forum_announcement_detail, name='admin-forum-announcement-detail'),
+    path('admin/forum/rules/', admin_forum_rule_list, name='admin-forum-rule-list'),
+    path('admin/forum/rules/<int:pk>/', admin_forum_rule_detail, name='admin-forum-rule-detail'),
+    path('admin/forum/reports/', admin_forum_report_list, name='admin-forum-report-list'),
+    path('admin/forum/reports/<int:pk>/', admin_forum_report_detail, name='admin-forum-report-detail'),
+    path('admin/forum/posts/', admin_forum_post_list, name='admin-forum-post-list'),
+    path('admin/forum/posts/<int:pk>/', admin_forum_post_detail, name='admin-forum-post-detail'),
+    path('admin/creations/', admin_creation_list, name='admin-creation-list'),
+    path('admin/creations/<int:pk>/', admin_creation_detail, name='admin-creation-detail'),
 ]
