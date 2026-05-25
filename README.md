@@ -1,7 +1,7 @@
 # 陕西非物质文化遗产智能旅游平台
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/08d4fce6-b204-4947-839b-da6863727123" alt="陕西非遗智能旅游平台" width="100%"/>
+  <video src="https://github.com/user-attachments/assets/08d4fce6-b204-4947-839b-da6863727123" width="100%" autoplay loop muted playsinline></video>
 </p>
 
 <div align="center">
