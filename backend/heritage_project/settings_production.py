@@ -22,24 +22,13 @@ if not SECRET_KEY:
 # CSRF信任的来源 - 继承自 settings.py，请通过环境变量配置
 # CSRF_TRUSTED_ORIGINS = ...
 
-# 静态文件配置
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATIC_URL = '/static/'
+# 静态文件/媒体文件/前端目录配置 - 均继承自 settings.py，无需重复声明
+# STATIC_ROOT, STATIC_URL, STATICFILES_DIRS, MEDIA_ROOT, MEDIA_URL, FRONTEND_DIR
 
-# 静态文件收集目录
-STATICFILES_DIRS = [
-    BASE_DIR.parent / 'frontend',
-    BASE_DIR / 'static',
-]
-
-# 媒体文件配置
-MEDIA_ROOT = BASE_DIR / 'media'
-MEDIA_URL = '/media/'
-
-# 安全设置
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
+# 安全设置（已在 settings.py 中配置，此处不再重复）
+# SECURE_BROWSER_XSS_FILTER = True
+# SECURE_CONTENT_TYPE_NOSNIFF = True
+# X_FRAME_OPTIONS = 'DENY'
 
 # HTTPS设置（如果使用HTTPS）
 # SECURE_SSL_REDIRECT = True
@@ -49,7 +38,7 @@ X_FRAME_OPTIONS = 'DENY'
 # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 # SECURE_HSTS_PRELOAD = True
 
-# 日志配置
+# 日志配置（生产环境使用更详细的日志级别）
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

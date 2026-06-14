@@ -4,10 +4,10 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import TemplateView
-from django.shortcuts import redirect
-from django.http import JsonResponse, FileResponse
+from django.views.static import serve
+from django.http import JsonResponse, FileResponse, HttpResponseNotFound
 import os
+
 
 def health_check(request):
     """健康检查端点"""
@@ -15,6 +15,7 @@ def health_check(request):
 
 
 def admin_spa_view(request, path=''):
+    """Vue Admin SPA 文件服务"""
     admin_static_dir = settings.BASE_DIR / 'admin_static'
     if path and os.path.isfile(admin_static_dir / path):
         return FileResponse(open(admin_static_dir / path, 'rb'))
@@ -24,36 +25,49 @@ def admin_spa_view(request, path=''):
     return JsonResponse({'error': 'Admin frontend not built'}, status=404)
 
 
+def serve_frontend(request, path=''):
+    """
+    直接服务前端文件，模拟 nginx 的 root + try_files 行为：
+      root /app/frontend;
+      try_files $uri $uri/ /index.html;
+
+    开发环境由 Django 处理，生产环境由 nginx 直接处理（此路由不会触发）。
+    """
+    frontend_dir = settings.FRONTEND_DIR
+
+    if path:
+        file_path = frontend_dir / path
+        if os.path.isfile(file_path):
+            return serve(request, path, document_root=frontend_dir)
+
+    # 根路径或未匹配文件，回退到 index.html
+    index_path = frontend_dir / 'index.html'
+    if os.path.exists(index_path):
+        return serve(request, 'index.html', document_root=frontend_dir)
+
+    return HttpResponseNotFound('Frontend not found')
+
+
+# API 和管理路由（优先匹配）
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("heritage_api.urls")),
     path("health", health_check, name='health'),
-    path("", TemplateView.as_view(template_name='index.html'), name='index'),
-    path("index.html", TemplateView.as_view(template_name='index.html'), name='index-html'),
-    path("pages/non-heritage-list.html", TemplateView.as_view(template_name='pages/non-heritage-list.html'), name='non-heritage-list'),
-    path("pages/heritage-map.html", TemplateView.as_view(template_name='pages/heritage-map.html'), name='heritage-map'),
-    path("pages/heritage-detail.html", TemplateView.as_view(template_name='pages/heritage-detail.html'), name='heritage-detail'),
-    path("pages/login.html", TemplateView.as_view(template_name='pages/login.html'), name='login'),
-    path("pages/register.html", TemplateView.as_view(template_name='pages/register.html'), name='register'),
-    path("pages/profile.html", TemplateView.as_view(template_name='pages/profile.html'), name='profile'),
-    path("pages/forum.html", TemplateView.as_view(template_name='pages/forum.html'), name='forum'),
-    path("pages/forum-post.html", TemplateView.as_view(template_name='pages/forum-post.html'), name='forum-post'),
-    path("pages/post-detail.html", TemplateView.as_view(template_name='pages/post-detail.html'), name='post-detail'),
-    path("pages/policy.html", TemplateView.as_view(template_name='pages/policy.html'), name='policy'),
-    path("pages/news.html", TemplateView.as_view(template_name='pages/news.html'), name='news'),
-    path("pages/creation-center.html", TemplateView.as_view(template_name='pages/creation-center.html'), name='creation-center'),
-    path("pages/user-creation.html", TemplateView.as_view(template_name='pages/user-creation.html'), name='user-creation'),
-    path("pages/forgot-password.html", TemplateView.as_view(template_name='pages/forgot-password.html'), name='forgot-password'),
-    path("pages/reset-password.html", TemplateView.as_view(template_name='pages/reset-password.html'), name='reset-password'),
-    path("forum", TemplateView.as_view(template_name='pages/forum.html'), name='forum'),
-    path("forum/", TemplateView.as_view(template_name='pages/forum.html'), name='forum-slash'),
-    path("forum/post/<int:post_id>", TemplateView.as_view(template_name='pages/forum-post-detail.html'), name='forum-post-detail'),
 
+    # Vue Admin SPA
     path("vue-admin/", admin_spa_view, name='admin-spa'),
     re_path(r'^vue-admin/(?P<path>.+)$', admin_spa_view, name='admin-spa-assets'),
 ]
 
+# 开发环境：Django 静态文件和媒体文件服务
+# 生产环境由 nginx 直接处理，不走 Django
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.BASE_DIR / 'static')
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.BASE_DIR.parent / 'frontend')
+
+# 前端文件服务（放在最后，作为兜底）
+# 模拟 nginx: root /app/frontend; try_files $uri /index.html;
+urlpatterns += [
+    re_path(r'^(?P<path>.+)$', serve_frontend, name='frontend-file'),
+    path("", serve_frontend, name='index'),
+]

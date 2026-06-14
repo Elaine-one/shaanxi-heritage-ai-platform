@@ -96,6 +96,7 @@ ENV/
 
 # Nginx 配置
 nginx.conf
+mime.types
 
 # Trae IDE
 .trae/
