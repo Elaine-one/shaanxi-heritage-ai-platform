@@ -5,8 +5,6 @@ from .api.heritage import HeritageViewSet, UserFavoriteViewSet, NewsViewSet, Pol
 from .api.heritage import UserCreationViewSet, CreationLikeViewSet, CreationCommentViewSet
 from .api.heritage import CreationViewHistoryViewSet, CreationFavoriteViewSet
 from django.conf import settings
-from django.conf.urls.static import static
-from django.views.static import serve
 from .map_config import get_map_config
 from .api.auth import register_user, login_user, logout_user, get_user_info, get_csrf_token, request_password_reset, reset_password, get_security_status, generate_captcha_view, verify_captcha
 from .api.user import UserProfileViewSet, UserAnalyticsView, UserStatsView
@@ -98,13 +96,8 @@ router.register(r'creation-favorites', CreationFavoriteViewSet, basename='creati
 router.register(r'profile', UserProfileViewSet, basename='userprofile')
 
 
-# 添加静态文件服务
-def serve_static_files(request, path):
-    return serve(request, path, document_root=settings.BASE_DIR / 'heritage_api' / 'static')
-
 urlpatterns = [
     path('', include(router.urls)),
-    path('static/<path:path>', serve_static_files),
     path('map/config/', get_map_config, name='map-config'),
     
     path('agent-service-url/', get_agent_service_url, name='agent-service-url'),

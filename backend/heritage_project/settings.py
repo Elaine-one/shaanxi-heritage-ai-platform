@@ -105,7 +105,7 @@ ROOT_URLCONF = "heritage_project.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR.parent / 'frontend'],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -175,6 +175,9 @@ USE_I18N = True
 USE_TZ = True
 
 
+# 前端文件目录（由 Django 开发服务器或 nginx 直接服务，不走 /static/ 前缀）
+FRONTEND_DIR = BASE_DIR.parent / 'frontend'
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
@@ -183,9 +186,9 @@ STATIC_URL = "/static/"
 # 生产环境静态文件收集目录
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# 添加 STATICFILES_DIRS 指向前端静态文件目录
+# Django 后端专属静态资源（仅 backend/static/）
+# 前端文件由 FRONTEND_DIR 直接服务，不纳入 collectstatic
 STATICFILES_DIRS = [
-    BASE_DIR.parent / 'frontend',
     BASE_DIR / 'static',
 ]
 
