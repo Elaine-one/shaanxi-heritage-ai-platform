@@ -10,9 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from Agent.memory.session_provider import get_session_pool
-from Agent.memory.redis_session import RedisSessionPool
-from Agent.services.conversation_service import get_conversation_service
+from Agent.memory.session import get_session_pool, RedisSessionPool
 from Agent.config.settings import Config
 from Agent.config.memory_budget import memory_budget
 from Agent.memory.sifter import get_sifter
@@ -33,6 +31,52 @@ except Exception:
     get_vector_store = None
 
 
+L1_ATOMIC_APPEND = """
+-- 阶段一: 原子推送 + 检测溢出
+-- 溢出时返回全量列表供 Python 评分，未溢出返回空
+local recent_key = KEYS[1]
+local turn_json = ARGV[1]
+local max_size = tonumber(ARGV[2])
+
+redis.call('RPUSH', recent_key, turn_json)
+local size = redis.call('LLEN', recent_key)
+if size > max_size then
+    return redis.call('LRANGE', recent_key, 0, -1)
+end
+return {}
+"""
+
+L1_ATOMIC_TRIM = """
+-- 阶段二: 按 key 原子过滤淘汰项
+-- KEYS[1] = recent_key
+-- ARGV[1..N] = 要删除的 turn.key
+-- 返回: 被淘汰的 turn JSON 数组
+local recent_key = KEYS[1]
+local remove = {}
+for i = 1, #ARGV do
+    remove[ARGV[i]] = true
+end
+
+local all = redis.call('LRANGE', recent_key, 0, -1)
+local kept, popped = {}, {}
+
+for i = 1, #all do
+    local ok, turn = pcall(cjson.decode, all[i])
+    if ok and turn['key'] and remove[turn['key']] then
+        table.insert(popped, all[i])
+    else
+        table.insert(kept, all[i])
+    end
+end
+
+redis.call('DEL', recent_key)
+for i = 1, #kept do
+    redis.call('RPUSH', recent_key, kept[i])
+end
+return popped
+"""
+
+
 class MemoryCoordinator:
     """
     第一版能力：
@@ -43,8 +87,9 @@ class MemoryCoordinator:
 
     def __init__(self):
         self.session_pool = get_session_pool()
-        self.conversation_service = get_conversation_service()
         self._redis = self.session_pool.get_redis_client()
+        self._l1_atomic_append = self._redis.register_script(L1_ATOMIC_APPEND) if self._redis else None
+        self._l1_atomic_trim = self._redis.register_script(L1_ATOMIC_TRIM) if self._redis else None
         self.l2_store = get_l2_graph_store() if get_l2_graph_store else None
         self.l3_ledger = get_l3_sqlite_ledger() if get_l3_sqlite_ledger else None
         self.vector_store = get_vector_store() if get_vector_store else None
@@ -89,45 +134,98 @@ class MemoryCoordinator:
             return False
 
         try:
-            self.session_pool.add_conversation(session_id, role, content, user_id=user_id)
+            tool_interactions = extra_data.get('tool_interactions') if extra_data else None
+            self.session_pool.add_conversation(session_id, role, content, user_id=user_id, tool_interactions=tool_interactions)
         except Exception as e:
             logger.warning(f"session_pool.add_conversation 失败: {e}")
             self._stats["turn_write_failures"] += 1
 
-        self._update_l1_memory(session_id, role, content)
+        await self._update_l1_memory(session_id, role, content)
         await self._post_process_turn(session_id=session_id, user_id=user_id, username=username, role=role, content=content)
         self._stats["turns_written"] += 1
+        if user_id:
+            self._maybe_trigger_merge(user_id)
         return True
 
-    def _update_l1_memory(self, session_id: str, role: str, content: str):
+    async def close_session(self, session_id: str, user_id: str) -> bool:
+        """会话关闭入口 — 触发归档管线"""
+        try:
+            from Agent.memory.session import get_session_lifecycle
+            lifecycle = get_session_lifecycle()
+            return await lifecycle.on_session_close(session_id, user_id)
+        except Exception as e:
+            logger.warning(f"close_session 失败（不影响主流程）: {e}")
+            return False
+
+    def update_last_model_stats(self, model_name: str = None, tokens_in: int = None,
+                                 tokens_out: int = None, latency_ms: int = None):
+        """更新最近一次LLM调用的统计信息，供L3审计账本使用"""
+        if model_name is not None:
+            self._last_model_name = model_name
+        if tokens_in is not None:
+            self._last_tokens_in = tokens_in
+        if tokens_out is not None:
+            self._last_tokens_out = tokens_out
+        if latency_ms is not None:
+            self._last_latency_ms = latency_ms
+
+    async def _update_l1_memory(self, session_id: str, role: str, content: str):
         """
-        L1 协议：
-        - recent_turns 保留最近10条
-        - 超出后弹出最旧2条，生成增量摘要写入 session_summary
+        L1 两阶段智能淘汰：
+        阶段一 (Lua 原子): RPUSH + 检测溢出 → 返回全量列表供评分
+        阶段二 (Python): ImportanceScorer 评分 → 选最低分淘汰 → Lua 原子删除
         """
-        if self._redis is None:
+        if self._redis is None or self._l1_atomic_append is None or self._l1_atomic_trim is None:
             return
 
+        import hashlib
+        ts = datetime.now().isoformat()
         turn = {
+            "key": hashlib.md5(f"{role}:{content[:100]}:{ts}".encode()).hexdigest()[:12],
             "role": role,
             "content": content,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": ts,
         }
         recent_key = self._recent_key(session_id)
         summary_key = self._summary_key(session_id)
         summary_meta_key = self._summary_meta_key(session_id)
+        ttl = Config.REDIS_SESSION_TTL
 
         try:
-            self._redis.rpush(recent_key, json.dumps(turn, ensure_ascii=False))
-            ttl = Config.REDIS_SESSION_TTL
+            # 阶段一: 原子推送 + 检测溢出
+            overflow_raw = self._l1_atomic_append(
+                keys=[recent_key],
+                args=[
+                    json.dumps(turn, ensure_ascii=False),
+                    memory_budget.l1_recent_limit,
+                ],
+            )
             if ttl:
                 self._redis.expire(recent_key, ttl)
 
-            size = self._redis.llen(recent_key)
-            if size > memory_budget.l1_recent_limit:
-                popped_raw = self._redis.lrange(recent_key, 0, memory_budget.l1_rolling_drop_count - 1)
-                if popped_raw:
-                    self._redis.ltrim(recent_key, memory_budget.l1_rolling_drop_count, -1)
+            if overflow_raw:
+                # 阶段二: 评分淘汰
+                scored = []
+                for i, item in enumerate(overflow_raw):
+                    try:
+                        t = json.loads(item)
+                        score = self._score_turn(t)
+                        scored.append((t.get("key"), i, score))
+                    except Exception:
+                        scored.append((None, i, 0.0))
+
+                scored.sort(key=lambda x: x[2])  # 低分在前
+                drop_count = memory_budget.l1_rolling_drop_count
+                remove_keys = [k for k, _, _ in scored[:drop_count] if k]
+
+                if remove_keys:
+                    popped_raw = self._l1_atomic_trim(
+                        keys=[recent_key],
+                        args=remove_keys,
+                    )
+                    if ttl:
+                        self._redis.expire(recent_key, ttl)
+
                     popped_turns = []
                     for item in popped_raw:
                         try:
@@ -135,47 +233,137 @@ class MemoryCoordinator:
                         except Exception:
                             continue
                     if popped_turns:
-                        inc_summary = self._build_incremental_summary(popped_turns)
+                        inc_summary = await self._build_incremental_summary(popped_turns)
                         existing = self._redis.get(summary_key) or ""
                         merged = self._merge_summary(existing, inc_summary)
                         self._redis.set(summary_key, merged)
                         self._stats["summary_rollups"] += 1
-                        self._redis.hset(
-                            summary_meta_key,
-                            mapping={
-                                "updated_at": datetime.now().isoformat(),
-                                "recent_size": self._redis.llen(recent_key),
-                            },
-                        )
+
+            self._redis.hset(
+                summary_meta_key,
+                mapping={
+                    "updated_at": datetime.now().isoformat(),
+                    "recent_size": self._redis.llen(recent_key),
+                },
+            )
             logger.debug(f"L1记忆更新完成: session={session_id}")
         except Exception as e:
             logger.warning(f"更新L1记忆失败: {e}")
             self._stats["l1_write_failures"] += 1
 
-    def _build_incremental_summary(self, turns: List[Dict[str, Any]]) -> str:
-        """
-        第一版摘要策略：规则压缩，确保简短稳定。
-        后续可替换为异步LLM摘要。
-        """
+    def _score_turn(self, turn: Dict[str, Any]) -> float:
+        """对单轮进行重要性评分"""
+        try:
+            from Agent.memory.importance_scorer import get_importance_scorer
+            scorer = get_importance_scorer()
+            if scorer:
+                return scorer.score_conversation_turn(
+                    turn.get('content', ''),
+                    turn.get('role', 'user')
+                ).composite
+        except Exception:
+            pass
+        return 0.0
+
+    async def _build_incremental_summary(self, turns: List[Dict[str, Any]]) -> str:
+        """LLM 驱动的增量摘要，LLM 不可用时返回空字符串（系统本身依赖 LLM，无 LLM 时不会产生新对话）"""
         if not turns:
             return ""
-        parts = []
+
+        try:
+            llm_summary = await self._summarize_turns_llm(turns)
+            if llm_summary:
+                return llm_summary[:memory_budget.l1_summary_max_chars]
+        except Exception as e:
+            logger.debug(f"LLM 摘要失败: {e}")
+
+        return ""
+
+    async def _summarize_turns_llm(self, turns: List[Dict[str, Any]]) -> str:
+        """使用 LLM 生成语义摘要，捕获决策上下文和偏好变化"""
+        from Agent.prompts.templates import L1_TURN_SUMMARY_PROMPT, L1_TURN_SUMMARY_SYSTEM
+
+        # 构建对话文本
+        lines = []
         for turn in turns:
             role = "用户" if turn.get("role") == "user" else "助手"
-            text = (turn.get("content") or "").replace("\n", " ").strip()
-            if len(text) > memory_budget.l1_turn_summary_max_chars:
-                text = text[:memory_budget.l1_turn_summary_max_chars] + "..."
-            if text:
-                parts.append(f"{role}:{text}")
-        summary = "；".join(parts)
-        return summary[:50]
+            content = (turn.get("content") or "").strip()
+            if content:
+                lines.append(f"{role}：{content}")
+        conversation_text = "\n".join(lines)
+
+        # 截断到预算内 — 保留尾部（popped_turns是旧轮次，尾部更接近当前对话）
+        max_chars = memory_budget.summary_llm_max_chars
+        if len(conversation_text) > max_chars:
+            conversation_text = "..." + conversation_text[-(max_chars - 3):]
+
+        prompt = L1_TURN_SUMMARY_PROMPT.format(content=conversation_text)
+
+        try:
+            import asyncio
+            from langchain_core.messages import SystemMessage, HumanMessage
+
+            llm = self._get_summary_chatopenai()
+            if llm is None:
+                return ""
+
+            messages = [SystemMessage(content=L1_TURN_SUMMARY_SYSTEM), HumanMessage(content=prompt)]
+            response = await asyncio.wait_for(
+                llm.ainvoke(messages),
+                timeout=memory_budget.summary_llm_timeout
+            )
+            content = response.content.strip() if hasattr(response, 'content') else str(response).strip()
+            if content and len(content) >= 3:
+                logger.debug(f"LLM 摘要生成成功: {content[:60]}...")
+                return content
+            return ""
+        except asyncio.TimeoutError:
+            logger.debug(f"LLM 摘要超时 ({memory_budget.summary_llm_timeout}s)，降级正则")
+            return ""
+        except Exception as e:
+            logger.debug(f"LLM 摘要调用失败: {e}")
+            return ""
+
+    def _get_summary_chatopenai(self):
+        """获取摘要 LLM 客户端：配置了专用模型则新建，否则复用主模型"""
+        from langchain_openai import ChatOpenAI
+        from Agent.config import config as agent_config
+
+        cfg = memory_budget
+        if cfg.summary_llm_model:
+            try:
+                llm_config = agent_config.get_llm_config()
+                llm = ChatOpenAI(
+                    api_key=cfg.summary_llm_api_key or llm_config.api_key,
+                    base_url=cfg.summary_llm_base_url or llm_config.base_url,
+                    model=cfg.summary_llm_model,
+                    temperature=0.3,  # 摘要任务低温度
+                    max_tokens=200,
+                    request_timeout=cfg.summary_llm_timeout,
+                    max_retries=0,
+                )
+                logger.debug(f"使用摘要专用模型: {cfg.summary_llm_model}")
+                return llm
+            except Exception as e:
+                logger.debug(f"摘要专用模型初始化失败，复用主模型: {e}")
+
+        # 复用主模型
+        try:
+            from Agent.models.llm_model import get_llm_model
+            main_llm = get_llm_model()
+            return main_llm.llm if main_llm else None
+        except Exception:
+            return None
 
     def _merge_summary(self, existing: str, incoming: str) -> str:
         if not existing:
             return incoming
         if not incoming:
             return existing
-        merged = f"{existing} | {incoming}"
+        segments = [s.strip() for s in existing.split(" | ") if s.strip()]
+        segments.append(incoming.strip())
+        segments = segments[-5:]  # 保留最近5段
+        merged = " | ".join(segments)
         return merged[-memory_budget.l1_summary_max_chars:]
 
     async def _post_process_turn(self, session_id: str, user_id: Optional[str], username: Optional[str], role: str, content: str):
@@ -190,12 +378,18 @@ class MemoryCoordinator:
             self.l2_store.touch_user_active(user_id, username=username)
 
         if self.l3_enabled:
+            meta = {
+                'model': getattr(self, '_last_model_name', None),
+                'tokens_in': getattr(self, '_last_tokens_in', None),
+                'tokens_out': getattr(self, '_last_tokens_out', None),
+                'latency_ms': getattr(self, '_last_latency_ms', None),
+            }
             ok = self.l3_ledger.append_event(
                 session_id=session_id,
                 user_id=user_id,
                 role=role,
                 content=content,
-                meta={},
+                meta=meta,
             )
             if ok:
                 self._stats["l3_writes"] += 1
@@ -203,7 +397,7 @@ class MemoryCoordinator:
                 self._stats["l3_write_failures"] += 1
                 logger.warning(f"L3审计写入失败: session={session_id}")
 
-        if self.rag_enabled and user_id and content:
+        if self.rag_enabled and user_id and content and self._should_index_to_rag(content):
             try:
                 self.vector_store.add_conversation(
                     session_id=session_id,
@@ -225,6 +419,8 @@ class MemoryCoordinator:
                     if ok:
                         self._stats["l2_upserts"] += 1
                         logger.debug(f"L2偏好写入成功: user={user_id}, prefs={prefs}")
+                        # L2 更新后失效上下文缓存，使下一轮对话重新加载 L2 数据
+                        self._invalidate_context_cache(session_id)
                     else:
                         self._stats["l2_upsert_failures"] += 1
                         logger.warning(f"L2偏好写入失败: user={user_id}")
@@ -284,6 +480,34 @@ class MemoryCoordinator:
             logger.debug(f"解析非遗名称失败: {e}")
         return None
 
+    def _plan_snapshot_key(self, session_id: str) -> str:
+        return f"agent:memory:{session_id}:plan_snapshot"
+
+    def update_l1_plan_snapshot(self, session_id: str, plan_data: Dict[str, Any]):
+        """将 plan_data 同步到 L1 Redis，确保 session 过期后可恢复"""
+        if self._redis is None or not plan_data:
+            return
+        try:
+            key = self._plan_snapshot_key(session_id)
+            self._redis.setex(key, Config.REDIS_SESSION_TTL,
+                            json.dumps(plan_data, ensure_ascii=False, default=str))
+            logger.debug(f"L1 plan_snapshot 已更新: session={session_id}")
+        except Exception as e:
+            logger.warning(f"L1 plan_snapshot 更新失败: {e}")
+
+    def get_l1_plan_snapshot(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """从 L1 Redis 恢复 plan_data"""
+        if self._redis is None:
+            return None
+        try:
+            key = self._plan_snapshot_key(session_id)
+            raw = self._redis.get(key)
+            if raw:
+                return json.loads(raw)
+        except Exception as e:
+            logger.debug(f"L1 plan_snapshot 读取失败: {e}")
+        return None
+
     def get_l1_snapshot(self, session_id: str) -> Dict[str, Any]:
         """
         调试与后续上下文组装使用。
@@ -302,6 +526,92 @@ class MemoryCoordinator:
             "recent_turns": recent_turns,
             "summary": summary,
         }
+
+    @staticmethod
+    def _should_index_to_rag(content: str) -> bool:
+        """RAG 质量门控：跳过低信号消息，减少向量库噪音"""
+        if not content or not content.strip():
+            return False
+        text = content.strip()
+        # 跳过过短消息
+        if len(text) < 15:
+            return False
+        # 跳过纯确认词
+        if text in ("好的", "谢谢", "收到", "明白了", "OK", "ok", "嗯", "好", "可以", "行"):
+            return False
+        # 跳过工具调用结果的纯 JSON（以 { 或 [ 开头且长度 < 200 的可能是工具结果片段）
+        if text.startswith("{") and len(text) < 200:
+            return False
+        return True
+
+    def _invalidate_context_cache(self, session_id: str):
+        """L2 数据更新后失效上下文缓存"""
+        try:
+            from Agent.context.context_builder import get_context_builder
+            builder = get_context_builder()
+            builder.invalidate_cache(session_id)
+            logger.debug(f"上下文缓存已失效: session={session_id}")
+        except Exception as e:
+            logger.debug(f"失效上下文缓存失败: {e}")
+
+    async def run_maintenance(self, user_id: str) -> Dict[str, Any]:
+        """
+        定时维护任务：时间感知衰减 + 双阈值过期清理 + 过期关系清理
+
+        由 app.py lifespan 定时调用（建议每 6 小时一次）。
+        """
+        result = {"decayed": 0, "expired_dual": 0, "stale_relations": {}, "global_orphans": 0}
+
+        if not self.l2_enabled:
+            return result
+
+        try:
+            result["decayed"] = self.l2_store.decay_preferences(
+                user_id, decay_lambda=memory_budget.graph_decay_lambda
+            )
+        except Exception as e:
+            logger.warning(f"时间感知衰减失败: {e}")
+
+        try:
+            result["expired_dual"] = self.l2_store.expire_by_dual_threshold(
+                user_id,
+                expire_days=memory_budget.merge_expire_days,
+                min_importance=memory_budget.merge_min_importance,
+            )
+        except Exception as e:
+            logger.warning(f"双阈值过期清理失败: {e}")
+
+        try:
+            result["stale_relations"] = self.l2_store.cleanup_stale_user_relations(
+                user_id, max_age_days=30
+            )
+        except Exception as e:
+            logger.warning(f"过期关系清理失败: {e}")
+
+        try:
+            result["global_orphans"] = self.l2_store.cleanup_global_orphan_preferences()
+        except Exception as e:
+            logger.warning(f"全局孤儿Preference回收失败: {e}")
+
+        logger.info(f"维护任务完成: user={user_id}, {result}")
+        return result
+
+    def _maybe_trigger_merge(self, user_id: str):
+        """
+        计数触发合并检查: 写入量超过阈值时异步触发维护。
+
+        在 append_turn 中调用，不阻塞用户对话。
+        """
+        self._stats["turns_written"] += 1  # (已在 append_turn 中递增，此处为保护)
+        total_writes = (
+            self._stats["turns_written"] +
+            self._stats["l2_upserts"] +
+            self._stats["rag_index_writes"]
+        )
+        if total_writes > 0 and total_writes % memory_budget.merge_count_threshold == 0:
+            import asyncio
+            asyncio.create_task(self.run_maintenance(user_id))
+            logger.info(f"计数触发合并: user={user_id}, writes={total_writes}")
 
     def get_stats(self) -> Dict[str, Any]:
         return {

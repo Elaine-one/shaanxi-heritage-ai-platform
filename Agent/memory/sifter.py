@@ -24,8 +24,15 @@ SIFTER_SYSTEM_PROMPT = """你是一个旅行偏好提取器。从用户消息中
 
 每项必须包含：type, value(结构化对象), confidence(0-1浮点数), source(原文片段)
 
-如果消息不包含任何旅行偏好信息，返回空数组 []。
-只返回 JSON 数组，不要包含其他文字。"""
+【示例输出】
+[{"type":"budget","value":{"amount":5000,"currency":"CNY"},"confidence":0.8,"source":"预算5000"},
+ {"type":"region_interest","value":{"regions":["西安","延安"]},"confidence":0.7,"source":"想去西安和延安"},
+ {"type":"heritage_interest","value":{"heritage_name":"皮影戏"},"confidence":0.65,"source":"看看皮影戏"}]
+
+【重要规则】
+- 注意否定：如果用户说"不想要/不去/不喜欢/排除"某物，不要将其提取为正向偏好
+- 仅返回 JSON 数组，禁止 markdown 代码块包裹
+- 如果消息不包含任何旅行偏好信息，返回空数组 []"""
 
 SIFTER_USER_PROMPT = """请从以下用户消息中提取旅行偏好：
 
@@ -63,7 +70,7 @@ class Sifter:
             return self.should_persist(role, content)
         try:
             prompt = f"判断以下用户消息是否包含旅行偏好信息（预算/出行方式/地区/兴趣/团队等），只回答 true 或 false：\n{content}"
-            response = await asyncio.wait_for(llm._call_model(prompt), timeout=15)
+            response = await asyncio.wait_for(llm.call_model(prompt), timeout=15)
             if response and response.get('success'):
                 answer = response.get('content', '').strip().lower()
                 return 'true' in answer
@@ -71,32 +78,58 @@ class Sifter:
             logger.debug(f"LLM判断偏好失败，降级为关键词: {e}")
         return self.should_persist(role, content)
 
+    # ── 可配置偏好提取规则 ──
+    # 每条规则: (偏好类型, 关键词列表, 置信度)
+    # 可通过环境变量 SIFTER_RULES_JSON 扩展
+    @classmethod
+    def _get_extraction_rules(cls):
+        import os
+        rules_json = os.getenv("SIFTER_RULES_JSON")
+        if rules_json:
+            try:
+                import json
+                return json.loads(rules_json)
+            except Exception:
+                pass
+        # 默认规则集
+        return [
+            {"type": "budget", "keywords": ["预算", "花费", "费用", "价格", "省钱"], "confidence_key": "default"},
+            {"type": "travel_mode", "keywords": ["自驾", "公交", "步行", "高铁", "飞机", "火车"], "confidence_key": "default"},
+            {"type": "region_interest", "keywords": ["西安", "咸阳", "宝鸡", "渭南", "延安", "汉中"], "confidence_key": "low"},
+            {"type": "interest", "keywords": ["喜欢", "偏好", "感兴趣", "热爱"], "confidence_key": "low"},
+            {"type": "heritage_interest", "keywords": ["非遗", "皮影", "剪纸", "刺绣", "泥塑", "社火", "秦腔", "老腔", "鼓乐"], "confidence_key": "low"},
+            {"type": "group_preference", "keywords": ["带孩子", "老人", "朋友", "情侣", "独自", "家庭"], "confidence_key": "low"},
+            {"type": "pace", "keywords": ["深度", "打卡", "轻松", "紧凑", "自由行"], "confidence_key": "low"},
+        ]
+
     def extract_preferences(self, content: str) -> List[Dict[str, Any]]:
         if not content:
             return []
         prefs: List[Dict[str, Any]] = []
-        max_chars = memory_budget.sifter_pref_value_max_chars
-        conf = memory_budget.sifter_confidence_default
+        conf_default = memory_budget.sifter_confidence_default
         conf_low = memory_budget.sifter_confidence_low
-        keywords = memory_budget.sifter_hot_keywords
 
-        budget_kws = [k for k in keywords if k in ("预算",)]
-        travel_kws = [k for k in keywords if k in ("自驾", "公交", "步行", "高铁")]
-        region_kws = [k for k in keywords if k in ("西安", "咸阳", "宝鸡")]
-        interest_kws = [k for k in keywords if k in ("喜欢", "偏好")]
-        heritage_kws = [k for k in keywords if k in ("非遗", "皮影", "剪纸", "刺绣", "泥塑", "社火", "秦腔")]
+        for rule in self._get_extraction_rules():
+            keywords = rule.get("keywords", [])
+            pref_type = rule.get("type", "")
+            conf_key = rule.get("confidence_key", "default")
+            confidence = conf_low if conf_key == "low" else conf_default
 
-        if any(k in content for k in budget_kws):
-            prefs.append({"type": "budget", "value": content[:max_chars], "confidence": conf})
-        if any(k in content for k in travel_kws):
-            prefs.append({"type": "travel_mode", "value": content[:max_chars], "confidence": conf})
-        if any(k in content for k in region_kws):
-            prefs.append({"type": "region_interest", "value": content[:max_chars], "confidence": conf_low})
-        if any(k in content for k in interest_kws):
-            prefs.append({"type": "interest", "value": content[:max_chars], "confidence": conf_low})
-        if any(k in content for k in heritage_kws):
-            matched_name = next((k for k in heritage_kws if k in content), None)
-            prefs.append({"type": "heritage_interest", "value": {"heritage_name": matched_name or content[:max_chars]}, "confidence": conf_low})
+            if any(k in content for k in keywords):
+                if pref_type == "heritage_interest":
+                    matched_name = next((k for k in keywords if k in content), None)
+                    prefs.append({
+                        "type": pref_type,
+                        "value": {"heritage_name": matched_name or content[:80]},
+                        "confidence": min(confidence, 0.25),
+                    })
+                else:
+                    matched_kw = next((k for k in keywords if k in content), "")
+                    prefs.append({
+                        "type": pref_type,
+                        "value": matched_kw or content[:80],
+                        "confidence": confidence,
+                    })
         return prefs
 
     async def extract_preferences_async(self, content: str) -> List[Dict[str, Any]]:
@@ -107,7 +140,7 @@ class Sifter:
             return self.extract_preferences(content)
         try:
             prompt = f"{SIFTER_SYSTEM_PROMPT}\n\n{SIFTER_USER_PROMPT.format(content=content)}"
-            response = await asyncio.wait_for(llm._call_model(prompt), timeout=20)
+            response = await asyncio.wait_for(llm.call_model(prompt), timeout=20)
             if not response or not response.get('success'):
                 return self.extract_preferences(content)
 

@@ -116,6 +116,21 @@ class HeritageQueryService:
                 items = [dict(r) for r in result]
             if items:
                 logger.info(f"知识图谱关键词搜索到 {len(items)} 条非遗: {query}")
+                return items
+
+            # Heritage 节点搜不到，尝试搜 Inheritor 节点反向找 Heritage
+            with self.knowledge_graph.driver.session() as session:
+                result = session.run(
+                    "MATCH (h:Heritage)-[:HAS_INHERITOR]->(i:Inheritor) "
+                    "WHERE i.name CONTAINS $kw "
+                    "RETURN DISTINCT h.id AS id, h.name AS name, h.category AS category, "
+                    "h.region AS region, h.level AS level "
+                    "LIMIT $top_k",
+                    kw=query, top_k=top_k,
+                )
+                items = [dict(r) for r in result]
+            if items:
+                logger.info(f"通过传承人名称搜索到 {len(items)} 条非遗: {query}")
             return items
         except Exception as e:
             logger.debug(f"知识图谱关键词搜索失败: {e}")

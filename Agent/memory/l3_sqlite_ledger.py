@@ -6,6 +6,7 @@ L3 SQLite 审计账本（骨架版）
 
 import os
 import sqlite3
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -19,15 +20,22 @@ class L3SQLiteLedger:
             db_path = str(Path(__file__).parent.parent / "data" / "memory.db")
         self.db_path = db_path
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        self._conn_instance: Optional[sqlite3.Connection] = None
+        self._lock = threading.Lock()
         self._init_table()
 
-    def _conn(self):
-        return sqlite3.connect(self.db_path)
+    def _get_conn(self) -> sqlite3.Connection:
+        """获取持久连接，首次创建时启用 WAL 模式"""
+        if self._conn_instance is None:
+            with self._lock:
+                if self._conn_instance is None:
+                    self._conn_instance = sqlite3.connect(self.db_path, check_same_thread=False)
+                    self._conn_instance.execute("PRAGMA journal_mode=WAL")
+        return self._conn_instance
 
     def _init_table(self):
-        conn = self._conn()
-        cur = conn.cursor()
-        cur.execute(
+        conn = self._get_conn()
+        conn.execute(
             """
             CREATE TABLE IF NOT EXISTS conversation_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,10 +51,9 @@ class L3SQLiteLedger:
             )
             """
         )
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_conv_events_session ON conversation_events(session_id)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_conv_events_user ON conversation_events(user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_conv_events_session ON conversation_events(session_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_conv_events_user ON conversation_events(user_id)")
         conn.commit()
-        conn.close()
 
     def append_event(
         self,
@@ -59,36 +66,32 @@ class L3SQLiteLedger:
         if not session_id or not role:
             return False
         meta = meta or {}
-        conn = None
         try:
-            conn = self._conn()
-            cur = conn.cursor()
-            cur.execute(
-                """
-                INSERT INTO conversation_events
-                (session_id, user_id, role, content, model, tokens_in, tokens_out, latency_ms, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    session_id,
-                    user_id,
-                    role,
-                    content,
-                    meta.get("model"),
-                    meta.get("tokens_in"),
-                    meta.get("tokens_out"),
-                    meta.get("latency_ms"),
-                    datetime.now().isoformat(),
-                ),
-            )
-            conn.commit()
+            with self._lock:
+                conn = self._get_conn()
+                conn.execute(
+                    """
+                    INSERT INTO conversation_events
+                    (session_id, user_id, role, content, model, tokens_in, tokens_out, latency_ms, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session_id,
+                        user_id,
+                        role,
+                        content,
+                        meta.get("model"),
+                        meta.get("tokens_in"),
+                        meta.get("tokens_out"),
+                        meta.get("latency_ms"),
+                        datetime.now().isoformat(),
+                    ),
+                )
+                conn.commit()
             return True
         except Exception as e:
             logger.warning(f"L3 账本写入失败: {e}")
             return False
-        finally:
-            if conn:
-                conn.close()
 
 
 _l3_ledger_instance: Optional[L3SQLiteLedger] = None
