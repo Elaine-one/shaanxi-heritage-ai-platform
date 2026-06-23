@@ -91,7 +91,8 @@ class ConversationTurn(BaseModel):
     role: str
     content: str
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
-    
+    tool_interactions: Optional[List[Dict]] = None  # [{tool_name, tool_args, tool_call_id, result}, ...]
+
     class Config:
         extra = "allow"
 
@@ -129,11 +130,12 @@ class UnifiedContext(BaseModel):
         """获取最近n轮对话"""
         return self.conversation_history[-n:] if self.conversation_history else []
     
-    def add_conversation_turn(self, role: str, content: str):
+    def add_conversation_turn(self, role: str, content: str, tool_interactions: List[Dict] = None):
         """添加对话轮次"""
         self.conversation_history.append(ConversationTurn(
             role=role,
-            content=content
+            content=content,
+            tool_interactions=tool_interactions
         ))
         from Agent.config.memory_budget import memory_budget
         max_turns = memory_budget.conversation_history_max_turns

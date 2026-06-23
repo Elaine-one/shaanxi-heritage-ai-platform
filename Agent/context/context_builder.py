@@ -25,7 +25,7 @@ class ContextBuilder:
     """
     
     def __init__(self):
-        from Agent.memory.session_provider import get_session_pool
+        from Agent.memory.session import get_session_pool
         from Agent.memory.coordinator import get_memory_coordinator
         self.session_pool = get_session_pool()
         self.memory_coordinator = get_memory_coordinator()
@@ -84,6 +84,13 @@ class ContextBuilder:
                 logger.info(f"📦 从 L1 记忆恢复 {len(context.conversation_history)} 条对话: session={session_id}")
             if l1_snapshot and l1_snapshot.get("summary"):
                 context.cached_data["session_summary"] = l1_snapshot.get("summary")
+
+            # 恢复 plan_data（session 过期后从 L1 plan_snapshot 恢复）
+            plan_snapshot = self.memory_coordinator.get_l1_plan_snapshot(session_id)
+            if plan_snapshot:
+                context.plan_data = self._plan_snapshot_to_plan_data(plan_snapshot)
+                logger.info(f"📦 从 L1 plan_snapshot 恢复规划数据: session={session_id}, "
+                           f"heritages={len(context.plan_data.heritage_items)}")
             return context
 
         context.user_id = session.user_id
@@ -96,15 +103,15 @@ class ContextBuilder:
         recent_turns = l1_snapshot.get("recent_turns", []) if l1_snapshot else []
 
         source_turns = recent_turns if recent_turns else getattr(session, 'conversation_history', [])
-        if len(source_turns) > 10:
-            source_turns = source_turns[-10:]
+        # 不再截断 — 传递完整数据给 WorkingMemoryAssembler 做预算感知组装
         if source_turns:
             for m in source_turns:
                 if isinstance(m, dict):
                     context.conversation_history.append(ConversationTurn(
                         role=m.get('role', ''),
                         content=m.get('content', ''),
-                        timestamp=m.get('timestamp', '')
+                        timestamp=m.get('timestamp', ''),
+                        tool_interactions=m.get('tool_interactions'),
                     ))
 
         context.cached_data = self._get_cached_data(session)
@@ -136,14 +143,16 @@ class ContextBuilder:
                 'budget_range': context.plan_data.budget_range,
                 'special_requirements': context.plan_data.special_requirements,
                 'heritage_items': [
-                    {'id': h.id, 'name': h.name, 'region': h.region, 
-                     'category': h.category, 'level': h.level}
+                    {'id': h.id, 'name': h.name, 'region': h.region,
+                     'category': h.category, 'level': h.level,
+                     'latitude': h.latitude, 'longitude': h.longitude}
                     for h in context.plan_data.heritage_items
                 ],
                 'itinerary': context.plan_data.itinerary,
             },
             'conversation_history': [
-                {'role': t.role, 'content': t.content, 'timestamp': t.timestamp}
+                {'role': t.role, 'content': t.content, 'timestamp': t.timestamp,
+                 'tool_interactions': t.tool_interactions}
                 for t in context.conversation_history
             ],
             'detected_intent': context.detected_intent.value if context.detected_intent else 'UNKNOWN',
@@ -174,6 +183,8 @@ class ContextBuilder:
                 region=item.get('region', ''),
                 category=item.get('category', ''),
                 level=item.get('level', ''),
+                latitude=item.get('latitude'),
+                longitude=item.get('longitude'),
             )
             if heritage.id:
                 context.plan_data.heritage_items.append(heritage)
@@ -183,6 +194,7 @@ class ContextBuilder:
                 role=t.get('role', ''),
                 content=t.get('content', ''),
                 timestamp=t.get('timestamp', ''),
+                tool_interactions=t.get('tool_interactions'),
             ))
         
         intent_str = data.get('detected_intent', 'UNKNOWN')
@@ -242,10 +254,22 @@ class ContextBuilder:
         
         if hasattr(session, 'weather_info') and session.weather_info:
             cached['weather'] = session.weather_info
-        
+
         if hasattr(session, 'location_coordinates') and session.location_coordinates:
             cached['coordinates'] = session.location_coordinates
-        
+
+        # L2 用户偏好预取（纳入 300s 缓存，避免每轮 5 次 Neo4j 查询）
+        if hasattr(session, 'user_id') and session.user_id:
+            try:
+                from Agent.memory.l2_graph_store import get_l2_graph_store
+                l2_store = get_l2_graph_store()
+                if l2_store:
+                    l2_data = l2_store.fetch_user_memory(session.user_id)
+                    if l2_data:
+                        cached['l2_user_memory'] = l2_data
+            except Exception as e:
+                logger.debug(f"L2 数据预取失败: {e}")
+
         return cached
     
     def _build_plan_data(self, session) -> PlanData:
@@ -306,6 +330,36 @@ class ContextBuilder:
         
         return plan_data
     
+    def _plan_snapshot_to_plan_data(self, snapshot: Dict[str, Any]) -> PlanData:
+        """从 L1 plan_snapshot 恢复 PlanData 对象"""
+        plan_data = PlanData(
+            departure_location=snapshot.get('departure_location') or '',
+            travel_days=self._safe_int(snapshot.get('travel_days') or 0),
+            travel_mode=snapshot.get('travel_mode') or 'driving',
+            group_size=self._safe_int(snapshot.get('group_size') or 1),
+            budget_range=snapshot.get('budget_range') or '',
+            special_requirements=list(snapshot.get('special_requirements') or []),
+            itinerary=list(snapshot.get('itinerary') or []),
+        )
+
+        heritage_items = snapshot.get('heritage_items', [])
+        if heritage_items:
+            for item in heritage_items:
+                if isinstance(item, dict):
+                    heritage = HeritageItem(
+                        id=self._safe_int(item.get('id')),
+                        name=item.get('name', ''),
+                        region=item.get('region', ''),
+                        category=item.get('category', ''),
+                        level=item.get('level', ''),
+                        latitude=self._safe_float(item.get('latitude')),
+                        longitude=self._safe_float(item.get('longitude')),
+                    )
+                    if heritage.id:
+                        plan_data.heritage_items.append(heritage)
+
+        return plan_data
+
     def _safe_int(self, value: Any) -> int:
         """安全转换为整数"""
         if value is None:
@@ -336,38 +390,10 @@ class ContextBuilder:
         return None
     
     def detect_intent(self, user_input: str, context: UnifiedContext) -> IntentType:
-        """检测用户意图"""
-        if not user_input:
-            return IntentType.UNKNOWN
-        
-        input_lower = user_input.lower()
-        
-        plan_keywords = ['我的规划', '我的行程', '我的路线', '已选', '行程安排', '规划是什么', '行程是什么']
-        weather_keywords = ['天气', '气温', '下雨', '晴天', '温度', '天气预报']
-        heritage_keywords = ['非遗', '项目介绍', '历史', '特色', '什么是', '介绍一下']
-        route_keywords = ['路线', '怎么走', '距离', '多远', '路线安排', '先去哪', '顺序']
-        modify_keywords = ['修改', '调整', '增加', '删除', '换', '改一下', '去掉']
-        geo_keywords = ['经纬度', '坐标', '位置', '在哪', '地址']
-        
-        if any(kw in input_lower for kw in plan_keywords):
-            return IntentType.PLAN_RELATED
-        
-        if any(kw in input_lower for kw in weather_keywords):
-            return IntentType.WEATHER_QUERY
-        
-        if any(kw in input_lower for kw in route_keywords):
-            return IntentType.ROUTE_QUERY
-        
-        if any(kw in input_lower for kw in modify_keywords):
-            return IntentType.MODIFICATION
-        
-        if any(kw in input_lower for kw in heritage_keywords):
-            return IntentType.HERITAGE_QUERY
-        
-        if any(kw in input_lower for kw in geo_keywords):
-            return IntentType.GENERAL_QUERY
-        
-        return IntentType.GENERAL_QUERY
+        """检测用户意图 — 委托给 WorkingMemoryAssembler"""
+        from Agent.context.working_memory_assembler import get_working_memory_assembler
+        assembler = get_working_memory_assembler()
+        return assembler._detect_intent(user_input, context)
     
     def build_from_dict(self, data: Dict[str, Any]) -> UnifiedContext:
         """从字典构建上下文（用于测试和兼容）"""
@@ -414,8 +440,3 @@ def get_context_builder() -> ContextBuilder:
     if _context_builder is None:
         _context_builder = ContextBuilder()
     return _context_builder
-
-
-def build_context(session_id: str) -> UnifiedContext:
-    """便捷函数：构建上下文"""
-    return get_context_builder().build_from_session(session_id)
