@@ -7,7 +7,7 @@ from loguru import logger
 from Agent.api.session_dependencies import get_current_user_from_session, TokenData
 from Agent.services.conversation_service import get_conversation_service
 from Agent.services.user_history_service import get_user_history_service
-from Agent.memory.session_provider import get_session_pool
+from Agent.memory.session import get_session_pool
 
 router = APIRouter(prefix="/api/conversations", tags=["对话管理"])
 

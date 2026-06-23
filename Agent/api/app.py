@@ -5,21 +5,18 @@ FastAPI应用主文件
 """
 
 import asyncio
-import uuid
-import json
-from typing import Dict, Any, List, Optional
-from datetime import datetime
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, Field
-from loguru import logger
-from contextlib import asynccontextmanager
-from cachetools import TTLCache
-
-import sys
 import os
+import sys
+from datetime import datetime
 from pathlib import Path
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from loguru import logger
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).resolve().parent.parent.parent
@@ -34,43 +31,44 @@ if str(current_dir) not in sys.path:
 from Agent.agent.agent import get_agent
 from Agent.agent.travel_planner import get_travel_planner
 from Agent.utils.logger_config import setup_logger
-from Agent.api.session_dependencies import get_current_user_from_session, TokenData, close_async_client
+from Agent.api.session_dependencies import close_async_client
 from Agent.config.settings import Config
+from Agent.api.cache import progress_callbacks
+from Agent.api.error_models import error_response
 
 # 导入路由
 from Agent.api.edit_endpoints import edit_router
-from Agent.api.weather_endpoints import router as weather_router
-from Agent.api.conversation_endpoints import router as conversation_router
-from Agent.api.admin_endpoints import admin_router
+from Agent.api.travel_endpoints import travel_router
 
 # 设置日志
 setup_logger()
 
-progress_callbacks = TTLCache(maxsize=1000, ttl=3600)
 _cleanup_task = None
 
+
 async def _progress_cache_cleanup():
-    """定期清理进度缓存的监控任务"""
+    """定期监控进度缓存大小"""
     while True:
         await asyncio.sleep(300)
         logger.debug(f"进度缓存当前大小: {len(progress_callbacks)}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info("智能旅游规划Agent API启动")
-    
+
     from Agent.core.startup import get_startup_manager
     from Agent.core.resource_manager import get_resource_manager
-    
+
     startup_manager = get_startup_manager()
-    
+
     init_results = await startup_manager.initialize_all()
-    
+
     for name, result in init_results.items():
         if not result['success']:
             logger.warning(f"{name} 初始化失败: {result.get('error')}")
-    
+
     sync_result = await startup_manager.auto_sync_heritage_data()
     if sync_result.get('success'):
         if sync_result.get('skipped'):
@@ -79,7 +77,7 @@ async def lifespan(app: FastAPI):
             logger.info(f"数据同步完成: {sync_result.get('heritage_count', 0)} 条非遗")
     else:
         logger.warning(f"数据同步失败: {sync_result.get('error')}")
-    
+
     try:
         agent = get_agent()
         planner = get_travel_planner()
@@ -90,17 +88,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"核心组件初始化失败: {str(e)}")
         raise SystemExit(1)
-    
+
     resource_manager = get_resource_manager()
     scheduler_task = asyncio.create_task(resource_manager.start_scheduler())
-    
+
     global _cleanup_task
     _cleanup_task = asyncio.create_task(_progress_cache_cleanup())
-    
+
     yield
-    
+
     logger.info("智能旅游规划Agent API关闭")
-    
+
     scheduler_task.cancel()
     _cleanup_task.cancel()
     try:
@@ -111,10 +109,11 @@ async def lifespan(app: FastAPI):
         await asyncio.wait_for(_cleanup_task, timeout=5.0)
     except (asyncio.CancelledError, asyncio.TimeoutError):
         pass
-    
+
     await close_async_client()
-    
+
     await resource_manager.shutdown()
+
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -127,7 +126,6 @@ app = FastAPI(
 )
 
 # 配置CORS
-# 从环境变量加载允许的跨域来源，必须配置
 origins_str = Config.AGENT_CORS_ALLOWED_ORIGINS
 if not origins_str:
     logger.error("环境变量 AGENT_CORS_ALLOWED_ORIGINS 未配置")
@@ -144,72 +142,61 @@ app.add_middleware(
 )
 
 # 注册路由器
+app.include_router(travel_router)
 app.include_router(edit_router)
-app.include_router(weather_router)
-app.include_router(conversation_router)
-app.include_router(admin_router)
 
-# 数据模型定义
+# ── Unified error response handlers ─────────────────────────────────
 
-class TravelPlanRequest(BaseModel):
-    heritage_ids: List[int] = Field(..., description="选中的非遗项目ID列表")
-    user_id: Optional[str] = Field(None, description="用户ID")
-    travel_days: int = Field(..., ge=1, le=30, description="旅游天数")
-    departure_location: str = Field("", description="出发地")
-    travel_mode: str = Field("自驾", description="出行方式")
-    budget_range: str = Field("中等", description="预算范围")
-    group_size: int = Field(2, ge=1, le=50, description="团队人数")
-    special_requirements: List[str] = Field(default_factory=list, description="特殊要求")
-    contact_info: Optional[Dict[str, str]] = Field(None, description="联系信息")
 
-class ExportRequest(BaseModel):
-    format: str = Field(default="json", description="导出格式 (json, csv, pdf)")
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response(exc.status_code, exc.detail),
+    )
 
-class PDFExportRequest(BaseModel):
-    """PDF导出请求模型"""
-    title: Optional[str] = "我的旅游规划"
-    destination: Optional[str] = None
-    duration: Optional[str] = None
-    weather_info: Optional[Dict[str, Any]] = None
-    session_id: Optional[str] = None
-    # 接收前端传来的完整数据（包含对话历史）
-    complete_plan_data: Optional[Dict[str, Any]] = None
-    ai_descriptions: Optional[List[str]] = None
 
-class PlanResponse(BaseModel):
-    success: bool
-    plan_id: str
-    message: str
-    data: Optional[Dict[str, Any]] = None
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    messages = []
+    for err in exc.errors():
+        loc = ".".join(str(x) for x in err["loc"])
+        messages.append(f"{loc}: {err['msg']}")
+    detail = "; ".join(messages)
+    return JSONResponse(
+        status_code=422,
+        content=error_response(422, detail),
+    )
 
-class ProgressResponse(BaseModel):
-    plan_id: str
-    status: str
-    progress: int
-    current_step: str
-    steps: List[str]
-    start_time: str
-    end_time: Optional[str] = None
-    error_message: Optional[str] = None
 
-# API 接口实现
+@app.exception_handler(Exception)
+async def internal_error_handler(request: Request, exc: Exception):
+    logger.error(f"未处理异常: {type(exc).__name__}: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content=error_response(500, "服务器内部错误"),
+    )
+
+
+# ── Basic endpoints ─────────────────────────────────────────────────
+
 
 @app.get("/")
 async def root():
     return {"message": "Agent API Running", "status": "ok"}
 
+
 @app.get("/health")
 async def health_check():
     """健康检查端点"""
-    from Agent.memory.session_provider import get_session_pool
-    
+    from Agent.memory.session import get_session_pool
+
     health_info = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "components": {}
     }
-    
-    # 检查会话存储
+
     try:
         session_pool = get_session_pool()
         redis_health = session_pool.health_check()
@@ -223,491 +210,9 @@ async def health_check():
             "status": "error",
             "error": str(e)
         }
-    
+
     return health_info
 
-@app.post("/api/travel-plan/create", summary="创建规划", response_model=PlanResponse)
-async def create_travel_plan(request: TravelPlanRequest, background_tasks: BackgroundTasks, current_user: TokenData = Depends(get_current_user_from_session)):
-    """创建新的旅游规划任务"""
-    try:
-        plan_id = f"plan_{uuid.uuid4().hex[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        logger.info(f"收到旅游规划请求: {plan_id}, 用户: {current_user.user_id}, 非遗项目: {request.heritage_ids}")
-        
-        planning_request = request.model_dump()
-        planning_request['plan_id'] = plan_id
-        
-        # 立即初始化进度，避免前端首次轮询出现 404
-        progress_callbacks[plan_id] = {
-            'status': 'processing',
-            'progress': 5,
-            'current_step': '正在启动规划引擎...',
-            'steps': ['分析非遗项目', '获取天气信息', '生成AI建议', '路径规划计算', '生成路书', '完成'],
-            'start_time': datetime.now().isoformat()
-        }
-        
-        async def progress_callback(pid: str, pdata: Dict[str, Any]):
-            progress_callbacks[pid] = pdata
-        
-        background_tasks.add_task(execute_travel_planning, planning_request, progress_callback)
-        
-        return PlanResponse(
-            success=True,
-            plan_id=plan_id,
-            message="旅游规划任务已启动",
-            data={"plan_id": plan_id, "travel_days": request.travel_days}
-        )
-    except Exception as e:
-        logger.error(f"创建规划失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-async def execute_travel_planning(request: Dict[str, Any], callback: callable):
-    try:
-        planner = get_travel_planner()
-        skip_ai = request.get('skip_ai_suggestions', True)
-        result = await planner.create_travel_plan(request, callback, skip_ai_suggestions=skip_ai)
-        pid = request['plan_id']
-        if pid in progress_callbacks:
-            progress_callbacks[pid]['result'] = result
-            progress_callbacks[pid]['status'] = 'completed'
-            progress_callbacks[pid]['progress'] = 100
-            progress_callbacks[pid]['end_time'] = datetime.now().isoformat()
-        logger.info(f"规划任务完成: {pid}")
-    except Exception as e:
-        logger.error(f"规划执行异常: {str(e)}")
-        pid = request.get('plan_id')
-        if pid in progress_callbacks:
-            progress_callbacks[pid].update({'status': 'error', 'error_message': str(e)})
-
-@app.get("/api/travel-plan/progress/{plan_id}", summary="规划进度", response_model=ProgressResponse)
-async def get_planning_progress(plan_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
-    """查询旅游规划的生成进度"""
-    logger.info(f"[进度查询] 收到请求: plan_id={plan_id}")
-    
-    if plan_id in progress_callbacks:
-        data = progress_callbacks[plan_id]
-        logger.info(f"[进度查询] 从 callbacks 找到: {data.get('progress')}% - {data.get('status')}")
-        return ProgressResponse(
-            plan_id=plan_id,
-            status=data.get('status', 'unknown'),
-            progress=data.get('progress', 0),
-            current_step=data.get('current_step', ''),
-            steps=data.get('steps', []),
-            start_time=data.get('start_time', ''),
-            end_time=data.get('end_time'),
-            error_message=data.get('error_message')
-        )
-    planner = get_travel_planner()
-    data = planner.get_planning_progress(plan_id)
-    logger.info(f"[进度查询] 从 planner 获取: {data}")
-    if data.get('status') != 'not_found':
-        return ProgressResponse(
-            plan_id=plan_id,
-            status=data.get('status', 'unknown'),
-            progress=data.get('progress', 0),
-            current_step=data.get('current_step', ''),
-            steps=data.get('steps', []),
-            start_time=data.get('start_time', ''),
-            end_time=data.get('end_time'),
-            error_message=data.get('error_message')
-        )
-    raise HTTPException(status_code=404, detail="规划不存在")
-
-@app.get("/api/travel-plan/progress-stream/{plan_id}", summary="规划进度流（SSE）")
-async def get_planning_progress_stream(plan_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
-    """使用 Server-Sent Events (SSE) 实时推送旅游规划的生成进度"""
-    logger.info(f"[进度流] 收到SSE连接请求: plan_id={plan_id}")
-    
-    async def event_generator():
-        last_progress = -1
-        
-        while True:
-            if plan_id in progress_callbacks:
-                data = progress_callbacks[plan_id]
-                current_progress = data.get('progress', 0)
-                
-                if current_progress != last_progress:
-                    logger.info(f"[进度流] 发送进度: {current_progress}% - {data.get('current_step')}")
-                    yield f"data: {json.dumps(data)}\n\n"
-                    last_progress = current_progress
-                
-                if data.get('status') in ['completed', 'error']:
-                    logger.info(f"[进度流] 任务完成，断开连接: {data.get('status')}")
-                    break
-            else:
-                logger.warning(f"[进度流] plan_id 不存在: {plan_id}")
-                break
-            
-            await asyncio.sleep(0.5)
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
-
-@app.get("/api/travel-plan/result/{plan_id}", summary="规划结果")
-async def get_planning_result(plan_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
-    """获取已完成的旅游规划结果"""
-    if plan_id in progress_callbacks:
-        data = progress_callbacks[plan_id]
-        if data.get('status') == 'completed':
-            return {"success": True, "plan_id": plan_id, "data": data['result']}
-        elif data.get('status') == 'error':
-            return {"success": False, "plan_id": plan_id, "error": data.get('error_message')}
-        else:
-            return {"success": False, "status": data.get('status'), "message": "规划进行中"}
-    raise HTTPException(status_code=404, detail="结果不存在")
-
-@app.post("/api/travel-plan/cancel/{plan_id}", summary="取消规划")
-async def cancel_planning(plan_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
-    """取消正在进行的旅游规划任务"""
-    logger.info(f"[取消规划] 收到取消请求: plan_id={plan_id}")
-    
-    if plan_id in progress_callbacks:
-        data = progress_callbacks[plan_id]
-        if data.get('status') == 'processing':
-            progress_callbacks[plan_id].update({
-                'status': 'cancelled',
-                'progress': data.get('progress', 0),
-                'current_step': '规划已取消',
-                'end_time': datetime.now().isoformat()
-            })
-            logger.info(f"[取消规划] 规划已取消: {plan_id}")
-            return {"success": True, "message": "规划已取消"}
-        else:
-            logger.warning(f"[取消规划] 规划状态不允许取消: {data.get('status')}")
-            return {"success": False, "message": f"规划状态为 {data.get('status')}，无法取消"}
-    else:
-        logger.warning(f"[取消规划] 规划不存在: {plan_id}")
-        raise HTTPException(status_code=404, detail="规划不存在")
-
-@app.post("/api/agent/export_plan_pdf", summary="导出PDF")
-async def export_plan_pdf(request: PDFExportRequest, background_tasks: BackgroundTasks, current_user: TokenData = Depends(get_current_user_from_session)):
-    """将旅游规划导出为PDF文件，自动上传到对象存储"""
-    try:
-        logger.info(f"收到AI PDF导出请求，目的地: {request.destination}, 用户: {current_user.username}")
-
-        # 1. 获取完整数据 - 优先从 session 获取最新数据
-        plan_data = request.complete_plan_data or {}
-
-        if request.session_id:
-            try:
-                from Agent.memory.session_provider import get_session_pool
-                session_pool = get_session_pool()
-                session = session_pool.get_session(request.session_id)
-                if session:
-                    if hasattr(session, 'plan_data') and session.plan_data:
-                        session_plan = session.plan_data
-                        if isinstance(session_plan, dict):
-                            plan_data.update(session_plan)
-                            logger.info(f"✅ 已从 session 获取最新 plan_data: travel_days={session_plan.get('travel_days')}")
-                        elif hasattr(session_plan, 'model_dump'):
-                            plan_data.update(session_plan.model_dump())
-                            logger.info(f"✅ 已从 session 获取最新 plan_data: travel_days={session_plan.travel_days}")
-                    if hasattr(session, 'departure_location') and session.departure_location:
-                        plan_data['departure_location'] = session.departure_location
-                    if hasattr(session, 'travel_days') and session.travel_days:
-                        plan_data['travel_days'] = session.travel_days
-            except Exception as e:
-                logger.warning(f"从 session 获取数据失败: {e}")
-
-        # 2. 提取前端注入的对话历史
-        conversation_history = plan_data.get('conversation_history', [])
-        
-        # 如果 plan_data 里没有，尝试从 ai_descriptions 恢复
-        if not conversation_history and request.ai_descriptions:
-            conversation_history = [
-                {'role': 'user', 'content': '导出历史摘要'}, 
-                {'role': 'assistant', 'content': '\n'.join(request.ai_descriptions)}
-            ]
-        
-        logger.info(f"导出上下文包含 {len(conversation_history)} 条对话记录")
-
-        # 3. 执行导出
-        from Agent.services.pdf_content_integrator import PDFContentIntegrator
-        from Agent.agent import get_travel_planner
-        from Agent.services.minio_storage import get_minio_service
-        
-        planner = get_travel_planner()
-        integrator = PDFContentIntegrator(llm_model=planner.llm_model)
-        
-        # 调用 integrate_and_export
-        file_response = await integrator.integrate_and_export(
-            plan_data=plan_data,
-            conversation_history=conversation_history,
-            output_filename=None
-        )
-        
-        if file_response.get('success'):
-            path = file_response.get('pdf_path')
-            
-            # 4. 读取PDF文件并上传到MinIO
-            minio_url = None
-            upload_success = False
-            try:
-                with open(path, 'rb') as f:
-                    pdf_bytes = f.read()
-                
-                minio_service = get_minio_service()
-                upload_result = minio_service.upload_pdf(
-                    username=current_user.username,
-                    pdf_bytes=pdf_bytes,
-                    metadata={
-                        "destination": request.destination,
-                        "duration": request.duration,
-                        "title": request.title,
-                        "exported_by": current_user.user_id,
-                        "session_id": request.session_id,
-                        "message_count": len(conversation_history)
-                    }
-                )
-                
-                if upload_result.get('success'):
-                    minio_url = upload_result.get('url')
-                    upload_success = True
-                    logger.info(f"PDF已上传到MinIO: {upload_result.get('object_path')}")
-                else:
-                    logger.warning(f"MinIO上传失败: {upload_result.get('error')}")
-            except Exception as e:
-                logger.error(f"MinIO上传过程异常: {str(e)}")
-
-            # 5. 清理临时文件（在返回FileResponse后异步清理）
-            background_tasks.add_task(cleanup_temp_file, path)
-            
-            filename = f"TravelPlan_{request.destination}_{datetime.now().strftime('%H%M%S')}.pdf"
-            
-            # 构建响应头
-            headers = {
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            }
-            if minio_url:
-                headers["X-MinIO-URL"] = minio_url
-                headers["X-MinIO-Status"] = "success"
-            else:
-                headers["X-MinIO-Status"] = "failed"
-            
-            # 返回PDF文件内容
-            return FileResponse(
-                path=path,
-                filename=filename,
-                media_type='application/pdf',
-                headers=headers
-            )
-        else:
-            raise HTTPException(status_code=500, detail=file_response.get('error', '生成失败'))
-
-    except Exception as e:
-        logger.error(f"AI导出失败: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/travel-plan/export/{plan_id}", summary="导出规划")
-async def export_travel_plan(plan_id: str, export_request: ExportRequest, background_tasks: BackgroundTasks = None, current_user: TokenData = Depends(get_current_user_from_session)):
-    """导出旅游规划为PDF或JSON格式"""
-    try:
-        result = None
-        if plan_id in progress_callbacks and progress_callbacks[plan_id].get('status') == 'completed':
-            result = progress_callbacks[plan_id]['result']
-        if not result:
-            planner = get_travel_planner()
-            result = planner.get_planning_result(plan_id)
-        
-        if not result:
-            raise HTTPException(status_code=404, detail="规划数据未找到")
-
-        # 智能查找：尝试从 PlanEditor 查找是否有该 plan_id 的活跃编辑会话
-        from Agent.agent import get_plan_editor
-        plan_editor = get_plan_editor()
-        
-        final_plan_data = result
-        conversation_history = []
-        
-        try:
-            from Agent.memory.session_provider import get_session_pool
-            session_pool = get_session_pool()
-            all_sessions = getattr(session_pool, 'sessions', {})
-            if not all_sessions and hasattr(session_pool, '_redis_client'):
-                all_sessions = {}
-            for sess_id, sess in all_sessions.items():
-                if getattr(sess, 'plan_id', None) == plan_id:
-                    active_session = sess
-                    final_plan_data = sess.current_plan if hasattr(sess, 'current_plan') and sess.current_plan else result
-                    if hasattr(sess, 'conversation_history') and sess.conversation_history:
-                        conversation_history = [
-                            {"role": t.role, "content": t.content}
-                            for t in sess.conversation_history
-                            if hasattr(t, 'role') and hasattr(t, 'content')
-                        ]
-                        final_plan_data['conversation_history'] = conversation_history
-                    logger.info(f"使用活跃会话数据导出: {sess_id}")
-                    break
-        except Exception as e:
-            logger.debug(f"查找活跃会话失败（使用原始数据）: {e}")
-
-        fmt = export_request.format.lower()
-        if fmt == "pdf":
-            from Agent.services.pdf_content_integrator import PDFContentIntegrator
-            from Agent.agent import get_travel_planner
-            from Agent.services.minio_storage import get_minio_service
-
-            planner = get_travel_planner()
-            integrator = PDFContentIntegrator(llm_model=planner.llm_model)
-            
-            file_response = await integrator.integrate_and_export(
-                plan_data=final_plan_data,
-                conversation_history=conversation_history,
-                output_filename=None
-            )
-            
-            if file_response.get('success'):
-                path = file_response.get('pdf_path')
-                
-                # 读取PDF并上传到MinIO
-                minio_url = None
-                try:
-                    with open(path, 'rb') as f:
-                        pdf_bytes = f.read()
-                    
-                    minio_service = get_minio_service()
-                    upload_result = minio_service.upload_pdf(
-                        username=current_user.username,
-                        pdf_bytes=pdf_bytes,
-                        metadata={
-                            "destination": final_plan_data.get("basic_info", {}).get("destination", "unknown"),
-                            "title": final_plan_data.get("basic_info", {}).get("title", f"Plan {plan_id}"),
-                            "exported_by": current_user.user_id,
-                            "plan_id": plan_id
-                        }
-                    )
-                    
-                    if upload_result.get('success'):
-                        minio_url = upload_result.get('url')
-                        logger.info(f"PDF已上传到MinIO: {upload_result.get('object_path')}")
-                except Exception as e:
-                    logger.error(f"MinIO上传失败: {str(e)}")
-
-                if background_tasks: background_tasks.add_task(cleanup_temp_file, path)
-                
-                headers = {
-                    "Content-Disposition": f'attachment; filename="plan_{plan_id}.pdf"'
-                }
-                if minio_url:
-                    headers["X-MinIO-URL"] = minio_url
-                    headers["X-MinIO-Status"] = "success"
-                else:
-                    headers["X-MinIO-Status"] = "failed"
-
-                return FileResponse(path, filename=f"plan_{plan_id}.pdf", media_type='application/pdf', headers=headers)
-            else:
-                raise HTTPException(status_code=500, detail="PDF生成失败")
-        
-        elif fmt == "json":
-            import json, tempfile
-            fd, path = tempfile.mkstemp(suffix=".json")
-            with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                json.dump(final_plan_data, f, ensure_ascii=False, indent=2)
-            if background_tasks: background_tasks.add_task(cleanup_temp_file, path)
-            return FileResponse(path, filename=f"plan_{plan_id}.json", media_type='application/json')
-            
-        else:
-            raise HTTPException(status_code=400, detail="不支持的格式")
-
-    except Exception as e:
-        logger.error(f"导出失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-async def cleanup_temp_file(path: str):
-    import asyncio
-    await asyncio.sleep(60)
-    try:
-        if os.path.exists(path):
-            os.remove(path)
-    except Exception: pass
-
-@app.post("/api/agent/chat-stream", summary="AI对话流式")
-async def agent_chat_stream(request: Dict[str, Any], current_user: TokenData = Depends(get_current_user_from_session)):
-    """与AI助手进行流式对话交互，支持状态反馈"""
-    try:
-        msg = request.get('message', '')
-        sid = request.get('session_id') or str(uuid.uuid4())
-
-        from Agent.memory.session_provider import get_session_pool
-        session_pool = get_session_pool()
-        existing_session = session_pool.get_session(sid)
-        if not existing_session:
-            logger.warning(
-                f"chat-stream: session 不存在 sid={sid}, user_id={current_user.user_id}. "
-                f"前端可能未调用 start_edit_session 或会话已过期，创建无规划数据的空会话"
-            )
-            await session_pool.create_session(
-                plan_id=sid,
-                original_plan={},
-                user_id=current_user.user_id
-            )
-        else:
-            logger.info(
-                f"chat-stream: session 已存在 sid={sid}, "
-                f"departure={getattr(existing_session, 'departure_location', None)}, "
-                f"heritage_ids={getattr(existing_session, 'heritage_ids', [])}, "
-                f"user_id={existing_session.user_id}"
-            )
-            if existing_session.user_id is not None and str(existing_session.user_id) != str(current_user.user_id):
-                logger.warning(f"chat-stream: 用户 {current_user.user_id} 尝试访问非本人会话 {sid} (owner={existing_session.user_id})")
-                raise HTTPException(status_code=403, detail="无权访问此会话")
-            if existing_session.user_id is None:
-                session_pool.update_session_user_id(sid, current_user.user_id)
-                logger.info(f"chat-stream: 会话 {sid} 未绑定用户，已绑定到 {current_user.user_id}")
-
-        agent = get_agent()
-        
-        async def event_generator():
-            try:
-                async for event in agent.process_stream(msg, sid):
-                    event_type = event.get("type", "content")
-                    
-                    if event_type == "status":
-                        yield f"data: {json.dumps({'status': event.get('status'), 'content': event.get('content', '')}, ensure_ascii=False)}\n\n"
-                    elif event_type == "thinking":
-                        yield f"data: {json.dumps({'status': 'thinking', 'content': event.get('content', '正在思考...')}, ensure_ascii=False)}\n\n"
-                    elif event_type == "content":
-                        yield f"data: {json.dumps({'content': event.get('content', '')}, ensure_ascii=False)}\n\n"
-                    elif event_type == "done":
-                        yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
-                
-            except Exception as e:
-                logger.error(f"流式生成异常: {str(e)}")
-                yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
-        
-        return StreamingResponse(
-            event_generator(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.delete("/api/travel-plan/{plan_id}", summary="删除规划")
-async def delete_plan(plan_id: str):
-    """删除指定的旅游规划任务"""
-    if plan_id in progress_callbacks:
-        del progress_callbacks[plan_id]
-        return {"success": True}
-    raise HTTPException(status_code=404)
-
-@app.get("/api/travel-plan/list", summary="规划列表")
-async def list_plans():
-    """获取所有旅游规划任务列表"""
-    plans = [{"plan_id": k, "status": v.get('status')} for k, v in progress_callbacks.items()]
-    return {"success": True, "data": {"total": len(plans), "plans": plans}}
 
 if __name__ == "__main__":
     import uvicorn
