@@ -9,7 +9,7 @@ from typing import Dict, Any, List, AsyncIterator
 from loguru import logger
 
 from Agent.safety.safety_checker import check_safety_async
-from Agent.memory.session_provider import get_session_pool
+from Agent.memory.session import get_session_pool
 from Agent.memory.coordinator import get_memory_coordinator
 from Agent.context import get_context_builder
 from Agent.config.memory_budget import memory_budget
@@ -80,7 +80,6 @@ class Agent:
             logger.info(f"  - heritages: {len(context.plan_data.heritage_items)} items")
             logger.debug(f"  - heritage_ids: {context.plan_data.get_heritage_ids()}")
             
-            context.add_conversation_turn('user', user_input)
             if memory_budget.memory_coordinator_enabled:
                 await self.memory_coordinator.append_turn(
                     session_id=session_id,
@@ -95,23 +94,32 @@ class Agent:
 
             logger.info("🚀 使用 LangGraph Agent 处理")
             full_response = ""
+            tool_interactions = []
             async for event in self.langchain_agent.run_stream(user_input, context):
+                if event.get("type") == "tool_interactions":
+                    tool_interactions = event.get("interactions", [])
+                    continue
                 yield event
                 if event.get("type") == "content":
                     full_response += event.get("content", "")
-            
+
+            # WMA.assemble() 自行追加 HumanMessage(user_input)
+            # 因此 conversation_history 中的用户消息应在 agent 处理完成后才加入，避免重复
+            context.add_conversation_turn('user', user_input)
             if full_response:
-                context.add_conversation_turn('assistant', full_response)
+                context.add_conversation_turn('assistant', full_response, tool_interactions)
+                extra_data = {'tool_interactions': tool_interactions} if tool_interactions else None
                 if memory_budget.memory_coordinator_enabled:
                     await self.memory_coordinator.append_turn(
                         session_id=session_id,
                         role='assistant',
                         content=full_response,
                         user_id=context.user_id,
-                        username=context.username
+                        username=context.username,
+                        extra_data=extra_data,
                     )
                 else:
-                    self.session_pool.add_conversation(session_id, 'assistant', full_response, user_id=context.user_id)
+                    self.session_pool.add_conversation(session_id, 'assistant', full_response, user_id=context.user_id, tool_interactions=tool_interactions)
                 self.context_builder.invalidate_cache(session_id)
             
         except Exception as e:

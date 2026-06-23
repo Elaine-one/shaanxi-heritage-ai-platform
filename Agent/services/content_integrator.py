@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from loguru import logger
 from Agent.utils.content_extractor import ContentExtractor
 from Agent.prompts import get_conversation_summary_prompt
+from Agent.config.memory_budget import memory_budget
 
 
 class AIContentIntegrator:
@@ -207,7 +208,8 @@ class AIContentIntegrator:
                 name = item.get('name', '未知项目')
                 if name in planned_item_names:
                     desc = item.get('full_description') or item.get('description', '暂无详细介绍')
-                    heritage_context_list.append(f"- **{name}** ({item.get('region', '')}): {desc[:300]}...")
+                    max_chars = memory_budget.pdf_heritage_item_max_chars
+                    heritage_context_list.append(f"- **{name}** ({item.get('region', '')}): {desc[:max_chars]}...")
             
             heritage_context_str = "\n".join(heritage_context_list) or "请基于目的地文化背景进行扩写。"
             
@@ -252,6 +254,11 @@ class AIContentIntegrator:
             day_dates = self._calculate_day_dates(travel_dates.split('~')[0].strip() if '~' in travel_dates else travel_dates, travel_days)
             day_dates_str = "、".join(day_dates) if day_dates else "根据实际出行日期"
 
+            user_id = result.get('user_id', '')
+            user_profile_str = self._build_user_profile_context(user_id)
+            key_decisions_str = self._build_key_decisions_context(session_id)
+            related_sessions_str = self._build_cross_session_context(user_id, destination)
+
             from Agent.prompts import get_pdf_content_prompt
             prompt = get_pdf_content_prompt(
                 destination=destination,
@@ -267,12 +274,16 @@ class AIContentIntegrator:
                 heritage_context_str=heritage_context_str,
                 sys_recs=sys_recs,
                 day_dates_str=day_dates_str,
-                route_summary=route_summary
+                route_summary=route_summary,
+                user_profile_str=user_profile_str,
+                key_decisions_str=key_decisions_str,
+                related_sessions_str=related_sessions_str
             )
 
             logger.info(f"发送 AI 请求。Prompt 长度: {len(prompt)} 字符")
             
-            response = await self._call_llm_with_retry(prompt, timeout=540, max_retries=0)
+            response = await self._call_llm_with_retry(prompt, timeout=600, max_retries=0,
+                                                       max_tokens=memory_budget.output_budget_max)
             if not response:
                 logger.error("LLM主内容生成超时，使用降级内容")
                 return self._create_fallback_content(actual_data)
@@ -292,11 +303,11 @@ class AIContentIntegrator:
             logger.error(f"AI自主内容整合失败: {str(e)}")
             return self._create_fallback_content(result.get('plan_data', result))
     
-    async def _call_llm_with_retry(self, prompt: str, timeout: int = 480, max_retries: int = 1) -> Optional[Dict]:
+    async def _call_llm_with_retry(self, prompt: str, timeout: int = 480, max_retries: int = 1, max_tokens: int = None) -> Optional[Dict]:
         for attempt in range(max_retries + 1):
             try:
                 response = await asyncio.wait_for(
-                    self.llm_model._call_model(prompt), timeout=timeout
+                    self.llm_model.call_model(prompt, max_tokens=max_tokens), timeout=timeout
                 )
                 if response and response.get('success'):
                     return response
@@ -331,7 +342,7 @@ class AIContentIntegrator:
             )
             
             try:
-                response = await asyncio.wait_for(self.llm_model._call_model(summary_prompt), timeout=60)
+                response = await asyncio.wait_for(self.llm_model.call_model(summary_prompt), timeout=60)
             except asyncio.TimeoutError:
                 logger.warning("LLM摘要生成超时(60s)，使用降级方案")
                 return self._build_conversation_summary_fallback(conversation_history)
@@ -371,6 +382,81 @@ class AIContentIntegrator:
         
         return "\n".join(user_demands) if user_demands else "暂无特殊要求。"
     
+    def _build_user_profile_context(self, user_id: str) -> str:
+        """从 L2 Neo4j 拉取用户偏好画像，格式化为提示词文本"""
+        if not user_id:
+            return ""
+        try:
+            from Agent.memory.l2_graph_store import get_l2_graph_store
+            l2 = get_l2_graph_store()
+            if not l2 or not l2.is_available():
+                return ""
+            memory = l2.fetch_user_memory(user_id, min_confidence=0.3)
+            if not memory:
+                return ""
+
+            parts = []
+            prefs = memory.get("preferences", [])
+            for p in prefs[:8]:
+                ptype = p.get("type", "")
+                pvalue = p.get("value", "")
+                conf = p.get("confidence", 0)
+                if isinstance(pvalue, dict):
+                    pvalue = pvalue.get("heritage_name") or str(pvalue)[:100]
+                parts.append(f"- {ptype}: {str(pvalue)[:120]} (置信度: {conf:.0%})")
+
+            regions = memory.get("interested_regions", [])
+            if regions:
+                parts.append(f"- 感兴趣的地区: {', '.join(str(r) for r in regions[:5])}")
+
+            preferred = memory.get("preferred_heritages", [])
+            if preferred:
+                names = [h.get("name", "") for h in preferred[:5] if h.get("name")]
+                if names:
+                    parts.append(f"- 偏好的非遗项目: {', '.join(names)}")
+
+            if parts:
+                return "用户的长期偏好:\n" + "\n".join(parts)
+        except Exception as e:
+            logger.debug(f"构建用户画像上下文失败: {e}")
+        return ""
+
+    def _build_key_decisions_context(self, session_id: str) -> str:
+        """从 L1 Redis 拉取当前会话摘要（含关键决策）"""
+        if not session_id:
+            return ""
+        try:
+            from Agent.memory.coordinator import get_memory_coordinator
+            coordinator = get_memory_coordinator()
+            snapshot = coordinator.get_l1_snapshot(session_id)
+            summary = snapshot.get("summary", "")
+            if summary:
+                return f"本次会话关键决策摘要:\n{str(summary)[:600]}"
+        except Exception as e:
+            logger.debug(f"构建关键决策上下文失败: {e}")
+        return ""
+
+    def _build_cross_session_context(self, user_id: str, query: str) -> str:
+        """检索用户历史相关会话，提供跨会话上下文"""
+        if not user_id or not query:
+            return ""
+        try:
+            from Agent.memory.session import get_session_index
+            index = get_session_index()
+            similar = index.search_similar_sessions(query=query, user_id=user_id, top_k=2)
+            if not similar:
+                return ""
+            parts = ["用户历史相关会话:"]
+            for i, s in enumerate(similar, 1):
+                topic = s.get("topic", "")
+                if topic:
+                    parts.append(f"- 会话{i}: {str(topic)[:150]}")
+            if len(parts) > 1:
+                return "\n".join(parts)
+        except Exception as e:
+            logger.debug(f"构建跨会话上下文失败: {e}")
+        return ""
+
     def _create_fallback_content(self, result: Dict[str, Any]) -> Dict[str, Any]:
         actual_data = result if not isinstance(result, dict) or 'plan_data' not in result else result.get('plan_data', result)
         if not isinstance(actual_data, dict):

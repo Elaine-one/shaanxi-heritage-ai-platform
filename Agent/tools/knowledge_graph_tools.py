@@ -326,7 +326,7 @@ class NearbyRegionTool(BaseTool):
             }
         
         try:
-            nearby = kg.query_nearby_regions(region_name, limit=limit)
+            nearby = kg.query_nearby_regions(region_name)[:limit]
             
             return {
                 "success": True,
@@ -463,3 +463,98 @@ class RouteHintTool(BaseTool):
                 "success": False,
                 "error": str(e)
             }
+
+
+class HeritageTimelineTool(BaseTool):
+    """非遗时间轴查询工具"""
+
+    @property
+    def name(self) -> str:
+        return "heritage_timeline_query"
+
+    @property
+    def description(self) -> str:
+        return """查询非遗项目的起源朝代和时间轴信息。
+【功能说明】
+基于 Neo4j 知识图谱中的 Dynasty 节点和 ORIGINATED_IN 关系，
+查询非遗项目的历史起源朝代，支持按朝代筛选和按时间顺序排列。
+
+【数据结构】
+- 节点：Dynasty（朝代），包含 name、start_year、end_year、capital
+- 关系：ORIGINATED_IN（Heritage → Dynasty）
+- 查询机制：
+  * 按朝代查非遗：MATCH (h:Heritage)-[:ORIGINATED_IN]->(d:Dynasty {name: $dynasty})
+  * 按时间排序：ORDER BY d.start_year
+
+【应用场景】
+1. "陕西有哪些起源于唐代的非遗？"
+2. "按时间顺序排列所有非遗的起源朝代"
+3. "凤翔木版年画起源于什么朝代？"
+
+【使用示例】
+用户："陕西有哪些起源于唐代的非遗？"
+调用：heritage_timeline_query(dynasty="唐")
+返回：唐代起源的非遗列表"""
+
+    @property
+    def parameters(self) -> Dict[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "dynasty": {
+                    "type": "string",
+                    "description": "朝代名称（如'唐'、'宋'、'明'、'清'），不传则返回完整时间轴"
+                },
+                "heritage_id": {
+                    "type": "integer",
+                    "description": "非遗项目ID，用于查询单个项目的朝代信息"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "返回结果数量限制，默认20",
+                    "default": 20
+                }
+            },
+            "required": []
+        }
+
+    @require_knowledge_graph
+    async def execute(self, kg, **kwargs) -> Dict[str, Any]:
+        dynasty = kwargs.get('dynasty', '')
+        heritage_id = kwargs.get('heritage_id')
+        limit = kwargs.get('limit', 20)
+
+        try:
+            if heritage_id:
+                dynasties = kg.query_heritage_dynasties(heritage_id)
+                heritage = kg.query_heritage_by_id(heritage_id)
+                return {
+                    "success": True,
+                    "heritage_id": heritage_id,
+                    "heritage_name": heritage.get('name', '') if heritage else '',
+                    "dynasties": dynasties,
+                    "count": len(dynasties),
+                    "hint": f"该项目起源于 {len(dynasties)} 个朝代" if dynasties else "未找到朝代信息"
+                }
+
+            if dynasty:
+                results = kg.query_by_dynasty(dynasty, limit)
+                return {
+                    "success": True,
+                    "dynasty": dynasty,
+                    "heritages": results,
+                    "count": len(results),
+                    "hint": f"起源于{dynasty}的非遗共 {len(results)} 项" if results else f"未找到起源于{dynasty}的非遗"
+                }
+
+            # 返回完整时间轴
+            results = kg.query_timeline(limit)
+            return {
+                "success": True,
+                "timeline": results,
+                "count": len(results),
+                "hint": f"共 {len(results)} 条时间轴记录"
+            }
+        except Exception as e:
+            logger.error(f"时间轴查询失败: {e}")
+            return {"success": False, "error": str(e)}

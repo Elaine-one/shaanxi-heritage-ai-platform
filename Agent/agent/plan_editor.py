@@ -12,7 +12,7 @@ from loguru import logger
 from Agent.models.llm_model import get_llm_model
 from Agent.services.weather import get_weather_service
 from Agent.tools.base import get_tool_registry
-from Agent.memory.session_provider import get_session_pool
+from Agent.memory.session import get_session_pool
 from Agent.context import get_context_builder
 from .langchain_agent import get_langchain_agent_executor
 

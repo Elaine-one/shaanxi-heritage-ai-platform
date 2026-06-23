@@ -123,13 +123,11 @@ class UserRecommendInput(V1BaseModel):
 class NearbyRegionInput(V1BaseModel):
     """邻近地区查询工具输入"""
     region_name: str = Field(description="地区名称，如'西安市'")
-    distance_km: float = Field(default=100, description="搜索半径（公里）")
 
 
 class RouteHintInput(V1BaseModel):
     """路线提示工具输入"""
     heritage_ids: List[int] = Field(description="非遗项目ID列表")
-    departure: Optional[str] = Field(None, description="出发地")
 
 
 def create_heritage_search_tool() -> 'BaseTool':
@@ -139,11 +137,13 @@ def create_heritage_search_tool() -> 'BaseTool':
                         keywords: Optional[str] = None,
                         category: Optional[str] = None,
                         region: Optional[str] = None) -> str:
-        """搜索非物质文化遗产项目信息。返回项目名称、类别、地区、描述等详细信息。
-        
-        适用场景：用户想了解或搜索非遗项目。
-        
-        注意：此工具用于搜索非遗项目，不适用于查询路线或距离。"""
+        """搜索非物质文化遗产项目信息。
+
+适用场景：用户想了解某非遗项目详情、按类别/地区搜索非遗、按关键词模糊查找。
+
+返回：项目名称、类别、地区、描述等详情。通过heritage_id精确查询时，结果会自动附带最多3个邻近非遗项目供顺访参考。如需专门查询邻近项目（更多结果、可控数量），请使用 nearby_heritage_query。
+
+注意：此工具用于搜索非遗项目，不适用于查询路线或距离。"""
         from Agent.tools.base import get_tool_registry
         tool = get_tool_registry().get_tool("heritage_search")
         result = _run_async(tool.execute(
@@ -161,7 +161,16 @@ def create_plan_query_tool() -> 'BaseTool':
     """创建规划查询工具"""
     @tool("plan_query", args_schema=PlanQueryInput)
     def plan_query(query_type: str = "overview") -> str:
-        """查询用户当前的旅游规划信息。当用户询问"我的路线"、"行程安排"时使用。返回已选非遗项目、行程天数等信息。"""
+        """查询用户当前的旅游规划信息。
+
+适用场景：用户问"我的路线有哪些"、"行程安排是什么"、"选了哪几个项目"。
+
+查询类型（query_type）：
+- overview：概览（出发地、天数、项目数）
+- itinerary：每日详细行程
+- heritages：已选非遗项目列表
+
+注意：只读取已有规划，不创建新规划。如用户尚无规划会返回提示。"""
         from Agent.tools.base import get_tool_registry
         from Agent.context.unified_context import get_current_context
         tool = get_tool_registry().get_tool("plan_query")
@@ -185,7 +194,11 @@ def create_plan_edit_tool() -> 'BaseTool':
 
     @tool("plan_edit", args_schema=PlanEditInput)
     def plan_edit(current_plan: Dict[str, Any], edit_request: str) -> str:
-        """根据用户的修改要求，调整已有的旅游规划方案。当用户提到更改行程参数时使用，如：'我有7天假期'、'改成5天'、'增加延安景点'等。"""
+        """根据用户的修改要求，调整已有的旅游规划方案。
+
+适用场景：用户要求修改行程参数，如"改成7天"、"增加延安景点"、"预算调整为5000"。
+
+注意：修改会立即更新用户的当前上下文和会话数据（UnifiedContext + Redis），无需额外保存操作。参数修改支持：travel_days、departure_location、travel_mode、group_size、budget_range、heritage_items。"""
         from Agent.tools.base import get_tool_registry
         tool = get_tool_registry().get_tool("plan_edit")
         result = _run_async(tool.execute(current_plan=current_plan, edit_request=edit_request))
@@ -239,7 +252,13 @@ def create_nearby_heritage_tool() -> 'BaseTool':
     def nearby_heritage_query(heritage_id: Optional[int] = None,
                                heritage_name: Optional[str] = None,
                                limit: int = 5) -> str:
-        """查询指定非遗项目邻近的其他非遗项目。基于知识图谱的地理位置关系，返回可顺访的非遗项目。"""
+        """查询指定非遗项目邻近的其他非遗项目。
+
+适用场景：用户问"XX附近还有什么非遗"、"去了A还能顺路去哪"、"周边有什么可看的"。
+
+基于知识图谱中 NEAR 边和 Haversine 距离计算，返回按距离排序的邻近非遗列表（含距离信息）。与 heritage_search 不同，本工具专门用于邻近查询，结果更全（默认5条），且不会混入项目详情搜索的结果。
+
+参数：heritage_id/heritage_name 二选一，limit 控制返回数量。"""
         from Agent.tools.base import get_tool_registry
         tool = get_tool_registry().get_tool("nearby_heritage_query")
         result = _run_async(tool.execute(
@@ -259,7 +278,13 @@ def create_related_heritage_tool() -> 'BaseTool':
                                 heritage_name: Optional[str] = None,
                                 relation_type: str = "all",
                                 limit: int = 5) -> str:
-        """查询与指定非遗项目相关的其他非遗项目。基于类别、地区等关系，推荐同类或同地区的非遗项目。"""
+        """查询与指定非遗项目相关的其他非遗项目。
+
+适用场景：用户问"还有什么类似的传统技艺"、"XX地区还有哪些非遗"、"有没有同类的"。
+
+基于知识图谱关系网络：category（同类）通过 BELONGS_TO 边查找同类别项目，region（同地区）通过 LOCATED_AT 边查找同地区项目，all 返回全部。
+
+参数：heritage_id/heritage_name 二选一，relation_type 控制关系类型，limit 控制数量。"""
         from Agent.tools.base import get_tool_registry
         tool = get_tool_registry().get_tool("related_heritage_query")
         result = _run_async(tool.execute(
@@ -277,7 +302,13 @@ def create_user_recommend_tool() -> 'BaseTool':
     """创建个性化非遗推荐工具"""
     @tool("user_heritage_recommend", args_schema=UserRecommendInput)
     def user_heritage_recommend(user_id: str, limit: int = 5) -> str:
-        """基于用户历史偏好、规划记录和导出行为，推荐可能感兴趣的非遗项目。当用户询问推荐或想发现新项目时使用。"""
+        """基于用户历史偏好、规划记录和导出行为，推荐可能感兴趣的非遗项目。
+
+适用场景：用户问"有什么推荐的"、"根据我的喜好推荐非遗"、"还有哪些值得去的"。
+
+通过知识图谱四级推理：语义映射 → 偏好桥接 → 关联推荐 → 行为分析，综合推荐。需要 L2 图谱中有用户偏好数据才能给出个性化结果，新用户或无偏好数据时推荐较少。
+
+参数：user_id（必填），limit（默认5）。"""
         from Agent.tools.base import get_tool_registry
         tool = get_tool_registry().get_tool("user_heritage_recommend")
         result = _run_async(tool.execute(user_id=user_id, limit=limit))
@@ -289,11 +320,15 @@ def create_user_recommend_tool() -> 'BaseTool':
 def create_nearby_region_tool() -> 'BaseTool':
     """创建邻近地区查询工具"""
     @tool("nearby_region_query", args_schema=NearbyRegionInput)
-    def nearby_region_query(region_name: str, distance_km: float = 100) -> str:
-        """查询指定地区周边的其他区县或城市。当用户想了解目的地周边文化资源分布时使用。"""
+    def nearby_region_query(region_name: str) -> str:
+        """查询指定地区周边的其他区县或城市，基于知识图谱中的地区邻近关系。
+
+适用场景：用户问"西安周边有哪些区县"、"目的地周边文化资源分布"。
+
+返回：邻近地区列表及位置关系。"""
         from Agent.tools.base import get_tool_registry
         tool = get_tool_registry().get_tool("nearby_region_query")
-        result = _run_async(tool.execute(region_name=region_name, distance_km=distance_km))
+        result = _run_async(tool.execute(region_name=region_name))
         return _format_result(result)
 
     return nearby_region_query
@@ -302,11 +337,17 @@ def create_nearby_region_tool() -> 'BaseTool':
 def create_route_hint_tool() -> 'BaseTool':
     """创建路线提示工具"""
     @tool("heritage_route_hint", args_schema=RouteHintInput)
-    def heritage_route_hint(heritage_ids: List[int], departure: Optional[str] = None) -> str:
-        """基于知识图谱分析已选非遗项目，提供顺访推荐和路线提示。当用户已选定多个项目想优化路线时使用。"""
+    def heritage_route_hint(heritage_ids: List[int]) -> str:
+        """基于知识图谱分析已选非遗项目，提供顺访推荐和路线提示。
+
+适用场景：用户已选定多个非遗项目，想问"还有什么可顺访"、"路线怎么优化"。
+
+与 route_preview 的区别：本工具基于知识图谱关系（轻量、快速），route_preview 基于高德地图真实驾驶距离（精确、耗时）。轻量级路线探索优先使用本工具。
+
+返回：每个项目的邻近推荐、项目间途经地区建议。"""
         from Agent.tools.base import get_tool_registry
         tool = get_tool_registry().get_tool("heritage_route_hint")
-        result = _run_async(tool.execute(heritage_ids=heritage_ids, departure=departure))
+        result = _run_async(tool.execute(heritage_ids=heritage_ids))
         return _format_result(result)
 
     return heritage_route_hint

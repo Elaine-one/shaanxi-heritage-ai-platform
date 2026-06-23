@@ -129,13 +129,14 @@ class LLMModel:
             else:
                 raise ValueError("API Key 验证失败")
     
-    async def _call_model(self, prompt: str) -> Dict[str, Any]:
+    async def call_model(self, prompt: str, max_tokens: int = None) -> Dict[str, Any]:
         """
         调用 LLM 模型（带并发控制）
-        
+
         Args:
             prompt: 提示词
-        
+            max_tokens: 本次调用的最大输出 token 数，为 None 则使用初始化时的配置
+
         Returns:
             Dict[str, Any]: 包含 success 和 content/error 的字典
         """
@@ -150,9 +151,11 @@ class LLMModel:
                 HumanMessage(content=prompt)
             ]
             
+            llm = self.llm.bind(max_tokens=max_tokens) if max_tokens else self.llm
+
             async with LLM_SEMAPHORE:
                 logger.debug("获取到信号量，开始调用 LLM")
-                response = await self.llm.ainvoke(messages)
+                response = await llm.ainvoke(messages)
             
             content = response.content
             logger.debug(f"模型响应成功，内容长度: {len(content)}")
@@ -180,7 +183,7 @@ class LLMModel:
         流式调用 LLM 模型（带并发控制）
         
         当前 Agent 使用 LangGraph 的 astream 模式实现流式输出，此方法暂未被直接调用。
-        保留原因：PDF 导出中的 LLM 调用目前是非流式的（_call_model），
+        保留原因：PDF 导出中的 LLM 调用目前是非流式的（call_model），
         未来若需为 PDF 导出增加流式进度反馈，此方法可作为基础。
         
         Args:

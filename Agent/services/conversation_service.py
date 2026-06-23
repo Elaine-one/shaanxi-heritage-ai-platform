@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from loguru import logger
 
-from Agent.memory.session_provider import get_session_pool
+from Agent.memory.session import get_session_pool
 from Agent.config.settings import Config
 
 
@@ -47,7 +47,7 @@ class ConversationService:
                       content: str,
                       message_type: str = "text",
                       extra_data: Optional[Dict[str, Any]] = None,
-                      sync_session_history: bool = True) -> bool:
+                      sync_session_history: bool = False) -> bool:
         """
         追加消息到对话记录
         
@@ -265,7 +265,7 @@ class ConversationService:
             
             if result.get("success"):
                 # 更新会话的归档状态
-                session = self.session_pool.get_session()
+                session = self.session_pool.get_session(session_id)
                 if session and hasattr(session, 'archived'):
                     session.archived = True
                 
