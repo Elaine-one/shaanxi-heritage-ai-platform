@@ -17,6 +17,9 @@ logs/*
 # Agent 数据目录
 Agent/data/
 
+# 项目数据目录
+data/
+
 # Nginx 日志
 nginx_logs/
 
@@ -35,6 +38,7 @@ docs/
 
 # 测试缓存
 .pytest_cache/
+pytest.ini
 .coverage
 coverage.xml
 htmlcov/
@@ -100,6 +104,13 @@ mime.types
 
 # Trae IDE
 .trae/
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Nginx 运行时临时目录
+temp/
 
 # 敏感配置
 *.pem

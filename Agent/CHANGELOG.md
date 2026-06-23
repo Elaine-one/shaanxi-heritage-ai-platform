@@ -1,5 +1,109 @@
 # 更新日志
 
+## v1.7（2026-06-23）
+
+#### 🔧 API 规整化与架构清理
+
+**端点精简 (44 → 17, -61%)：**
+
+- 🗑️ 清理 4 个桩端点（`apply_plan_changes`、`get_edit_history`、`get_available_operations`、`get_plan_summary`）
+- 🗑️ 删除 4 个无调用方端点（`DELETE /api/travel-plan/{id}`、`GET /api/travel-plan/list`、`GET /api/agent/session_info`、`GET /api/agent/health`）
+- 🗑️ 移除对话管理 HTTP 路由（保留 `services/conversation_service.py` 内部调用）
+- 🗑️ 移除知识图谱管理 HTTP 路由（保留 `memory/` 层内部调用）
+- 🗑️ 移除天气 HTTP 端点（保留 `services/weather.py` 内部调用）
+- 🗑️ 删除 Django 侧死代码（`TravelPlanExportView`、`get_agent_service_url`、对应 URL 路由）
+
+**FastAPI 路由重组：**
+
+- ✅ 新增 `api/travel_endpoints.py`：`travel_router`（`prefix='/api/agent/travel-plan'`，`tags=['旅游规划']`），6 条路由
+- ✅ 重构 `api/edit_endpoints.py`：`edit_router`（`tags=['AI 编辑与对话']`），9 条路由
+- ✅ 新增 `api/cache.py`：共享 `progress_callbacks` TTLCache，解决 app.py 与路由模块的循环依赖
+- ✅ 新增 `api/error_models.py`：统一错误响应 `{success, error: {code, message}, detail}`
+- ✅ 精简 `api/app.py`（761→200 行）：仅保留 lifespan、CORS、全局异常处理器、根/健康端点、路由注册
+
+**关键 Bug 修复：**
+
+- 🐛 修复 `memory/coordinator.py` 循环导入导致 L1/L2/L3/RAG 全部静默降级（P0.1）
+- 🐛 修复 SSE 序列化安全：`json.dumps(data, ensure_ascii=False, default=str)`（P0.2）
+- 🐛 修复 4 处 HTTPException 被外层 `except Exception` 吞为 500（P1.1）
+
+**Nginx 架构优化：**
+
+- ✅ `/api/agent/` 从 Nginx→Django→Agent 两跳改为 Nginx→Agent 直连
+- ✅ `/api/agent/` 统一聚合所有 Agent 路由（旅行规划 + 编辑对话），取消原 `/api/travel-plan/` 独立前缀
+- ✅ 新增 `/vue-admin/` location（`alias backend/admin_static/`）
+- ✅ 新增 `/health/agent` 独立健康检查
+
+## v1.6.1（2026-06-22）
+
+#### 🧠 记忆系统可靠性修复（12 项）
+
+- ✅ 偏好向量迁至独立 ChromaDB 集合 `user_preferences`，根治对话检索污染
+- ✅ L1 滚动窗口改为 Redis Lua 原子写入，消除并发竞态
+- ✅ L3 SQLite 持久连接 + WAL 模式
+- ✅ 归档流程 L1 清理前检查 L2 增强结果，防止对话数据丢失
+- ✅ `_call_model` → `call_model` 公开化
+
+## v1.6（2026-06-22）
+
+#### 🔗 知识图谱架构重构 — Mixin 模块化
+
+将单体 `knowledge_graph.py` 拆分为 Mixin 架构包 `knowledge_graph/`：
+
+```
+knowledge_graph/
+├── __init__.py   # KnowledgeGraph 主类（6 个 Mixin 组合）
+├── _base.py      # BaseMixin — 连接管理 / MERGE 节点 / MERGE 关系
+├── heritage.py   # HeritageMixin — 非遗 / 区域 / 层级 / 位置 / NEAR / Region 树
+├── inheritor.py  # InheritorMixin — 传承人 / HAS_INHERITOR / STUDIED_UNDER
+├── dynasty.py    # DynastyMixin — 朝代匹配 / ORIGINATED_IN
+├── queries.py    # QueryMixin — 时间轴 / 层级 / 关联查询
+└── admin.py      # AdminMixin — 统计 / 索引 / 清理
+```
+
+- 新增长参数 `level`（省/地级市/区县）支持 Region 节点
+- 所有节点写入自动添加 `updated_at = datetime()`
+- get_stats() 改为动态统计所有标签/关系类型
+- 新增 2 个关系类型：ORIGINATED_IN、PART_OF
+
+#### 🧠 记忆系统扩展
+
+- ✅ 新增 `importance_scorer.py`：记忆重要性评分
+- ✅ 新增 `task_buffer.py`：任务队列缓冲
+- ✅ 新增 `preference_vectorizer.py`：偏好向量化
+- ✅ 新增 `working_memory_assembler.py`：工作记忆组装
+- ✅ 会话模块重构为 `session/` 包（pool / redis_pool / context / lifecycle / archiver / index）
+
+#### 📜 阶段一：传承人图谱（168 节点 / 156 HAS_INHERITOR / 24 STUDIED_UNDER）
+
+- ✅ InheritorMixin 正则解析器：标准格式 `姓名(级别, 批次, 生年, 简介)`
+- ✅ 集成到启动同步 `sync_inheritors_from_heritage_list()`
+- ✅ LLM 二次查漏补缺：正则初筛 84 人，LLM 新发现 54 人
+  - 处理顿号分隔名单、分代列举、斜线分隔、兜底名单等非标准格式
+  - 受益记录：安塞腰鼓(+1)、宝鸡社火脸谱(+15)、东雷上锣鼓(+37)、陕西皮影戏(+1)
+
+#### ⏳ 阶段二：时间轴 + 地理层级（20 Dynasty / 112 ORIGINATED_IN / 40 Region / 37 PART_OF）
+
+- ✅ DynastyMixin：
+  - 20 个标准朝代（DYNASTY_TABLE）+ 50+ 别名映射（DYNASTY_ALIASES）
+  - 三轮匹配策略：30+ 正则模式 → 6 个复合模式 → 别名表
+  - 32/32 非遗全部匹配到朝代（100% 覆盖率）
+  - 修复"元"误匹配"万元"问题
+- ✅ Region 层级树：10 市 → 27 区县的三级 PART_OF 树
+  - `expand_region_tree()` 全量创建
+  - `refine_heritage_region()` 将 23 条记录精确关联到区县
+- ✅ HeritageTimelineTool 注册（支持按朝代/按项目/完整时间轴三种查询）
+
+#### 📈 图谱指标
+
+| 指标 | v1.5 | v1.6 |
+|------|------|------|
+| 节点类型 | 6 | **8** (+Inheritor, +Dynasty) |
+| 关系类型 | 6 | **12** (+6) |
+| 总节点 | ~200 | **331** |
+| 总关系 | ~350 | **704** |
+| 查询工具 | 5 | **10** (+5) |
+
 ## v1.5（2026-05-5）
 
 #### 🧠 记忆系统架构重构
