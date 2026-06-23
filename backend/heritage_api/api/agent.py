@@ -44,33 +44,6 @@ if 'SSL_CERT_FILE' in os.environ:
         del os.environ['SSL_CERT_FILE']
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def get_agent_service_url(request):
-    """
-    获取Agent服务地址
-    """
-    try:
-        # 优先从环境变量获取Agent服务地址
-        agent_url = os.environ.get('AGENT_SERVICE_URL')
-        
-        if not agent_url:
-             return Response({
-                'error': 'Agent服务地址未配置',
-                'status': 'error'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        return Response({
-            'url': agent_url,
-            'status': 'success'
-        })
-    except Exception as e:
-        return Response({
-            'error': '获取Agent服务地址失败',
-            'status': 'error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
 def _sse_stream_generator(client, method, url, params, content, headers):
     """
     SSE 流式响应生成器 - 优化版，禁用内部缓冲

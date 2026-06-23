@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework.permissions import AllowAny
-from .api.heritage import HeritageViewSet, UserFavoriteViewSet, NewsViewSet, PolicyViewSet, TravelPlanExportView
+from .api.heritage import HeritageViewSet, UserFavoriteViewSet, NewsViewSet, PolicyViewSet
 from .api.heritage import UserCreationViewSet, CreationLikeViewSet, CreationCommentViewSet
 from .api.heritage import CreationViewHistoryViewSet, CreationFavoriteViewSet
 from django.conf import settings
@@ -9,7 +9,7 @@ from .map_config import get_map_config
 from .api.auth import register_user, login_user, logout_user, get_user_info, get_csrf_token, request_password_reset, reset_password, get_security_status, generate_captcha_view, verify_captcha
 from .api.user import UserProfileViewSet, UserAnalyticsView, UserStatsView
 from .api.history import UserHistoryViewSet
-from .api.agent import get_agent_service_url, proxy_agent_request
+from .api.agent import proxy_agent_request
 from .api.admin_api import (
     admin_login, admin_user_list, admin_user_detail, admin_user_create,
     admin_user_reset_password, admin_stats, admin_operation_log_list,
@@ -100,8 +100,6 @@ urlpatterns = [
     path('', include(router.urls)),
     path('map/config/', get_map_config, name='map-config'),
     
-    path('agent-service-url/', get_agent_service_url, name='agent-service-url'),
-    
     # Agent服务反向代理路由
     # 匹配 /api/agent/... 下的所有请求，转发给 Agent 服务
     path('agent/<path:path>', proxy_agent_request, name='agent-proxy'),
@@ -124,9 +122,6 @@ urlpatterns = [
     path('delete-account/', UserAnalyticsView.as_view(), name='delete-user-account'),
     path('clear-avatar/', UserAnalyticsView.as_view(), name='clear-avatar'),
     path('user/stats/', UserStatsView.as_view(), name='user-stats'),
-    
-    # 其他
-    path('travel-plan/export/', TravelPlanExportView.as_view(), name='travel-plan-export'),
     
     path('forum/', include('heritage_api.forum_urls')),
 
