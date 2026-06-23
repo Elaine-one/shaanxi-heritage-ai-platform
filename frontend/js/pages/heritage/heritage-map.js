@@ -178,11 +178,11 @@ window.MapCore = {
             this.addShaanxiBoundary();
             console.log('[MapCore.initWithMap] Shaanxi boundary added.');
             
-            // 等待聚合库加载完成，但不要阻塞流程
-            this.waitForBMapLib().catch(err => {
+            // 等待聚合库加载完成，确保点聚合实例在添加标记前初始化
+            await this.waitForBMapLib().catch(err => {
                 console.warn('[MapCore.initWithMap] Error while waiting for BMap libraries:', err);
             });
-            console.log('[MapCore.initWithMap] Waiting for BMap libraries (non-blocking).');
+            console.log('[MapCore.initWithMap] BMap libraries ready.');
             
             // 从API获取非遗数据
             try {
@@ -460,29 +460,47 @@ window.MapCore = {
      */
     waitForBMapLib: function() {
         return new Promise((resolve) => {
+            const initClusterer = () => {
+                // 库加载完成后初始化点聚合实例
+                if (typeof BMapLib !== 'undefined' && typeof BMapLib.MarkerClusterer !== 'undefined' && map) {
+                    if (!markerClusterer) {
+                        markerClusterer = new BMapLib.MarkerClusterer(map, {
+                            maxZoom: 15,
+                            gridSize: 60
+                        });
+                        console.log('[MapCore] MarkerClusterer initialized.');
+                    }
+                } else {
+                    console.warn('[MapCore] MarkerClusterer library not available, clustering disabled.');
+                }
+            };
+
             // 检查必要的依赖是否已加载
-            if (typeof MarkerClusterer !== 'undefined' && 
+            if (typeof MarkerClusterer !== 'undefined' &&
                 typeof TextIconOverlay !== 'undefined') {
+                initClusterer();
                 resolve();
                 return;
             }
-            
+
             // 设置最大等待时间
             const maxWaitTime = 3000; // 3秒
             const startTime = Date.now();
-            
+
             // 定期检查
             const checkInterval = setInterval(() => {
-                if (typeof MarkerClusterer !== 'undefined' && 
+                if (typeof MarkerClusterer !== 'undefined' &&
                     typeof TextIconOverlay !== 'undefined') {
                     clearInterval(checkInterval);
+                    initClusterer();
                     resolve();
                     return;
                 }
-                
+
                 // 超时处理
                 if (Date.now() - startTime > maxWaitTime) {
                     clearInterval(checkInterval);
+                    initClusterer(); // 尝试初始化，即使可能失败
                     resolve(); // 即使超时也resolve，让流程继续
                 }
             }, 200);

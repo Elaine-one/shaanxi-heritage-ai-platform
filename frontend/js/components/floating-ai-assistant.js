@@ -12,6 +12,7 @@ class FloatingAIAssistant {
         this.currentMessage = '';
         this.isStreaming = false;
         this.sessionId = null;
+        this._sessionInitialized = false;
         this.pendingRender = false;
         
         this.init();
@@ -66,6 +67,9 @@ class FloatingAIAssistant {
                         </div>
                     </div>
                     <div class="header-controls">
+                        <button class="ctrl-btn" id="ai-new-chat-btn" title="新建对话">
+                            <i class="fas fa-plus"></i>
+                        </button>
                         <button class="ctrl-btn" id="ai-expand-btn" title="放大">
                             <i class="fas fa-expand"></i>
                         </button>
@@ -685,6 +689,7 @@ class FloatingAIAssistant {
             const clickHandlers = [
                 ['#ai-float-btn', () => this.togglePanel()],
                 ['#ai-close-btn', () => this.closePanel()],
+                ['#ai-new-chat-btn', () => this.clearHistory()],
                 ['#ai-minimize-btn', () => this.minimizePanel()],
                 ['#ai-expand-btn', () => this.toggleExpand()],
                 ['#ai-restore-btn', () => this.restorePanel()],
@@ -733,14 +738,7 @@ class FloatingAIAssistant {
     }
     
     closePanel() {
-        this.clearHistory();
-    }
-
-    clearHistory() {
-        this.conversationHistory = [];
-        this.sessionId = `session_${Date.now()}`;
-        this.saveState();
-
+        // 关闭面板但保留对话历史和sessionId，不再清空
         const panel = document.getElementById('ai-float-panel');
         const btn = document.getElementById('ai-float-btn');
         const minibar = document.getElementById('ai-minibar');
@@ -750,17 +748,37 @@ class FloatingAIAssistant {
         minibar.style.display = 'none';
         this.isOpen = false;
         this.isMinimized = false;
+        this.saveState();
 
-        const container = document.getElementById('ai-chat-container');
-        if (container) {
-            container.innerHTML = this.renderConversationHistory();
-        }
+        // 对话超过一定轮数时触发归档（sendBeacon 保证浏览器关闭也不丢失）
+        this._maybeArchiveSession();
+    }
 
-        if (typeof NotificationManager !== 'undefined') {
-            NotificationManager.success('聊天记录已清空');
+    _maybeArchiveSession() {
+        // 只有实际产生了多轮对话才归档
+        if (!this.sessionId || this.conversationHistory.length < 5) return;
+
+        try {
+            const url = `/api/agent/session/${this.sessionId}/end`;
+            const payload = JSON.stringify({ session_id: this.sessionId });
+
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(url, payload);
+            } else {
+                // 降级：fetch + keepalive
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: payload,
+                    keepalive: true,
+                }).catch(() => {});
+            }
+        } catch (e) {
+            // 静默失败，不影响用户体验
         }
     }
-    
+
     minimizePanel() {
         const panel = document.getElementById('ai-float-panel');
         const minibar = document.getElementById('ai-minibar');
@@ -798,9 +816,15 @@ class FloatingAIAssistant {
         const input = document.getElementById('ai-input');
         const sendBtn = document.getElementById('ai-send-btn');
         const message = input.value.trim();
-        
+
         if (!message || this.isStreaming) return;
-        
+
+        // 首次发送前初始化会话，确保后端有规划数据
+        if (!this._sessionInitialized) {
+            await this.initializeSession();
+            this._sessionInitialized = true;
+        }
+
         input.value = '';
         this.addMessage('user', message);
         
@@ -810,7 +834,7 @@ class FloatingAIAssistant {
         
         try {
             const apiUrl = await this.getApiBaseUrl();
-            const response = await fetch(`${apiUrl}/agent/chat-stream`, {
+            const response = await fetch(`${apiUrl}/chat-stream`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -821,7 +845,12 @@ class FloatingAIAssistant {
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                let msg = `HTTP ${response.status}`;
+                try {
+                    const errData = await response.json();
+                    msg = errData.error?.message || errData.detail || msg;
+                } catch (_) {}
+                throw new Error(msg);
             }
             
             const reader = response.body.getReader();
@@ -1017,13 +1046,54 @@ class FloatingAIAssistant {
     }
     
     async getApiBaseUrl() {
+        return '/api/agent';
+    }
+
+    async initializeSession() {
         try {
-            const response = await fetch('/api/agent/url');
+            const apiUrl = await this.getApiBaseUrl();
+            const planData = this._collectCurrentPlanData();
+            const response = await fetch(`${apiUrl}/start_edit_session`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ plan_data: planData })
+            });
             const data = await response.json();
-            return data.url;
+            if (data.success && data.session_id) {
+                this.sessionId = data.session_id;
+                this.saveState();
+            }
         } catch (error) {
-            return '/api/agent';
+            console.warn('初始化会话失败，使用本地sessionId:', error);
         }
+    }
+
+    _collectCurrentPlanData() {
+        // 从页面收集当前规划数据，供后端初始化会话上下文
+        const planData = {
+            heritage_ids: [],
+            start_date: '',
+            end_date: '',
+            budget: null,
+            travel_mode: ''
+        };
+
+        try {
+            // 尝试从页面全局状态获取规划数据
+            if (window.currentPlanData) {
+                return window.currentPlanData;
+            }
+            // 尝试从 localStorage 获取
+            const savedPlan = localStorage.getItem('current_plan_data');
+            if (savedPlan) {
+                return JSON.parse(savedPlan);
+            }
+        } catch (e) {
+            console.warn('收集规划数据失败:', e);
+        }
+
+        return planData;
     }
     
     saveState() {
@@ -1074,8 +1144,12 @@ class FloatingAIAssistant {
     }
     
     clearHistory() {
+        // 先归档旧会话再清除
+        this._maybeArchiveSession();
+
         this.conversationHistory = [];
         this.sessionId = `session_${Date.now()}`;
+        this._sessionInitialized = false;
         this.saveState();
 
         const container = document.getElementById('ai-chat-container');

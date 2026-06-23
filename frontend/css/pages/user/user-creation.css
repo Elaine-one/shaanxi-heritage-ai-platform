@@ -12,28 +12,30 @@
     --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
 }
 
-/* 创作页面主体样式 */
+/* 创作页面主体样式 - 覆盖common.css的main样式 */
 .creation-main {
-    padding: 0;
-    margin-top: 0;
-    min-height: calc(100vh - 120px);
-    justify-content: flex-start;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: calc(100vh - 90px);
+    min-height: auto !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
 }
 
 
 
-/* 创作容器 - 论坛风格主容器 */
+/* 创作容器 - 沉浸式全屏主容器 */
 .creation-container {
     display: flex;
     width: 100%;
     max-width: none;
-    margin: 20px 0;
+    margin: 0;
     padding: 0;
     background: transparent;
     box-shadow: none;
     border-radius: 0;
     border: none;
-    height: calc(100vh - 160px); /* 调整高度以适应顶部边距 */
+    height: 100%;
     position: relative;
     z-index: 1;
     overflow: hidden;
@@ -42,13 +44,13 @@
 /* 响应式设计 - 1600px以下屏幕 */
 @media (max-width: 1600px) {
     .creation-sidebar {
-        width: 280px;
+        width: 240px;
     }
 }
 
 @media (max-width: 1200px) {
     .creation-sidebar {
-        width: 260px;
+        width: 220px;
     }
 }
 
@@ -73,48 +75,48 @@
 
 
 
-/* 左侧边栏样式 - 参考非遗地图设计，移除固定定位 */
+/* 左侧边栏样式 - 优化宽度 */
 .creation-sidebar {
     width: 30%;
-    max-width: 320px;
-    min-width: 280px;
+    max-width: 260px;
+    min-width: 240px;
     background-color: #ffffff;
     padding: 20px;
     overflow-y: auto;
     border-right: 1px solid #f0f0f0;
     height: 100%;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+    box-shadow: none;
     flex-shrink: 0;
     position: relative;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 侧边栏折叠按钮 */
+/* 侧边栏折叠按钮 - 悬浮定位 */
 .sidebar-toggle {
-    position: absolute;
-    top: 12px;
-    right: -16px;
+    position: fixed;
+    top: 100px;
+    left: 8px;
     width: 32px;
     height: 32px;
-    background: #ffffff;
-    border: 1px solid #e0e0e0;
+    background: rgba(0, 0, 0, 0.4);
+    border: none;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 100;
-    color: #8c7a6b;
+    z-index: 200;
+    color: white;
     font-size: 14px;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(8px);
+    opacity: 0.5;
 }
 
 .sidebar-toggle:hover {
-    background: var(--shaanxi-red);
+    background: rgba(0, 0, 0, 0.6);
     color: white;
-    border-color: var(--shaanxi-red);
-    box-shadow: 0 4px 12px rgba(188, 46, 36, 0.25);
+    opacity: 1;
     transform: scale(1.1);
 }
 
@@ -122,21 +124,43 @@
     transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 折叠状态下的侧边栏 */
+/* 折叠状态下的侧边栏 - 完全隐藏不占空间 */
 .creation-sidebar.collapsed {
-    width: 48px;
-    min-width: 48px;
-    max-width: 48px;
-    padding: 20px 4px;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    padding: 0;
     overflow: hidden;
+    border: none;
+    box-shadow: none;
 }
 
-.creation-sidebar.collapsed .sidebar-toggle {
-    right: calc(50% - 16px);
-    top: 16px;
+/* 侧边栏展开时按钮在侧边栏内右侧 */
+.creation-sidebar:not(.collapsed) .sidebar-toggle {
+    position: absolute;
+    top: 12px;
+    right: -16px;
+    left: auto;
+    background: rgba(255, 255, 255, 0.9);
+    color: #8c7a6b;
+    border: 1px solid #e0e0e0;
+    opacity: 0.8;
+    backdrop-filter: blur(4px);
+}
+
+.creation-sidebar:not(.collapsed) .sidebar-toggle:hover {
     background: var(--shaanxi-red);
     color: white;
     border-color: var(--shaanxi-red);
+    opacity: 1;
+}
+
+.creation-sidebar.collapsed .sidebar-toggle {
+    left: 8px;
+    top: 100px;
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: none;
 }
 
 .creation-sidebar.collapsed .sidebar-toggle i {
@@ -448,22 +472,21 @@ footer {
     line-height: 1.2;
 }
 
-/* 右侧内容流 - 论坛风格主栏 */
+/* 右侧内容流 - 沉浸式无边框 */
 .creation-feed {
-    background: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    background: #000;
+    border-radius: 0;
+    box-shadow: none;
     overflow: hidden;
-    border: 1px solid #f0f0f0;
-    height: 100%; /* 改为100%高度 */
+    border: none;
+    height: 100%;
     padding: 0;
     display: flex;
     flex-direction: column;
     gap: 0;
     align-items: stretch;
-    flex: 1; /* 占据剩余空间 */
-    margin: 0; /* 移除margin，使用flex布局 */
-    overflow: hidden;
+    flex: 1;
+    margin: 0;
 }
 
 /* 排序选项 - 左侧边栏样式 */
@@ -575,6 +598,7 @@ footer {
     width: 100%;
     height: 100%;
     display: none;
+    transition: opacity 0.3s ease;
 }
 
 .video-item.active {
@@ -828,7 +852,7 @@ footer {
     z-index: 15;
 }
 
-/* 上下滑动指示按钮 */
+/* 上下滑动指示按钮 - 默认隐藏，hover显示 */
 .slide-up, .slide-down {
     position: absolute;
     left: 50%;
@@ -838,15 +862,17 @@ footer {
     color: white;
     border: none;
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 16px;
+    transition: opacity 0.3s ease, background 0.3s ease, transform 0.3s ease;
+    font-size: 14px;
     z-index: 15;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .slide-up {
@@ -857,8 +883,16 @@ footer {
     bottom: 80px;
 }
 
+/* 鼠标悬停视频区域时显示按钮 */
+.video-feed:hover .slide-up,
+.video-feed:hover .slide-down {
+    opacity: 0.5;
+    pointer-events: auto;
+}
+
 .slide-up:hover, .slide-down:hover {
     background: rgba(0, 0, 0, 0.5);
+    opacity: 0.8;
     transform: translateX(-50%) scale(1.1);
 }
 
