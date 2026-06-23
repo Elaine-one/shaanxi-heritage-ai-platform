@@ -11,7 +11,7 @@ class TravelPlanningAgent {
      */
     constructor() {
         // Agent 服务基础路径
-        this.apiBaseUrl = '/api/agent/api/travel-plan';
+        this.apiBaseUrl = '/api/agent/travel-plan';
         
         // 从localStorage恢复currentPlanId，确保页面刷新后仍能访问
         this.currentPlanId = localStorage.getItem('travelCurrentPlanId') || null;
@@ -458,7 +458,7 @@ class TravelPlanningAgent {
                 requestBody = { format: 'pdf' };
             } else if (this.planResultCache) {
                 // 如果没有plan_id但有缓存的规划结果，使用AI聊天导出端点
-                exportUrl = `${this.apiBaseUrl.replace('/api/travel-plan', '/api/agent/export_plan_pdf')}`;
+                exportUrl = `${this.apiBaseUrl.replace('/travel-plan', '/export_plan_pdf')}`;
                 requestBody = {
                     complete_plan_data: this.planResultCache,
                     title: this.planResultCache?.title || '我的旅游规划',
@@ -489,10 +489,10 @@ class TravelPlanningAgent {
                 if (!response.ok) {
                     let errorMessage = `导出失败: ${response.status} ${response.statusText}`;
                     try {
-                        // 尝试获取后端返回的详细错误信息
                         const errorData = await response.json();
-                        if (errorData.detail) {
-                            errorMessage = `导出失败: ${errorData.detail}`;
+                        const detail = errorData.error?.message || errorData.detail;
+                        if (detail) {
+                            errorMessage = `导出失败: ${detail}`;
                         }
                     } catch (e) {
                     }
@@ -722,7 +722,8 @@ class TravelPlanningAgent {
             if (result.success) {
                 return result.data;
             } else {
-                throw new Error(result.message || '获取结果失败');
+                const msg = result.error?.message || result.message || result.detail || '获取结果失败';
+                throw new Error(msg);
             }
             
         } catch (error) {

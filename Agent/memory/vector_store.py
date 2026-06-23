@@ -142,7 +142,9 @@ class VectorStore:
     COLLECTIONS = {
         'conversations': 'user_conversations',
         'heritage_knowledge': 'heritage_knowledge',
-        'attractions': 'attraction_info'
+        'attractions': 'attraction_info',
+        'session_archives': 'session_archives',
+        'user_preferences': 'user_preferences',
     }
     
     def __init__(self, persist_directory: str = None, embedding_model: str = None, 
@@ -247,7 +249,7 @@ class VectorStore:
         if 'conversations' not in self.collections:
             return False
         
-        doc_id = f"{session_id}_{len(content)}"
+        doc_id = f"{session_id}_{hashlib.md5(content.encode()).hexdigest()[:8]}"
         
         embedding = self.embedding_model.encode_single(content)
         
@@ -261,7 +263,7 @@ class VectorStore:
             meta.update(metadata)
         
         try:
-            self.collections['conversations'].add(
+            self.collections['conversations'].upsert(
                 ids=[doc_id],
                 embeddings=[embedding],
                 documents=[content],
@@ -292,7 +294,7 @@ class VectorStore:
                     meta[k] = v
         
         try:
-            self.collections['heritage_knowledge'].add(
+            self.collections['heritage_knowledge'].upsert(
                 ids=[doc_id],
                 embeddings=[embedding],
                 documents=[content],
@@ -303,6 +305,85 @@ class VectorStore:
             logger.error(f"添加非遗知识向量失败: {e}")
             return False
     
+    def add_user_preference(self, pref_id: str, user_id: str,
+                            pref_type: str, content: str,
+                            metadata: Dict[str, Any] = None):
+        """添加用户偏好向量（幂等：先删后插）"""
+        if 'user_preferences' not in self.collections:
+            return False
+
+        doc_id = f"pref_{pref_id}"
+        embedding = self.embedding_model.encode_single(content)
+
+        meta = {
+            'user_id': user_id,
+            'pref_id': pref_id,
+            'pref_type': pref_type,
+        }
+        if metadata:
+            meta.update(metadata)
+
+        try:
+            collection = self.collections['user_preferences']
+            try:
+                collection.delete(ids=[doc_id])
+            except Exception:
+                pass
+            collection.upsert(
+                ids=[doc_id],
+                embeddings=[embedding],
+                documents=[content],
+                metadatas=[meta],
+            )
+            return True
+        except Exception as e:
+            logger.error(f"添加用户偏好向量失败: {e}")
+            return False
+
+    def search_user_preferences(self, user_id: str, query: str,
+                                top_k: int = 5,
+                                pref_types: List[str] = None) -> List[Dict[str, Any]]:
+        """语义搜索用户偏好向量"""
+        if 'user_preferences' not in self.collections:
+            return []
+
+        try:
+            collection = self.collections['user_preferences']
+            if collection.count() == 0:
+                return []
+
+            query_embedding = self.embedding_model.encode_single(query)
+            where_filter = {"user_id": user_id}
+
+            results = collection.query(
+                query_embeddings=[query_embedding],
+                n_results=min(top_k, collection.count()),
+                where=where_filter,
+                include=["documents", "metadatas", "distances"],
+            )
+
+            formatted = []
+            if results.get("documents") and results["documents"][0]:
+                for i, doc in enumerate(results["documents"][0]):
+                    meta = results["metadatas"][0][i] if results.get("metadatas") else {}
+                    distance = results["distances"][0][i] if results.get("distances") else 0
+
+                    if pref_types and meta.get("pref_type") not in pref_types:
+                        continue
+
+                    formatted.append({
+                        "pref_id": meta.get("pref_id", ""),
+                        "pref_type": meta.get("pref_type", ""),
+                        "document": doc,
+                        "confidence": meta.get("confidence", 0),
+                        "distance": distance,
+                    })
+
+            return formatted
+        except Exception as e:
+            logger.debug(f"偏好向量搜索失败: {e}")
+            return []
+
     def add_attraction(self, attraction_id: int, name: str, 
                        content: str, metadata: Dict[str, Any] = None):
         """添加景点信息向量"""
@@ -321,7 +402,7 @@ class VectorStore:
             meta.update(metadata)
         
         try:
-            self.collections['attractions'].add(
+            self.collections['attractions'].upsert(
                 ids=[doc_id],
                 embeddings=[embedding],
                 documents=[content],

@@ -29,7 +29,7 @@
 | 💬 **论坛系统** | 帖子、评论、点赞、收藏、标签 |
 | 🎨 **创作中心** | 用户创作内容管理 |
 | 📰 **资讯政策** | 新闻资讯、政策法规展示 |
-| 🤖 **Agent 代理** | 反向代理 AI 规划服务 |
+| 🤖 **Agent 代理** | 反向代理 AI 规划服务（生产环境由 Nginx 直连） |
 
 ---
 
@@ -69,7 +69,8 @@ backend/
 │   │   ├── history.py        # 历史记录接口
 │   │   ├── forum.py          # 论坛接口
 │   │   ├── map.py            # 地图接口
-│   │   └── agent.py          # Agent代理接口
+│   │   ├── agent.py          # Agent代理接口
+│   │   └── admin_api.py      # 管理后台接口
 │   │
 │   ├── serializers/          # 📋 序列化器
 │   │   ├── heritage.py
@@ -237,9 +238,31 @@ gunicorn heritage_project.wsgi:application --bind 0.0.0.0:8000
 
 | 接口 | 方法 | 描述 |
 |:---|:---:|:---|
-| `/api/agent/{path}` | ALL | 代理转发到 Agent 服务 |
-| `/api/agent-service-url/` | GET | 获取 Agent 服务地址 |
+| `/api/agent/{path}` | ALL | 代理转发到 Agent 服务（开发环境） |
 | `/api/map/config/` | GET | 获取百度地图 API 配置 |
+
+### 管理后台接口
+
+| 接口 | 方法 | 描述 |
+|:---|:---:|:---|
+| `/api/admin/login/` | POST | 管理员登录 |
+| `/api/admin/users/` | GET/POST | 用户列表 / 创建用户 |
+| `/api/admin/users/{id}/` | GET/PUT/DELETE | 用户详情 / 更新 / 删除 |
+| `/api/admin/users/{id}/reset-password/` | POST | 重置用户密码 |
+| `/api/admin/stats/` | GET | 管理统计数据 |
+| `/api/admin/operation-logs/` | GET | 操作日志列表 |
+| `/api/admin/forum/posts/` | GET | 论坛帖子管理 |
+| `/api/admin/forum/posts/{id}/` | GET/PUT/DELETE | 帖子详情 / 操作 |
+| `/api/admin/forum/tags/` | GET/POST | 标签列表 / 创建 |
+| `/api/admin/forum/tags/{id}/` | PUT/DELETE | 标签更新 / 删除 |
+| `/api/admin/forum/announcements/` | GET/POST | 公告列表 / 创建 |
+| `/api/admin/forum/announcements/{id}/` | PUT/DELETE | 公告更新 / 删除 |
+| `/api/admin/forum/rules/` | GET/POST | 版规列表 / 创建 |
+| `/api/admin/forum/rules/{id}/` | PUT/DELETE | 版规更新 / 删除 |
+| `/api/admin/forum/reports/` | GET | 举报列表 |
+| `/api/admin/forum/reports/{id}/` | PUT | 处理举报 |
+| `/api/admin/creations/` | GET | 创作列表管理 |
+| `/api/admin/creations/{id}/` | GET/PUT/DELETE | 创作详情 / 操作 |
 
 ---
 
@@ -254,6 +277,7 @@ gunicorn heritage_project.wsgi:application --bind 0.0.0.0:8000
 | `UserHistory` | 浏览历史 |
 | `News` | 新闻资讯 |
 | `Policy` | 政策法规 |
+| `AdminOperationLog` | 管理操作日志 |
 
 ### 用户 & 创作模型
 
@@ -273,8 +297,12 @@ gunicorn heritage_project.wsgi:application --bind 0.0.0.0:8000
 | `ForumComment` | 论坛评论 |
 | `ForumTag` | 论坛标签 |
 | `ForumPostLike` | 帖子点赞 |
+| `ForumCommentLike` | 评论点赞 |
 | `ForumPostFavorite` | 帖子收藏 |
 | `ForumUserFollow` | 用户关注 |
+| `ForumReport` | 帖子/评论举报 |
+| `ForumAnnouncement` | 论坛公告 |
+| `ForumRule` | 论坛版规 |
 | `ForumUserStats` | 用户统计 |
 
 ---
@@ -283,10 +311,17 @@ gunicorn heritage_project.wsgi:application --bind 0.0.0.0:8000
 
 ### Agent 服务代理
 
-后端通过反向代理将 `/api/agent/` 路径的请求转发到 Agent 服务：
+生产环境由 Nginx 直接将 `/api/agent/` 请求转发到 Agent 服务（不经过 Django）：
 
-```python
-# 请求流程
+```
+# 生产环境
+前端 → Nginx → Agent服务(localhost:8001)
+```
+
+Django 中保留 `/api/agent/<path>` 反向代理路由，仅在开发环境（无 Nginx）时生效：
+
+```
+# 开发环境
 前端 → Django后端(/api/agent/*) → Agent服务(localhost:8001)
 ```
 

@@ -12,8 +12,7 @@
 
 from loguru import logger
 
-from .session import SessionPool, SessionContext
-from .session_provider import get_session_pool
+from .session import SessionPool, SessionContext, get_session_pool
 from .sifter import Sifter, get_sifter
 
 try:

@@ -227,7 +227,7 @@ class TravelPlanner:
                 current_date=datetime.now().strftime('%Y年%m月%d日')
             )
             
-            ai_response = await self.llm_model._call_model(prompt)
+            ai_response = await self.llm_model.call_model(prompt)
             
             logger.info("AI建议生成完成")
             

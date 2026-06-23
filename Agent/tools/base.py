@@ -178,16 +178,35 @@ class HeritageSearchTool(BaseTool):
                             'heritage_items': [heritage],
                             'count': 1
                         }
-                        
-                        if include_nearby and kg and kg.is_connected():
+
+                        if kg and kg.is_connected():
+                            # 传承人信息（HAS_INHERITOR + STUDIED_UNDER 遍历）
                             try:
-                                nearby = kg.query_nearby_heritages_by_id(heritage_id, limit=3)
-                                if nearby:
-                                    result['nearby_heritages'] = nearby
-                                    result['nearby_hint'] = f"发现{len(nearby)}个邻近非遗项目可顺访"
+                                inheritors = kg.query_inheritors_by_heritage(heritage_id)
+                                if inheritors:
+                                    result['inheritors'] = inheritors
+                                    result['inheritor_count'] = len(inheritors)
                             except Exception as e:
-                                logger.debug(f"查询邻近项目失败: {e}")
-                        
+                                logger.debug(f"查询传承人失败: {e}")
+
+                            # 朝代信息（ORIGINATED_IN 遍历）
+                            try:
+                                dynasties = kg.query_heritage_dynasties(heritage_id)
+                                if dynasties:
+                                    result['dynasties'] = dynasties
+                            except Exception as e:
+                                logger.debug(f"查询朝代失败: {e}")
+
+                            # 邻近项目
+                            if include_nearby:
+                                try:
+                                    nearby = kg.query_nearby_heritages_by_id(heritage_id, limit=3)
+                                    if nearby:
+                                        result['nearby_heritages'] = nearby
+                                        result['nearby_hint'] = f"发现{len(nearby)}个邻近非遗项目可顺访"
+                                except Exception as e:
+                                    logger.debug(f"查询邻近项目失败: {e}")
+
                         return result
                     else:
                         return {
@@ -199,6 +218,8 @@ class HeritageSearchTool(BaseTool):
                 results = query_service.hybrid_query(keywords, region, category, top_k=10)
             elif region and region.strip():
                 results = query_service.query_by_region(region, limit=10)
+                if category and category.strip():
+                    results = [r for r in results if r.get('category') == category]
             elif category and category.strip():
                 results = query_service.query_by_category(category, limit=10)
             else:
@@ -269,7 +290,7 @@ class PlanEditTool(BaseTool):
 
             prompt = self._build_edit_prompt(current_plan, edit_request)
 
-            response = await llm_model._call_model(prompt)
+            response = await llm_model.call_model(prompt)
 
             logger.info(f"LLM 原始返回: {response}")
 
@@ -333,19 +354,24 @@ class PlanEditTool(BaseTool):
                     context.plan_data.budget_range = edited_plan['budget_range']
                 if 'heritage_names' in edited_plan or 'heritage_items' in edited_plan:
                     if 'heritage_items' in edited_plan:
-                        from Agent.context.unified_context import HeritageItem
-                        context.plan_data.heritage_items = [
-                            HeritageItem(**{k: v for k, v in item.items() if k in ('id', 'name', 'region', 'category', 'level', 'latitude', 'longitude')})
-                            for item in edited_plan['heritage_items'] if isinstance(item, dict)
-                        ]
-                        logger.info(f"✅ 更新 heritage_items, count={len(context.plan_data.heritage_items)}")
+                        items = edited_plan['heritage_items']
+                        # 如果 LLM 返回的是整数 ID 列表（而非完整 dict），保留原有 heritage_items
+                        if items and all(isinstance(it, int) for it in items):
+                            logger.info(f"⏭️ heritage_items 为整数 ID 列表，跳过覆盖（保留原有 {len(context.plan_data.heritage_items)} 项）")
+                        else:
+                            from Agent.context.unified_context import HeritageItem
+                            context.plan_data.heritage_items = [
+                                HeritageItem(**{k: v for k, v in item.items() if k in ('id', 'name', 'region', 'category', 'level', 'latitude', 'longitude')})
+                                for item in items if isinstance(item, dict)
+                            ]
+                            logger.info(f"✅ 更新 heritage_items, count={len(context.plan_data.heritage_items)}")
                     elif 'heritage_names' in edited_plan:
                         logger.info(f"✅ heritage_names 更新: {edited_plan['heritage_names']}")
 
                 logger.info(f"✅ 上下文 plan_data 已更新: travel_days={context.plan_data.travel_days}, departure={context.plan_data.departure_location}")
 
             try:
-                from Agent.memory.session_provider import get_session_pool
+                from Agent.memory.session import get_session_pool
                 session_pool = get_session_pool()
                 if session_pool and context.session_id:
                     if hasattr(session_pool, 'update_session_plan'):
@@ -398,14 +424,15 @@ class ToolRegistry:
     def _register_default_tools(self):
         """注册默认工具"""
         from .knowledge_graph_tools import (
-            NearbyHeritageTool, 
-            RelatedHeritageTool, 
-            NearbyRegionTool, 
+            NearbyHeritageTool,
+            RelatedHeritageTool,
+            NearbyRegionTool,
             RouteHintTool,
-            UserRecommendTool
+            UserRecommendTool,
+            HeritageTimelineTool,
         )
-        from .plan_tools import PlanQueryTool, RouteDistanceTool, RoutePreviewTool
-        
+        from .plan_tools import PlanQueryTool, RoutePreviewTool
+
         default_tools = [
             HeritageSearchTool(),
             PlanEditTool(),
@@ -414,8 +441,8 @@ class ToolRegistry:
             NearbyRegionTool(),
             RouteHintTool(),
             UserRecommendTool(),
+            HeritageTimelineTool(),
             PlanQueryTool(),
-            RouteDistanceTool(),
             RoutePreviewTool()
         ]
 

@@ -10,7 +10,7 @@ from typing import Dict, Any, List
 from datetime import datetime, timedelta
 from loguru import logger
 
-from Agent.memory.session_provider import get_session_pool
+from Agent.memory.session import get_session_pool
 from Agent.config.settings import Config
 
 

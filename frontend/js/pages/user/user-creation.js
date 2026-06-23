@@ -1549,6 +1549,7 @@ class UserCreation {
         const videoFeed = document.getElementById('videoFeed');
         let startY = 0;
         let endY = 0;
+        let wheelCooldown = false;
         
         videoFeed.addEventListener('touchstart', (e) => {
             startY = e.touches[0].clientY;
@@ -1569,9 +1570,12 @@ class UserCreation {
             this.handleSwipe(startY, endY);
         });
         
-        // 鼠标滚轮支持
+        // 鼠标滚轮支持 - 添加节流防止过于灵敏
         videoFeed.addEventListener('wheel', (e) => {
             e.preventDefault();
+            if (wheelCooldown) return;
+            wheelCooldown = true;
+
             if (e.deltaY > 0) {
                 // 向下滚动，下一个视频
                 this.nextVideo();
@@ -1579,6 +1583,10 @@ class UserCreation {
                 // 向上滚动，上一个视频
                 this.prevVideo();
             }
+
+            setTimeout(() => {
+                wheelCooldown = false;
+            }, 600); // 600ms 冷却时间
         });
     }
     
@@ -1642,51 +1650,84 @@ class UserCreation {
     switchVideo(index) {
         // 切换到指定视频
         if (index < 0 || index >= this.creations.length) return;
-        
+        if (index === this.currentVideoIndex) return;
+
         // 停止所有视频的播放
         const allVideos = document.querySelectorAll('.video-item video');
         allVideos.forEach(video => {
             video.pause();
             video.currentTime = 0;
         });
-        
-        // 隐藏当前视频
+
+        // 隐藏当前视频（淡出效果）
         const currentVideo = document.querySelector('.video-item.active');
-        if (currentVideo) {
-            currentVideo.classList.remove('active');
-        }
-        
-        // 显示新视频
         const videoItems = document.querySelectorAll('.video-item');
-        if (videoItems[index]) {
-            videoItems[index].classList.add('active');
-            const video = videoItems[index].querySelector('video');
-            if (video) {
-                // 使用isMuted属性设置视频的静音状态
-                video.muted = this.isMuted;
-                // 重新加载视频源
-                video.load();
-                video.play().catch(err => console.error('自动播放失败:', err));
+
+        if (currentVideo) {
+            currentVideo.style.opacity = '0';
+            setTimeout(() => {
+                currentVideo.classList.remove('active');
+                currentVideo.style.opacity = '';
+
+                // 显示新视频（淡入效果）
+                if (videoItems[index]) {
+                    videoItems[index].style.opacity = '0';
+                    videoItems[index].classList.add('active');
+                    const video = videoItems[index].querySelector('video');
+                    if (video) {
+                        video.muted = this.isMuted;
+                        video.load();
+                        video.play().catch(err => console.error('自动播放失败:', err));
+                    }
+                    // 触发淡入
+                    requestAnimationFrame(() => {
+                        videoItems[index].style.opacity = '1';
+                    });
+                }
+
+                // 更新音量图标状态
+                const volumeIcon = document.getElementById('volumeIcon');
+                if (volumeIcon) {
+                    volumeIcon.className = this.isMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+                }
+
+                // 更新指示器
+                const indicators = document.querySelectorAll('.indicator');
+                indicators.forEach((indicator, i) => {
+                    indicator.classList.toggle('active', i === index);
+                });
+
+                // 更新互动栏
+                this.updateInteractiveBar(index);
+
+                // 更新当前索引
+                this.currentVideoIndex = index;
+            }, 200);
+        } else {
+            // 首次加载，无淡出效果
+            if (videoItems[index]) {
+                videoItems[index].classList.add('active');
+                const video = videoItems[index].querySelector('video');
+                if (video) {
+                    video.muted = this.isMuted;
+                    video.load();
+                    video.play().catch(err => console.error('自动播放失败:', err));
+                }
             }
+
+            const volumeIcon = document.getElementById('volumeIcon');
+            if (volumeIcon) {
+                volumeIcon.className = this.isMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+            }
+
+            const indicators = document.querySelectorAll('.indicator');
+            indicators.forEach((indicator, i) => {
+                indicator.classList.toggle('active', i === index);
+            });
+
+            this.updateInteractiveBar(index);
+            this.currentVideoIndex = index;
         }
-        
-        // 更新音量图标状态
-        const volumeIcon = document.getElementById('volumeIcon');
-        if (volumeIcon) {
-            volumeIcon.className = this.isMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
-        }
-        
-        // 更新指示器
-        const indicators = document.querySelectorAll('.indicator');
-        indicators.forEach((indicator, i) => {
-            indicator.classList.toggle('active', i === index);
-        });
-        
-        // 更新互动栏
-        this.updateInteractiveBar(index);
-        
-        // 更新当前索引
-        this.currentVideoIndex = index;
     }
     
     nextVideo() {

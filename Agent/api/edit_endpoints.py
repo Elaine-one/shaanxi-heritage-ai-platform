@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from loguru import logger
+import asyncio
+import json
+import os
+import uuid
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-import asyncio
-import uuid
+
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
+from loguru import logger
 
 import sys
 from pathlib import Path
@@ -15,14 +19,14 @@ sys.path.insert(0, str(project_root))
 
 from Agent.api.session_dependencies import get_current_user_from_session, TokenData
 
-edit_router = APIRouter(prefix='/api/agent', tags=['规划编辑'])
+edit_router = APIRouter(prefix='/api/agent', tags=['AI 编辑与对话'])
 
 _pdf_tasks: Dict[str, Dict[str, Any]] = {}
 _pdf_async_tasks: Dict[str, asyncio.Task] = {}
 
 
 def _get_session_pool():
-    from Agent.memory.session_provider import get_session_pool
+    from Agent.memory.session import get_session_pool
     return get_session_pool()
 
 
@@ -57,7 +61,23 @@ async def _run_pdf_export(task_id: str, session_id: str, output_filename: Option
             return
 
         current_plan = session.current_plan
-        conversation_history = session.conversation_history
+        conversation_history = session.conversation_history or []
+
+        # 降级：从 L1 recent_turns 恢复（双写合并后 conversation_history 不再写入）
+        if not conversation_history:
+            try:
+                from Agent.memory.coordinator import get_memory_coordinator
+                coordinator = get_memory_coordinator()
+                l1 = coordinator.get_l1_snapshot(session_id)
+                if l1 and l1.get("recent_turns"):
+                    conversation_history = [
+                        {"role": t.get("role", ""), "content": t.get("content", ""),
+                         "timestamp": t.get("timestamp", "")}
+                        for t in l1.get("recent_turns", [])
+                    ]
+                    logger.info(f"PDF任务 {task_id}: 从 L1 恢复 {len(conversation_history)} 条对话")
+            except Exception as e:
+                logger.warning(f"PDF任务 {task_id}: L1 恢复失败: {e}")
 
         _pdf_tasks[task_id]['progress'] = 20
         logger.info(f"PDF任务 {task_id}: 开始生成，对话历史 {len(conversation_history)} 条")
@@ -212,11 +232,6 @@ class EditPlanRequest(BaseModel):
     user_input: str
 
 
-class ApplyChangesRequest(BaseModel):
-    session_id: str
-    final_plan: Dict[str, Any]
-
-
 class EndSessionRequest(BaseModel):
     session_id: str
 
@@ -224,6 +239,17 @@ class EndSessionRequest(BaseModel):
 class ExportPdfRequest(BaseModel):
     session_id: str
     output_filename: Optional[str] = None
+
+
+class PDFExportRequest(BaseModel):
+    """PDF导出请求模型（同步直返）"""
+    title: Optional[str] = "我的旅游规划"
+    destination: Optional[str] = None
+    duration: Optional[str] = None
+    weather_info: Optional[Dict[str, Any]] = None
+    session_id: Optional[str] = None
+    complete_plan_data: Optional[Dict[str, Any]] = None
+    ai_descriptions: Optional[List[str]] = None
 
 
 class EditResponse(BaseModel):
@@ -274,7 +300,7 @@ async def start_edit_session(request: StartEditSessionRequest, current_user: Tok
 
 
 @edit_router.post('/export_pdf', summary="导出PDF(异步)", response_model=EditResponse)
-async def export_plan_pdf(request: ExportPdfRequest, current_user: TokenData = Depends(get_current_user_from_session)):
+async def export_pdf_async(request: ExportPdfRequest, current_user: TokenData = Depends(get_current_user_from_session)):
     """提交 PDF 导出任务，立即返回 task_id，前端轮询 /export_pdf_status 查询进度"""
     try:
         _verify_session_owner(request.session_id, current_user.user_id)
@@ -418,39 +444,6 @@ async def download_pdf(task_id: str, current_user: TokenData = Depends(get_curre
         raise HTTPException(status_code=500, detail=f"PDF下载失败: {str(e)}")
 
 
-@edit_router.get('/health', summary="服务状态", response_model=EditResponse)
-async def health_check():
-    """检查编辑服务运行状态"""
-    return EditResponse(success=True, status='healthy', message='编辑服务运行正常')
-
-
-@edit_router.get('/get_edit_history', summary="编辑历史", response_model=EditResponse)
-async def get_edit_history(session_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
-    """获取会话的编辑历史记录"""
-    return EditResponse(success=True, history=[], message='暂不提供详细历史')
-
-
-@edit_router.get('/get_available_operations', summary="可用操作", response_model=EditResponse)
-async def get_available_operations(current_user: TokenData = Depends(get_current_user_from_session)):
-    """获取可用的编辑操作列表"""
-    return EditResponse(success=True, operations=[], message='获取成功')
-
-
-@edit_router.get('/get_plan_summary', summary="规划摘要", response_model=EditResponse)
-async def get_plan_summary(session_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
-    """获取当前规划的摘要信息"""
-    _verify_session_owner(session_id, current_user.user_id)
-    return EditResponse(success=True, summary="摘要", message='获取成功')
-
-
-@edit_router.get('/session_info', summary="会话信息")
-async def get_session_info(session_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
-    """获取编辑会话的详细信息，用于调试和管理"""
-    _verify_session_owner(session_id, current_user.user_id)
-    plan_editor = _get_plan_editor()
-    return plan_editor.get_session_info(session_id)
-
-
 @edit_router.post('/end_edit_session', summary="结束编辑", response_model=EditResponse)
 async def end_edit_session(request: EndSessionRequest, current_user: TokenData = Depends(get_current_user_from_session)):
     """结束编辑会话，取消关联的PDF任务，清理会话资源"""
@@ -474,8 +467,215 @@ async def end_edit_session(request: EndSessionRequest, current_user: TokenData =
     return EditResponse(success=True, message='会话已结束')
 
 
-@edit_router.post('/apply_plan_changes', summary="应用修改", response_model=EditResponse)
-async def apply_plan_changes(request: ApplyChangesRequest, current_user: TokenData = Depends(get_current_user_from_session)):
-    """应用规划修改"""
-    _verify_session_owner(request.session_id, current_user.user_id)
-    return EditResponse(success=True, message='功能暂未开放')
+# ── Helpers ──────────────────────────────────────────────────────────
+
+async def _cleanup_temp_file(path: str):
+    await asyncio.sleep(60)
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
+
+
+# ── Direct-export & session routes (migrated from app.py) ────────────
+
+@edit_router.post('/export_plan_pdf', summary="导出PDF（同步）")
+async def export_plan_pdf(request: PDFExportRequest, background_tasks: BackgroundTasks,
+                           current_user: TokenData = Depends(get_current_user_from_session)):
+    """将旅游规划导出为PDF文件，自动上传到对象存储（同步等待生成完成）"""
+    try:
+        logger.info(f"收到AI PDF导出请求，目的地: {request.destination}, 用户: {current_user.username}")
+
+        plan_data = request.complete_plan_data or {}
+
+        if request.session_id:
+            try:
+                from Agent.memory.session import get_session_pool
+                session_pool = get_session_pool()
+                session = session_pool.get_session(request.session_id)
+                if session:
+                    if hasattr(session, 'current_plan') and session.current_plan:
+                        session_plan = session.current_plan
+                        if isinstance(session_plan, dict):
+                            plan_data.update(session_plan)
+                            logger.info(f"已从 session 获取最新 plan_data: travel_days={session_plan.get('travel_days')}")
+                        elif hasattr(session_plan, 'model_dump'):
+                            plan_data.update(session_plan.model_dump())
+                            logger.info(f"已从 session 获取最新 plan_data: travel_days={session_plan.travel_days}")
+                    if hasattr(session, 'departure_location') and session.departure_location:
+                        plan_data['departure_location'] = session.departure_location
+                    if hasattr(session, 'travel_days') and session.travel_days:
+                        plan_data['travel_days'] = session.travel_days
+            except Exception as e:
+                logger.warning(f"从 session 获取数据失败: {e}")
+
+        conversation_history = plan_data.get('conversation_history', [])
+
+        if not conversation_history and request.ai_descriptions:
+            conversation_history = [
+                {'role': 'user', 'content': '导出历史摘要'},
+                {'role': 'assistant', 'content': '\n'.join(request.ai_descriptions)}
+            ]
+
+        logger.info(f"导出上下文包含 {len(conversation_history)} 条对话记录")
+
+        from Agent.services.pdf_content_integrator import PDFContentIntegrator
+        from Agent.agent import get_travel_planner
+        from Agent.services.minio_storage import get_minio_service
+
+        planner = get_travel_planner()
+        integrator = PDFContentIntegrator(llm_model=planner.llm_model)
+
+        file_response = await integrator.integrate_and_export(
+            plan_data=plan_data,
+            conversation_history=conversation_history,
+            output_filename=None
+        )
+
+        if file_response.get('success'):
+            path = file_response.get('pdf_path')
+
+            minio_url = None
+            upload_success = False
+            try:
+                with open(path, 'rb') as f:
+                    pdf_bytes = f.read()
+
+                minio_service = get_minio_service()
+                upload_result = minio_service.upload_pdf(
+                    username=current_user.username,
+                    pdf_bytes=pdf_bytes,
+                    metadata={
+                        "destination": request.destination,
+                        "duration": request.duration,
+                        "title": request.title,
+                        "exported_by": current_user.user_id,
+                        "session_id": request.session_id,
+                        "message_count": len(conversation_history)
+                    }
+                )
+
+                if upload_result.get('success'):
+                    minio_url = upload_result.get('url')
+                    upload_success = True
+                    logger.info(f"PDF已上传到MinIO: {upload_result.get('object_path')}")
+                else:
+                    logger.warning(f"MinIO上传失败: {upload_result.get('error')}")
+            except Exception as e:
+                logger.error(f"MinIO上传过程异常: {str(e)}")
+
+            background_tasks.add_task(_cleanup_temp_file, path)
+
+            from urllib.parse import quote
+            filename = f"TravelPlan_{request.destination}_{datetime.now().strftime('%H%M%S')}.pdf"
+            encoded_filename = quote(filename)
+
+            headers = {
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+            }
+            if minio_url:
+                headers["X-MinIO-URL"] = minio_url
+                headers["X-MinIO-Status"] = "success"
+            else:
+                headers["X-MinIO-Status"] = "failed"
+
+            return FileResponse(
+                path=path,
+                filename=filename,
+                media_type='application/pdf',
+                headers=headers
+            )
+        else:
+            raise HTTPException(status_code=500, detail=file_response.get('error', '生成失败'))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"AI导出失败: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@edit_router.post('/session/{session_id}/end', summary="结束会话并归档")
+async def end_session(session_id: str, current_user: TokenData = Depends(get_current_user_from_session)):
+    """会话关闭时触发归档管线，由前端 sendBeacon 调用，不阻塞主流程"""
+    try:
+        from Agent.memory.coordinator import get_memory_coordinator
+        coordinator = get_memory_coordinator()
+        ok = await coordinator.close_session(str(session_id), current_user.user_id)
+        return {"success": ok, "session_id": session_id, "archived": ok}
+    except Exception as e:
+        logger.warning(f"会话归档请求失败: {e}")
+        return {"success": False, "session_id": session_id, "error": str(e)}
+
+
+@edit_router.post('/chat-stream', summary="AI对话流式")
+async def agent_chat_stream(request: Dict[str, Any], current_user: TokenData = Depends(get_current_user_from_session)):
+    """与AI助手进行流式对话交互，支持状态反馈"""
+    try:
+        msg = request.get('message', '')
+        sid = request.get('session_id') or str(uuid.uuid4())
+
+        from Agent.memory.session import get_session_pool
+        session_pool = get_session_pool()
+        existing_session = session_pool.get_session(sid)
+        if not existing_session:
+            logger.warning(
+                f"chat-stream: session 不存在 sid={sid}, user_id={current_user.user_id}. "
+                f"前端可能未调用 start_edit_session 或会话已过期，创建无规划数据的空会话"
+            )
+            await session_pool.create_session(
+                plan_id=sid,
+                original_plan={},
+                user_id=current_user.user_id
+            )
+        else:
+            logger.info(
+                f"chat-stream: session 已存在 sid={sid}, "
+                f"departure={getattr(existing_session, 'departure_location', None)}, "
+                f"heritage_ids={getattr(existing_session, 'heritage_ids', [])}, "
+                f"user_id={existing_session.user_id}"
+            )
+            if existing_session.user_id is not None and str(existing_session.user_id) != str(current_user.user_id):
+                logger.warning(f"chat-stream: 用户 {current_user.user_id} 尝试访问非本人会话 {sid} (owner={existing_session.user_id})")
+                raise HTTPException(status_code=403, detail="无权访问此会话")
+            if existing_session.user_id is None:
+                session_pool.update_session_user_id(sid, current_user.user_id)
+                logger.info(f"chat-stream: 会话 {sid} 未绑定用户，已绑定到 {current_user.user_id}")
+
+        from Agent.agent.agent import get_agent
+        agent = get_agent()
+
+        async def event_generator():
+            try:
+                async for event in agent.process_stream(msg, sid):
+                    event_type = event.get("type", "content")
+
+                    if event_type == "status":
+                        yield f"data: {json.dumps({'status': event.get('status'), 'content': event.get('content', '')}, ensure_ascii=False)}\n\n"
+                    elif event_type == "thinking":
+                        yield f"data: {json.dumps({'status': 'thinking', 'content': event.get('content', '正在思考...')}, ensure_ascii=False)}\n\n"
+                    elif event_type == "content":
+                        yield f"data: {json.dumps({'content': event.get('content', '')}, ensure_ascii=False)}\n\n"
+                    elif event_type == "done":
+                        yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
+
+            except Exception as e:
+                logger.error(f"流式生成异常: {str(e)}")
+                yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

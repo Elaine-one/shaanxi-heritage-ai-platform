@@ -12,13 +12,8 @@ class PlanEditorAPI {
         this._sessionInitializing = false;
     }
 
-    async getApiBaseUrl(apiType = 'agent') {
-        if (this.apiUrls[apiType]) {
-            return this.apiUrls[apiType];
-        }
-        const apiUrl = `/api/agent/api/${apiType}`;
-        this.apiUrls[apiType] = apiUrl;
-        return apiUrl;
+    async getApiBaseUrl(_apiType = 'agent') {
+        return '/api/agent';
     }
 
     async initializeChatSession() {
@@ -43,7 +38,8 @@ class PlanEditorAPI {
                 const contentType = res.headers.get('content-type') || '';
                 if (contentType.includes('application/json')) {
                     const errData = await res.json();
-                    throw new Error(errData.detail || `HTTP ${res.status}`);
+                    const msg = errData.error?.message || errData.detail || `HTTP ${res.status}`;
+                    throw new Error(msg);
                 } else {
                     const textPreview = await res.text().then(t => t.substring(0, 200));
                     throw new Error(`服务端返回非JSON响应 (${res.status})`);
@@ -55,7 +51,8 @@ class PlanEditorAPI {
                 this.editor.sessionId = data.session_id;
                 this.editor.ui.enableApplyButton();
             } else {
-                throw new Error(data.message || '初始化失败');
+                const msg = data.error?.message || data.message || data.detail || '初始化失败';
+                throw new Error(msg);
             }
         } catch (e) {
             console.error('初始化会话失败:', e);
@@ -115,7 +112,10 @@ class PlanEditorAPI {
                 credentials: 'include'
             });
 
-            if (!res.ok) return false;
+            if (!res.ok) {
+                console.warn(`导出状态查询失败: HTTP ${res.status}`);
+                return false;
+            }
 
             const data = await res.json();
 
@@ -183,12 +183,17 @@ class PlanEditorAPI {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || `提交失败 (${response.status})`);
+                const msg = errorData.error?.message || errorData.detail || `提交失败 (${response.status})`;
+                throw new Error(msg);
             }
 
             const data = await response.json();
-            if (!data.success || !data.message) {
-                throw new Error(data.message || '提交导出任务失败');
+            if (data.success === false) {
+                const msg = data.error?.message || data.message || data.detail || '提交导出任务失败';
+                throw new Error(msg);
+            }
+            if (!data.message) {
+                throw new Error('提交导出任务失败：缺少task_id');
             }
 
             this._currentTaskId = data.message;
@@ -228,7 +233,10 @@ class PlanEditorAPI {
                     credentials: 'include'
                 });
 
-                if (!res.ok) continue;
+                if (!res.ok) {
+                    console.warn(`PDF状态轮询失败: HTTP ${res.status}`);
+                    continue;
+                }
 
                 const data = await res.json();
                 const taskInfo = data.changes || {};
@@ -261,9 +269,12 @@ class PlanEditorAPI {
                 }
 
             } catch (e) {
-                if (e.message && !e.message.includes('fetch')) {
-                    throw e;
+                // Network errors are transient, retry until timeout
+                if (e instanceof TypeError) {
+                    console.warn(`PDF状态轮询网络异常: ${e.message}`);
+                    continue;
                 }
+                throw e;  // Application errors (e.g. status 'failed') break the loop
             }
         }
 

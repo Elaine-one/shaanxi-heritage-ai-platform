@@ -138,7 +138,7 @@ class SafetyChecker:
                 llm = self._get_llm_model()
                 prompt = SAFETY_CHECK_PROMPT.format(user_input=user_input[:500])
                 
-                response = await llm._call_model(prompt)
+                response = await llm.call_model(prompt)
                 
                 if response.get('success'):
                     content = response.get('content', '')

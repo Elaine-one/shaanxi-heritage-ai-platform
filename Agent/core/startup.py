@@ -48,14 +48,22 @@ class StartupManager:
         except Exception as e:
             logger.warning(f"保存同步状态失败: {e}")
     
+    # 参与哈希计算的内容字段，任一变更都会触发重新同步
+    _HASH_FIELDS = [
+        'id', 'name', 'category', 'region', 'level', 'batch',
+        'description', 'history', 'features', 'value', 'status',
+        'protection_measures', 'inheritors', 'related_works',
+        'latitude', 'longitude',
+    ]
+
     def _compute_data_hash(self, heritage_list: List[Dict]) -> str:
-        """计算数据哈希值，用于检测变化"""
+        """计算数据哈希值，用于检测内容变化"""
         if not heritage_list:
             return ""
-        
+
         data_str = json.dumps(
-            [(h.get('id'), h.get('name'), h.get('updated_at', '')) for h in heritage_list],
-            sort_keys=True
+            [tuple(h.get(f) for f in self._HASH_FIELDS) for h in heritage_list],
+            sort_keys=True, ensure_ascii=False
         )
         return hashlib.md5(data_str.encode()).hexdigest()
     
@@ -161,7 +169,7 @@ class StartupManager:
     
     async def _init_session_pool(self) -> Dict[str, Any]:
         """初始化会话池"""
-        from Agent.memory.session_provider import get_session_pool
+        from Agent.memory.session import get_session_pool
         
         sp = get_session_pool()
         return {
@@ -284,7 +292,12 @@ class StartupManager:
             self.sync_status = {
                 'last_sync': datetime.now().isoformat(),
                 'heritage_count': len(heritage_list),
-                'data_hash': current_hash
+                'data_hash': current_hash,
+                'phase_one_inheritors': kg_result.get('inheritor_node_count', 0) > 0,
+                'phase_two_dynasty_region': (
+                    kg_result.get('dynasty_nodes', 0) > 0 and
+                    kg_result.get('part_of_relations', 0) > 0
+                ),
             }
             self._save_sync_status()
             
@@ -426,7 +439,7 @@ class StartupManager:
         for category in categories:
             kg.create_category_node(category, '')
         for region in regions:
-            kg.create_region_node(region, '陕西', '')
+            kg.create_region_node(region, '陕西', region, '地级市')
         for level in levels:
             kg.create_level_node(level, 0)
         for batch in batches:
@@ -448,13 +461,36 @@ class StartupManager:
                 )
         
         near_count = kg.build_near_relations(max_distance_km=100)
-        
+
+        # 阶段一：传承人图谱同步
+        inheritor_stats = kg.sync_inheritors_from_heritage_list(heritage_list)
+
+        # 阶段二：Region 层级树展开 + 细粒度地区关联
+        region_tree_stats = kg.expand_region_tree()
+        refine_count = 0
+        for heritage in heritage_list:
+            text = (heritage.get('description', '') + ' ' +
+                    heritage.get('history', ''))
+            if kg.refine_heritage_region(heritage['id'], text):
+                refine_count += 1
+
+        # 阶段二：朝代图谱同步
+        dynasty_stats = kg.sync_dynasties_from_heritage_list(heritage_list)
+
         return {
             'success': True,
             'heritage_count': heritage_count,
             'category_count': len(categories),
             'region_count': len(regions),
-            'near_relation_count': near_count
+            'near_relation_count': near_count,
+            'inheritor_node_count': inheritor_stats['inheritor_nodes'],
+            'has_inheritor_relation_count': inheritor_stats['has_inheritor_relations'],
+            'studied_under_relation_count': inheritor_stats['studied_under_relations'],
+            'region_tree_nodes': region_tree_stats['region_nodes'],
+            'part_of_relations': region_tree_stats['part_of_relations'],
+            'refined_heritage_regions': refine_count,
+            'dynasty_nodes': dynasty_stats['dynasty_nodes'],
+            'originated_in_relations': dynasty_stats['originated_in_relations'],
         }
     
     async def _sync_to_vector_store(self, heritage_list: List[Dict]) -> Dict[str, int]:

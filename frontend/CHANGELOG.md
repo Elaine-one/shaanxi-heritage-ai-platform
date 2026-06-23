@@ -9,6 +9,19 @@
 
 ## [Unreleased](https://github.com/Elaine-one/shaanxi-heritage-ai-platform/compare/v1.4.0...HEAD)
 
+### API 路径规范化（2026-06-23）
+
+- 🏗️ `agent-core.js`：`apiBaseUrl` 从 `/api/agent/api/travel-plan` 简化为 `/api/agent/travel-plan`，移除补偿段
+- 🏗️ `plan-editor-api.js`：`getApiBaseUrl()` 从 `` `/api/agent/api/${apiType}` `` 简化为 `return '/api/agent'`
+- 🏗️ `floating-ai-assistant.js`：`getApiBaseUrl()` 从 `/api/agent/api/agent` 简化为 `/api/agent`
+- 🏗️ `floating-ai-assistant.js`：修复 chat-stream 路径三重 `agent` 段导致 404
+
+### 错误处理加固
+
+- 🐛 前端错误解析优先级统一为 `error?.message` → `detail` → 默认文本
+- 🐛 `plan-editor-api.js`：`checkPendingExport` 和 `_pollPdfStatus` 增加 `console.warn` HTTP 状态码输出
+- 🐛 `plan-editor-api.js`：`_pollPdfStatus` 网络异常判断从字符串匹配改为 `e instanceof TypeError`
+
 ***
 
 ## [v1.4.0](https://github.com/Elaine-one/shaanxi-heritage-ai-platform/compare/v1.3.0...v1.4.0) (2026-03-19)

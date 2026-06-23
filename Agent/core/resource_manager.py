@@ -51,7 +51,7 @@ class ResourceManager:
         logger.info("开始清理资源...")
         
         try:
-            from Agent.memory.session_provider import get_session_pool
+            from Agent.memory.session import get_session_pool
             session_pool = get_session_pool()
             session_pool.cleanup_expired_sessions(max_age_hours=12)
         except Exception as e:

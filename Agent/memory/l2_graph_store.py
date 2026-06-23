@@ -26,7 +26,7 @@ L2 图记忆存储
 import json
 import time
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from loguru import logger
 
 from Agent.memory.knowledge_graph import get_knowledge_graph
@@ -75,6 +75,7 @@ def _require_user_id(default=None):
             return func(self, user_id, *args, **kwargs)
         wrapper.__name__ = func.__name__
         wrapper.__doc__ = func.__doc__
+        wrapper.__wrapped__ = func
         return wrapper
     return decorator
 
@@ -89,6 +90,7 @@ def _neo4j_safe(default=None):
                 return default
         wrapper.__name__ = func.__name__
         wrapper.__doc__ = func.__doc__
+        wrapper.__wrapped__ = func
         return wrapper
     return decorator
 
@@ -160,7 +162,7 @@ class L2GraphStore:
             for pref in preferences:
                 p_type = pref.get("type", "unknown")
                 raw_value = pref.get("value", "")
-                p_value = json.dumps(raw_value, ensure_ascii=False) if isinstance(raw_value, dict) else str(raw_value)[:200]
+                p_value = json.dumps(raw_value, ensure_ascii=False) if isinstance(raw_value, dict) else str(raw_value)
                 p_confidence = float(pref.get("confidence", 0.5))
                 p_source = pref.get("source", "sifter")
                 p_name = self._generate_preference_name(p_type, raw_value)
@@ -187,6 +189,23 @@ class L2GraphStore:
 
                 self._upsert_region_interests(session, user_id, p_type, raw_value, p_confidence, now_iso)
                 self._link_preference_targets(session, user_id, p_type, raw_value, p_confidence)
+
+        # 偏好向量化（异步触发，不阻塞主流程）
+        try:
+            from Agent.memory.preference_vectorizer import get_preference_vectorizer
+            vectorizer = get_preference_vectorizer()
+            for pref in preferences:
+                p_type = pref.get("type", "unknown")
+                raw_value = pref.get("value", "")
+                vectorizer.vectorize_preference(
+                    pref_id=f"{user_id}_{p_type}",
+                    user_id=user_id,
+                    pref_type=p_type,
+                    value=raw_value,
+                    confidence=float(pref.get("confidence", 0.5)),
+                )
+        except Exception as e:
+            logger.debug(f"偏好向量化失败（不影响主流程）: {e}")
 
         logger.info(f"L2 偏好写入成功: user={user_id}, count={len(preferences)}")
         return True
@@ -220,9 +239,8 @@ class L2GraphStore:
             if not name or not isinstance(name, str):
                 continue
             matched_name = self._match_region_name(name, valid_regions)
-            if not matched_name:
-                logger.debug(f"跳过无效Region(不在知识图谱中): {name}")
-                continue
+            region_node_name = matched_name if matched_name else name
+            is_pending = matched_name is None
             try:
                 session.run(
                     """
@@ -231,9 +249,18 @@ class L2GraphStore:
                     MERGE (u)-[rel:INTERESTED_IN]->(r)
                     SET rel.confidence = $conf, rel.updated_at = $now
                     """,
-                    user_id=user_id, region_name=matched_name,
+                    user_id=user_id, region_name=region_node_name,
                     conf=confidence, now=now_iso,
                 )
+                if is_pending:
+                    session.run(
+                        """
+                        MATCH (r:Region {name: $name})
+                        SET r.pending_resolution = true
+                        """,
+                        name=region_node_name,
+                    )
+                    logger.info(f"创建待确认Region节点: {name} (不在当前KG中，已标记pending_resolution)")
             except Exception as e:
                 logger.debug(f"地区兴趣写入失败(region={name}): {e}")
 
@@ -298,6 +325,10 @@ class L2GraphStore:
         if not isinstance(heritage_id, int) or heritage_id <= 0:
             logger.warning(f"非法heritage_id: {heritage_id}")
             return False
+        # 入度保护：热门非遗仅深度交互用户可创建关联
+        if not self._check_indegree_protection(heritage_id, user_id):
+            logger.debug(f"入度保护拦截: user={user_id}, heritage={heritage_id}")
+            return False
         return self._create_heritage_rels(
             user_id=user_id, heritage_ids=[heritage_id],
             rel_type=rel_type, confidence=confidence,
@@ -354,19 +385,34 @@ class L2GraphStore:
 
     @_require_user_id(default={})
     @_neo4j_safe(default={})
-    def fetch_user_memory(self, user_id: str) -> Dict[str, Any]:
+    def fetch_user_memory(self, user_id: str,
+                         category_filter: Optional[List[str]] = None,
+                         min_confidence: float = 0.0) -> Dict[str, Any]:
         if not self.is_available():
             return {}
 
         with self.kg.driver.session() as session:
-            pref_result = session.run(
-                """
-                MATCH (u:User {user_id: $user_id})-[:HAS_PREFERENCE]->(p:Preference)
-                RETURN p.type AS type, p.value AS value, p.confidence AS confidence
-                ORDER BY p.confidence DESC
-                """,
-                user_id=user_id,
-            )
+            if category_filter:
+                pref_result = session.run(
+                    """
+                    MATCH (u:User {user_id: $user_id})-[:HAS_PREFERENCE]->(p:Preference)
+                    WHERE p.type IN $categories AND p.confidence >= $min_confidence
+                    RETURN p.type AS type, p.value AS value, p.confidence AS confidence
+                    ORDER BY p.confidence DESC
+                    """,
+                    user_id=user_id, categories=category_filter,
+                    min_confidence=min_confidence,
+                )
+            else:
+                pref_result = session.run(
+                    """
+                    MATCH (u:User {user_id: $user_id})-[:HAS_PREFERENCE]->(p:Preference)
+                    WHERE p.confidence >= $min_confidence
+                    RETURN p.type AS type, p.value AS value, p.confidence AS confidence
+                    ORDER BY p.confidence DESC
+                    """,
+                    user_id=user_id, min_confidence=min_confidence,
+                )
             preferences = [
                 {"type": r["type"], "value": _parse_json_value(r["value"]), "confidence": r["confidence"]}
                 for r in pref_result
@@ -458,7 +504,7 @@ class L2GraphStore:
         if not self.is_available():
             return {}
 
-        cutoff = datetime.now().isoformat()
+        cutoff = (datetime.now() - timedelta(days=max_age_days)).isoformat()
         removed = {"planned": 0, "exported": 0, "preferences": 0, "orphan_preferences": 0}
         with self.kg.driver.session() as session:
             for rel_type in ["PLANNED", "EXPORTED"]:
@@ -493,6 +539,27 @@ class L2GraphStore:
         logger.info(f"L2 用户关系清理完成: user={user_id}, {removed}")
         return removed
 
+    @_neo4j_safe(default=0)
+    def cleanup_global_orphan_preferences(self) -> int:
+        """全局回收孤儿 Preference 节点（不限 user_id）
+
+        定期调用，清理所有没有 User 关联的 Preference 节点及其 TARGETS 关系。
+        """
+        if not self.is_available():
+            return 0
+        with self.kg.driver.session() as session:
+            r = session.run(
+                "MATCH (p:Preference) WHERE NOT (p)<-[:HAS_PREFERENCE]-(:User) "
+                "OPTIONAL MATCH (p)-[t:TARGETS]->(target) "
+                "DETACH DELETE p, t "
+                "RETURN count(DISTINCT p) AS cnt"
+            )
+            record = r.single()
+            cnt = record["cnt"] if record else 0
+        if cnt > 0:
+            logger.info(f"全局孤儿 Preference 回收完成: {cnt} 个节点")
+        return cnt
+
     @_require_user_id(default=0)
     @_neo4j_safe(default=0)
     def cleanup_user_planned_relations(self, user_id: str) -> int:
@@ -510,6 +577,219 @@ class L2GraphStore:
 
         logger.info(f"L2 清理用户PLANNED关系: user={user_id}, count={cnt}")
         return cnt
+
+    # ─── Maintenance: decay + cleanup ───────────────────────────────
+
+    @_require_user_id(default=0)
+    @_neo4j_safe(default=0)
+    def decay_preferences(self, user_id: str, decay_lambda: float = 0.01) -> int:
+        """
+        时间感知指数衰减: new_confidence = confidence * exp(-λ * days_since_update)
+
+        λ = 0.01: 30天保留74%, 90天保留41%
+        λ = 0.005: 30天保留86%, 90天保留64%
+
+        Args:
+            decay_lambda: 衰减系数 λ，越大衰减越快
+        Returns:
+            衰减的偏好数量
+        """
+        if not self.is_available():
+            return 0
+
+        import math
+        count = 0
+        now = datetime.now()
+        with self.kg.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (u:User {user_id: $user_id})-[:HAS_PREFERENCE]->(p:Preference)
+                WHERE p.updated_at IS NOT NULL
+                RETURN p.id AS pref_id, p.confidence AS confidence,
+                       p.updated_at AS updated_at
+                """,
+                user_id=user_id,
+            )
+            for record in result:
+                try:
+                    updated = datetime.fromisoformat(record['updated_at'])
+                except (ValueError, TypeError):
+                    continue
+                days = (now - updated).days
+                if days <= 0:
+                    continue
+                new_conf = record['confidence'] * math.exp(-decay_lambda * days)
+                new_conf = max(new_conf, 0.05)  # 最低保留 0.05
+                if new_conf < record['confidence']:
+                    session.run(
+                        """
+                        MATCH (p:Preference {id: $pref_id})
+                        SET p.confidence = $new_conf,
+                            p.last_decayed_at = $now
+                        """,
+                        pref_id=record['pref_id'],
+                        new_conf=new_conf,
+                        now=now.isoformat(),
+                    )
+                    count += 1
+
+        logger.info(f"L2 时间感知衰减完成: user={user_id}, decayed={count}, lambda={decay_lambda}")
+        return count
+
+    @_require_user_id(default=0)
+    @_neo4j_safe(default=0)
+    def cleanup_low_confidence_preferences(self, user_id: str,
+                                            threshold: float = 0.15) -> int:
+        """
+        删除置信度低于阈值的偏好，释放存储空间
+
+        Args:
+            threshold: 置信度阈值，低于此值的偏好被删除
+        Returns:
+            删除的偏好数量
+        """
+        if not self.is_available():
+            return 0
+
+        count = 0
+        with self.kg.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (u:User {user_id: $user_id})-[r:HAS_PREFERENCE]->(p:Preference)
+                WHERE p.confidence < $threshold
+                DETACH DELETE p
+                RETURN count(p) AS cnt
+                """,
+                user_id=user_id, threshold=threshold,
+            )
+            record = result.single()
+            count = record["cnt"] if record else 0
+
+        logger.info(f"L2 低置信度偏好清理: user={user_id}, removed={count}, threshold={threshold}")
+        return count
+
+    # ─── Indegree protection ────────────────────────────────────────
+
+    def _check_indegree_protection(self, heritage_id: int, user_id: str) -> bool:
+        """
+        入度保护: 非遗入度 > 阈值时检查用户交互深度，防止低质量边膨胀。
+
+        Returns: True = 允许创建边, False = 跳过
+        """
+        from Agent.config.memory_budget import memory_budget
+        threshold = memory_budget.graph_indegree_protection_threshold
+        with self.kg.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (h:Heritage {id: $heritage_id})<-[r:INTERESTED_IN|PREFERS]-(:User)
+                WITH h, count(r) as indegree
+                WHERE indegree > $threshold
+                OPTIONAL MATCH (u:User {user_id: $user_id})
+                          -[:HAS_PREFERENCE]->(p:Preference)
+                WHERE p.type = 'heritage_interest'
+                OPTIONAL MATCH (u)-[:OWNS]->(s:Session)-[:DISCUSSED]->(h)
+                RETURN indegree,
+                       count(p) > 0 as has_preference,
+                       count(s) > 0 as has_session
+                """,
+                heritage_id=heritage_id, user_id=user_id,
+                threshold=threshold,
+            )
+            record = result.single()
+            if record is None:
+                return True  # 入度未超阈值，正常关联
+            return record['has_preference'] or record['has_session']
+
+    # ─── Dual-threshold expiration ──────────────────────────────────
+
+    @_require_user_id(default=0)
+    @_neo4j_safe(default=0)
+    def expire_by_dual_threshold(self, user_id: str, expire_days: int = 90,
+                                  min_importance: float = 0.15) -> int:
+        """
+        双阈值过期: 时间 AND 重要性同时满足才删除。
+        高重要性偏好即使过期也保留。
+        """
+        if not self.is_available():
+            return 0
+
+        cutoff = (datetime.now() - timedelta(days=expire_days)).isoformat()
+        count = 0
+        with self.kg.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (u:User {user_id: $user_id})-[r:HAS_PREFERENCE]->(p:Preference)
+                WHERE p.updated_at < $cutoff AND p.confidence < $min_importance
+                DETACH DELETE p
+                RETURN count(p) AS cnt
+                """,
+                user_id=user_id, cutoff=cutoff, min_importance=min_importance,
+            )
+            record = result.single()
+            count = record["cnt"] if record else 0
+
+        logger.info(f"L2 双阈值过期清理: user={user_id}, removed={count}")
+        return count
+
+    # ─── Graph expansion boost ──────────────────────────────────────
+
+    @_require_user_id(default=0.0)
+    @_neo4j_safe(default=0.0)
+    def get_graph_expansion_boost(self, user_id: str, entity_name: str) -> float:
+        """
+        计算图扩展增强因子 (0-1)，用于召回综合评分。
+
+        用户偏好非遗A → A与B通过类别/地区/时代关联 → B获得扩展分。
+        """
+        if not self.is_available() or not entity_name:
+            return 0.0
+
+        relation_weights = {
+            'SAME_CATEGORY': 0.8,
+            'SAME_REGION': 0.6,
+            'COMPLEMENTARY': 0.7,
+            'SAME_ERA': 0.4,
+        }
+
+        with self.kg.driver.session() as session:
+            result = session.run(
+                """
+                MATCH (u:User {user_id: $user_id})
+                      -[:HAS_PREFERENCE]->(p:Preference)
+                      -[:TARGETS]->(target)
+                MATCH (target)<-[:BELONGS_TO|LOCATED_AT]-(h1:Heritage)
+                MATCH (h1)-[r]-(h2:Heritage {name: $entity_name})
+                WHERE type(r) IN ['SAME_CATEGORY', 'SAME_REGION',
+                                  'SAME_ERA', 'COMPLEMENTARY']
+                RETURN type(r) as relation_type, count(r) as path_count
+                """,
+                user_id=user_id, entity_name=entity_name,
+            )
+
+            boost = 0.0
+            for record in result:
+                weight = relation_weights.get(record['relation_type'], 0.3)
+                boost += weight * min(record['path_count'], 3) / 3
+            return min(boost, 1.0)
+
+    def recall_composite_score(self, user_id: str, entity_name: str,
+                                vector_similarity: float,
+                                importance: float,
+                                time_decay: float) -> float:
+        """
+        召回综合公式:
+        composite = 0.4 * vector_similarity
+                  + 0.3 * importance
+                  + 0.2 * time_decay
+                  + 0.1 * graph_expansion_boost
+        """
+        graph_boost = self.get_graph_expansion_boost(user_id, entity_name)
+        return (
+            0.4 * vector_similarity +
+            0.3 * importance +
+            0.2 * time_decay +
+            0.1 * graph_boost
+        )
 
     # ─── Recommendation engine ──────────────────────────────────────
 
@@ -745,16 +1025,27 @@ class L2GraphStore:
                 f"如果没有匹配的类别，返回空。"
             )
 
+            import concurrent.futures
+
+            # 统一使用线程池执行 LLM 调用，兼容同步和异步上下文
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    self._run_llm_mapping_sync, llm, prompt, pref_value, graph_categories
+                )
+                try:
+                    return future.result(timeout=15)
+                except concurrent.futures.TimeoutError:
+                    logger.debug("LLM语义映射超时，降级关键词")
+                    return self._keyword_map_preference(pref_value, graph_categories)
+        except Exception as e:
+            logger.debug(f"LLM语义映射失败，降级关键词: {e}")
+            return self._keyword_map_preference(pref_value, graph_categories)
+
+    def _run_llm_mapping_sync(self, llm, prompt: str, pref_value: Any, graph_categories: List[str]) -> List[str]:
+        """在线程池中同步运行LLM语义映射，供 run_in_executor 调用"""
+        try:
             import asyncio
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
-            if loop and loop.is_running():
-                return self._keyword_map_preference(pref_value, graph_categories)
-
-            response = asyncio.run(asyncio.wait_for(llm._call_model(prompt), timeout=10))
+            response = asyncio.run(asyncio.wait_for(llm.call_model(prompt), timeout=10))
             if response and response.get("success"):
                 raw = response.get("content", "").strip()
                 if not raw or raw in ("空", "无", "没有"):
@@ -762,14 +1053,13 @@ class L2GraphStore:
                 mapped = [c.strip() for c in raw.replace("，", ",").split(",") if c.strip()]
                 valid = [c for c in mapped if c in graph_categories]
                 if valid:
-                    logger.info(f"LLM语义映射: '{pref_desc}' → {valid}")
                     return valid
                 fuzzy = [gc for gc in graph_categories for m in mapped if m in gc or gc in m]
                 if fuzzy:
                     return list(dict.fromkeys(fuzzy))[:3]
             return self._keyword_map_preference(pref_value, graph_categories)
         except Exception as e:
-            logger.debug(f"LLM语义映射失败，降级关键词: {e}")
+            logger.debug(f"线程池LLM映射失败，降级关键词: {e}")
             return self._keyword_map_preference(pref_value, graph_categories)
 
     def _keyword_map_preference(self, pref_value: Any, graph_categories: List[str]) -> List[str]:
